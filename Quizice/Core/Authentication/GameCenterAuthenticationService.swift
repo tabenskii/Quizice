@@ -3,7 +3,10 @@ import UIKit
 @MainActor
 final class GameCenterAuthenticationService: AccountManaging, AccountSynchronizing, AppAccountAccessProviding {
     private(set) var state: AuthSessionState = .initializing {
-        didSet { accountAccessStateDidChange?(accountAccessState) }
+        didSet {
+            initialAuthentication.resolveIfNeeded(state)
+            accountAccessStateDidChange?(accountAccessState)
+        }
     }
     var accountAccessStateDidChange: ((AppAccountAccessState) -> Void)? {
         didSet { accountAccessStateDidChange?(accountAccessState) }
@@ -32,6 +35,7 @@ final class GameCenterAuthenticationService: AccountManaging, AccountSynchronizi
     private var authenticationInvalidationObserver: NSObjectProtocol?
     private var currentTeamPlayerID: String?
     private var started = false
+    private let initialAuthentication = InitialAuthenticationReadiness()
 #if DEBUG
     private var devAuthenticationProvider: AuthenticationProvider?
     var usesDebugBackendAuthentication: Bool { devAuthenticationProvider != nil }
@@ -135,6 +139,9 @@ final class GameCenterAuthenticationService: AccountManaging, AccountSynchronizi
             self?.handle(playerState)
         }
     }
+
+    func waitForInitialAuthentication() async { await initialAuthentication.wait() }
+
     func signIn(present: @escaping (UIViewController) -> Void) {
         guard started else { start(present: present); return }
         guard !accountOperationInProgress, deletionRecord == nil,
@@ -690,8 +697,4 @@ final class GameCenterAuthenticationService: AccountManaging, AccountSynchronizi
             synchronizeStatistics()
         }
     }
-}
-
-enum GameCenterAuthenticationError: Error, Equatable {
-    case playerChanged
 }
