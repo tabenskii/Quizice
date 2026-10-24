@@ -191,7 +191,7 @@ final class QuizQuestionViewController: BaseQuizViewController, QuizQuestionView
     var previousLayoutSize: CGSize = .zero
     var questionInfoButton: UIButton!
     var questionExplanationBackButton: UIButton!
-    var questionExplanationScrollView: UIScrollView!
+    var questionExplanationScrollView: PersistentScrollIndicatorScrollView!
     var questionExplanationLabel: UILabel!
     var cardContainerView: UIView!
     var timerContainerView: UIView!
@@ -426,6 +426,7 @@ final class QuizQuestionViewController: BaseQuizViewController, QuizQuestionView
         questionLabel?.textColor = appearance.surfaceTextColor
         questionLabel?.font = appearance.typography.font(size: Typography.questionFontSize, weight: .bold)
         questionExplanationLabel?.textColor = appearance.surfaceTextColor
+        questionExplanationScrollView?.persistentIndicatorColor = appearance.secondarySurfaceTextColor
         questionExplanationLabel?.font = appearance.typography.font(
             size: Typography.explanationFontSize,
             weight: .regular

@@ -29,6 +29,68 @@ final class QuizQuestionTypographyContractTests: CrossScreenVisualTestCase {
         }
     }
 
+    func testReportedNorthernVeniceQuestionFitsWithoutClippingOrScrolling() throws {
+        let question = "Какой европейский город разделён на множество островов и называется «Северная Венеция»?"
+        let answers = ["Амстердам", "Стокгольм", "Санкт-Петербург", "Копенгаген"]
+        let size = CGSize(width: 390, height: 844)
+
+        for style in [AppDesignStyle.classic, .radar, .clean] {
+            UserDefaults.standard.set(style.rawValue, forKey: AppAppearanceStore.Keys.designStyle)
+            for category in [UIContentSizeCategory.large, .extraExtraExtraLarge, .accessibilityExtraExtraExtraLarge] {
+                let controller = QuizQuestionViewController()
+                controller.traitOverrides.preferredContentSizeCategory = category
+                controller.configurePresenter(ExitConfirmationPresenterSpy())
+                controller.loadViewIfNeeded()
+                controller.view.frame = CGRect(origin: .zero, size: size)
+                controller.loadQuestionToView(QuizQuestionViewModel(
+                    themeName: "География", questionText: question, questionNumberText: "Вопрос №8",
+                    answers: answers.enumerated().map { QuizAnswerOption(id: String($0.offset), title: $0.element) }
+                ))
+
+                let window = QuestionLayoutTestWindow(frame: CGRect(origin: .zero, size: size))
+                window.testSafeAreaInsets = UIEdgeInsets(top: 47, left: 0, bottom: 34, right: 0)
+                let host = UIViewController()
+                host.view.frame = window.bounds
+                host.addChild(controller)
+                host.view.addSubview(controller.view)
+                controller.didMove(toParent: host)
+                window.rootViewController = host
+                window.isHidden = false
+                defer { window.isHidden = true; window.rootViewController = nil }
+                window.layoutIfNeeded()
+                controller.view.layoutIfNeeded()
+
+                let label = try XCTUnwrap(controller.questionLabel)
+                let requiredHeight = label.sizeThatFits(
+                    CGSize(width: label.bounds.width, height: .greatestFiniteMagnitude)
+                ).height
+                let context = "\(style.rawValue), \(category.rawValue), \(label.font.pointSize)pt"
+                XCTAssertEqual(label.text, question)
+                XCTAssertLessThanOrEqual(requiredHeight, label.bounds.height + 0.5, context)
+                let questionFrame = label.convert(label.bounds, to: controller.questionCardContentView)
+                let timerFrame = controller.timerContainerView.convert(
+                    controller.timerContainerView.bounds, to: controller.questionCardContentView
+                )
+                let answersFrame = controller.answersStackView.convert(
+                    controller.answersStackView.bounds, to: controller.questionCardContentView
+                )
+                XCTAssertGreaterThanOrEqual(questionFrame.minY, timerFrame.maxY, context)
+                XCTAssertLessThanOrEqual(questionFrame.maxY, answersFrame.minY - 8, context)
+                XCTAssertFalse(controller.cardContainerView is UIScrollView)
+                XCTAssertNil(controller.view.descendant(withAccessibilityIdentifier: "questionScrollView"))
+                try assertAnswerLabelsFit(in: controller, expectedTitles: answers)
+
+                let rendered = UIGraphicsImageRenderer(size: size).image { context in
+                    controller.view.layer.render(in: context.cgContext)
+                }
+                let attachment = XCTAttachment(image: rendered)
+                attachment.name = "NorthernVenice-\(style.rawValue)-\(category.rawValue)-390x844"
+                attachment.lifetime = .keepAlways
+                add(attachment)
+            }
+        }
+    }
+
     func testReportedBundeswehrQuestionFitsFixedCardAcrossStylesAndScreenSizes() throws {
         let question = "Чьё согласие по общему правилу требуется федеральному правительству для вооружённой операции Бундесвера за рубежом?"
         let answers = [
