@@ -7,6 +7,7 @@ import XCTest
 final class FakeGameCenterClient: GameCenterAuthenticating {
     private var stateChanged: ((GameCenterPlayerState) -> Void)?
     private(set) var startCount = 0
+    private(set) var present: ((UIViewController) -> Void)?
     var identityError: Error?
     var identity = GameCenterIdentity(
         teamPlayerId: "team-1",
@@ -22,6 +23,7 @@ final class FakeGameCenterClient: GameCenterAuthenticating {
         stateChanged: @escaping (GameCenterPlayerState) -> Void
     ) {
         self.stateChanged = stateChanged
+        self.present = present
         startCount += 1
     }
 
@@ -33,6 +35,10 @@ final class FakeGameCenterClient: GameCenterAuthenticating {
     func emit(_ state: GameCenterPlayerState) {
         stateChanged?(state)
     }
+
+    func requestPresentation(_ viewController: UIViewController) {
+        present?(viewController)
+    }
 }
 
 final class FakeAuthAPI: AuthAPI {
@@ -41,6 +47,7 @@ final class FakeAuthAPI: AuthAPI {
     var recreationRequests = 0
     var authenticatedIdentities: [GameCenterIdentity] = []
     var authenticationErrors: [BackendAPIError] = []
+    var authenticationHandler: ((GameCenterIdentity) async throws -> AuthSession)?
     var syncRequests: [StatisticsStore.SyncRequest] = []
     var syncAccessTokens: [String] = []
     var syncErrors: [BackendAPIError] = []
@@ -50,6 +57,7 @@ final class FakeAuthAPI: AuthAPI {
 
     func authenticate(identity: GameCenterIdentity) async throws -> AuthSession {
         authenticatedIdentities.append(identity)
+        if let authenticationHandler { return try await authenticationHandler(identity) }
         if authenticationErrors.isEmpty == false {
             throw authenticationErrors.removeFirst()
         }
@@ -111,6 +119,28 @@ actor SuspendedAuthStatisticsResponse {
         let pending = continuation
         continuation = nil
         pending?.resume(with: result)
+    }
+}
+
+actor SuspendedAuthSessionResponse {
+    private var continuation: CheckedContinuation<AuthSession, Error>?
+    private let onSuspend: () -> Void
+
+    init(onSuspend: @escaping () -> Void) {
+        self.onSuspend = onSuspend
+    }
+
+    func wait() async throws -> AuthSession {
+        try await withCheckedThrowingContinuation { continuation in
+            self.continuation = continuation
+            onSuspend()
+        }
+    }
+
+    func resume(with session: AuthSession) {
+        let pending = continuation
+        continuation = nil
+        pending?.resume(returning: session)
     }
 }
 

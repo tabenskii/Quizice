@@ -1,7 +1,184 @@
 import XCTest
+import UIKit
 @testable import Quizice
 @MainActor
 final class GameCenterAuthenticationServiceTests: XCTestCase {
+    func testInitialAuthenticationWaitsForBackendAndResolvesOnlyOnce() async {
+        let harness = makeHarness()
+        let backendStarted = expectation(description: "Backend authentication started")
+        let gate = SuspendedAuthSessionResponse { backendStarted.fulfill() }
+        harness.api.authenticationHandler = { _ in try await gate.wait() }
+        harness.service.start { _ in }
+        let finishedWaiting = expectation(description: "Startup waiter finished")
+        var waiterFinished = false
+        let waiter = Task {
+            await harness.service.waitForInitialAuthentication()
+            XCTAssertEqual(harness.service.state, .authenticated(userID: "user-1", teamPlayerID: "team-1"))
+            XCTAssertEqual(harness.sessionStore.session?.userID, "user-1")
+            XCTAssertEqual(harness.statistics.activeUserID, "user-1")
+            XCTAssertTrue(harness.aiAccess.isAIQuizAvailable)
+            waiterFinished = true
+            finishedWaiting.fulfill()
+        }
+        defer { waiter.cancel() }
+
+        harness.gameCenter.emit(.authenticated(teamPlayerID: "team-1"))
+        await fulfillment(of: [backendStarted], timeout: 1)
+        XCTAssertEqual(harness.service.state, .authenticating)
+        XCTAssertFalse(waiterFinished)
+
+        await gate.resume(with: startupSession)
+        await fulfillment(of: [finishedWaiting], timeout: 1)
+        harness.service.start { _ in }
+        harness.gameCenter.emit(.authenticated(teamPlayerID: "team-1"))
+        harness.gameCenter.emit(.unavailable)
+        XCTAssertEqual(harness.gameCenter.startCount, 1)
+
+        let refreshStarted = expectation(description: "Later authentication started")
+        let refreshGate = SuspendedAuthSessionResponse { refreshStarted.fulfill() }
+        harness.api.authenticationHandler = { _ in try await refreshGate.wait() }
+        harness.gameCenter.emit(.authenticated(teamPlayerID: "team-1"))
+        await fulfillment(of: [refreshStarted], timeout: 1)
+        XCTAssertEqual(harness.service.state, .authenticating)
+        let alreadyResolved = expectation(description: "Initial authentication remains resolved during refresh")
+        let laterWaiter = Task {
+            await harness.service.waitForInitialAuthentication()
+            alreadyResolved.fulfill()
+        }
+        defer { laterWaiter.cancel() }
+        await fulfillment(of: [alreadyResolved], timeout: 1)
+        await refreshGate.resume(with: startupSession)
+    }
+
+    func testInitialAuthenticationRestoresCachedSessionBeforeReleasingWaiter() async {
+        let harness = makeHarness(storedSession: startupSession)
+        let finishedWaiting = expectation(description: "Cached authentication resolved")
+        let waiter = Task {
+            await harness.service.waitForInitialAuthentication()
+            XCTAssertEqual(harness.service.state, .authenticated(userID: "user-1", teamPlayerID: "team-1"))
+            finishedWaiting.fulfill()
+        }
+        defer { waiter.cancel() }
+        harness.service.start { _ in }
+        harness.gameCenter.emit(.authenticated(teamPlayerID: "team-1"))
+
+        await fulfillment(of: [finishedWaiting], timeout: 1)
+        XCTAssertTrue(harness.api.authenticatedIdentities.isEmpty)
+    }
+
+    func testInitialAuthenticationResolvesGuestWhenGameCenterIsUnavailable() async {
+        let harness = makeHarness()
+        harness.service.start { _ in }
+        let finishedWaiting = expectation(description: "Guest startup resolved")
+        let waiter = Task {
+            await harness.service.waitForInitialAuthentication()
+            finishedWaiting.fulfill()
+        }
+        defer { waiter.cancel() }
+
+        harness.gameCenter.emit(.unavailable)
+        await fulfillment(of: [finishedWaiting], timeout: 1)
+        XCTAssertEqual(harness.service.state, .guest)
+        XCTAssertFalse(harness.aiAccess.isAIQuizAvailable)
+    }
+
+    func testInitialAuthenticationFailureReleasesWaiterInGuestMode() async {
+        let harness = makeHarness()
+        harness.api.authenticationErrors = [.transport(.notConnectedToInternet)]
+        harness.service.start { _ in }
+        let finishedWaiting = expectation(description: "Failed startup resolved")
+        let waiter = Task {
+            await harness.service.waitForInitialAuthentication()
+            finishedWaiting.fulfill()
+        }
+        defer { waiter.cancel() }
+        harness.gameCenter.emit(.authenticated(teamPlayerID: "team-1"))
+
+        await fulfillment(of: [finishedWaiting], timeout: 1)
+        XCTAssertEqual(harness.service.state, .guest)
+        XCTAssertNil(harness.sessionStore.session)
+    }
+
+    func testGameCenterPresentationDoesNotResolveInitialAuthentication() async {
+        let harness = makeHarness()
+        let controller = UIViewController()
+        var presentedController: UIViewController?
+        harness.service.start {
+            presentedController = $0
+        }
+        let finishedWaiting = expectation(description: "Game Center completed after presentation")
+        var waiterFinished = false
+        let waiter = Task {
+            await harness.service.waitForInitialAuthentication()
+            waiterFinished = true
+            finishedWaiting.fulfill()
+        }
+        defer { waiter.cancel() }
+
+        harness.gameCenter.requestPresentation(controller)
+        XCTAssertTrue(presentedController === controller)
+        XCTAssertEqual(harness.service.state, .initializing)
+        await Task.yield()
+        XCTAssertFalse(waiterFinished)
+
+        harness.gameCenter.emit(.unavailable)
+        await fulfillment(of: [finishedWaiting], timeout: 1)
+    }
+
+    func testCancellingStartupWaiterLeavesOtherWaitersAndBackendAuthenticationRunning() async {
+        let harness = makeHarness()
+        let backendStarted = expectation(description: "Backend authentication suspended")
+        let gate = SuspendedAuthSessionResponse { backendStarted.fulfill() }
+        harness.api.authenticationHandler = { _ in
+            let session = try await gate.wait()
+            try Task.checkCancellation()
+            return session
+        }
+        harness.service.start { _ in }
+        let cancelledWaiterFinished = expectation(description: "Cancelled waiter finished")
+        let cancelledWaiter = Task {
+            await harness.service.waitForInitialAuthentication()
+            cancelledWaiterFinished.fulfill()
+        }
+        let activeWaiterFinished = expectation(description: "Active waiter finished after authentication")
+        var activeWaiterDidFinish = false
+        let activeWaiter = Task {
+            await harness.service.waitForInitialAuthentication()
+            activeWaiterDidFinish = true
+            activeWaiterFinished.fulfill()
+        }
+        defer { activeWaiter.cancel() }
+        harness.gameCenter.emit(.authenticated(teamPlayerID: "team-1"))
+        await fulfillment(of: [backendStarted], timeout: 1)
+
+        cancelledWaiter.cancel()
+        await fulfillment(of: [cancelledWaiterFinished], timeout: 1)
+        XCTAssertFalse(activeWaiterDidFinish)
+        XCTAssertEqual(harness.service.state, .authenticating)
+
+        await gate.resume(with: startupSession)
+        await fulfillment(of: [activeWaiterFinished], timeout: 1)
+        XCTAssertEqual(harness.service.state, .authenticated(userID: "user-1", teamPlayerID: "team-1"))
+        XCTAssertEqual(harness.sessionStore.session, startupSession)
+        XCTAssertEqual(harness.api.authenticatedIdentities.count, 1)
+    }
+
+    func testPendingDeletionResolvesInitialAuthenticationWithoutWaitingForGameCenter() async {
+        let harness = makeHarness(pendingDeletion: true)
+        harness.service.start { _ in }
+        let finishedWaiting = expectation(description: "Pending deletion startup resolved")
+        let waiter = Task {
+            await harness.service.waitForInitialAuthentication()
+            finishedWaiting.fulfill()
+        }
+        defer { waiter.cancel() }
+
+        await fulfillment(of: [finishedWaiting], timeout: 1)
+        XCTAssertEqual(harness.service.state, .deletionPending)
+        XCTAssertEqual(harness.gameCenter.startCount, 1)
+        XCTAssertTrue(harness.api.authenticatedIdentities.isEmpty)
+    }
+
     func testAccountAccessObserverReplaysStateAndRequiresSignInAfterGameCenterCancellation() async {
         let h = makeHarness()
         var accessStates: [AppAccountAccessState] = []
@@ -360,7 +537,14 @@ final class GameCenterAuthenticationServiceTests: XCTestCase {
         XCTAssertTrue(harness.aiAccess.isAIQuizAvailable)
     }
 
-    private func makeHarness(storedSession: AuthSession? = nil) -> (
+    private var startupSession: AuthSession {
+        AuthSession(
+            userID: "user-1", accessToken: "access-token",
+            expiresAt: Date(timeIntervalSince1970: 4_000_000_000), teamPlayerID: "team-1"
+        )
+    }
+
+    private func makeHarness(storedSession: AuthSession? = nil, pendingDeletion: Bool = false) -> (
         service: GameCenterAuthenticationService,
         gameCenter: FakeGameCenterClient,
         api: FakeAuthAPI,
@@ -382,6 +566,13 @@ final class GameCenterAuthenticationServiceTests: XCTestCase {
         let api = FakeAuthAPI()
         let sessionStore = MemorySessionStore(session: storedSession)
         let aiAccess = AIQuizAccessStore()
+        let deletionStateStore = AccountDeletionStateStore(defaults: defaults)
+        if pendingDeletion {
+            deletionStateStore.save(.init(
+                userID: "user-1", teamPlayerID: "team-1", idempotencyKey: "pending-deletion",
+                serverConfirmed: false, cleanupCompleted: false
+            ))
+        }
         let service = GameCenterAuthenticationService(
             gameCenter: gameCenter,
             api: api,
@@ -390,7 +581,8 @@ final class GameCenterAuthenticationServiceTests: XCTestCase {
             bundleIdentifier: "ru.avtabenskiy.Quizice",
             now: { Date(timeIntervalSince1970: 1_000) },
             notificationCenter: notificationCenter,
-            aiQuizAccessStore: aiAccess
+            aiQuizAccessStore: aiAccess,
+            deletionStateStore: deletionStateStore
         )
         return (
             service,

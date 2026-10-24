@@ -184,6 +184,17 @@ final class ThemeCatalogRepository: ThemeRepository {
     @discardableResult
     @MainActor
     func refreshBackendCatalog(locale: String) async -> Bool {
+        let principal = accessTokenProvider.currentSession()?.userID
+        let refreshed = await refreshBackendCatalogOnce(locale: locale)
+        guard !refreshed, !Task.isCancelled,
+              accessTokenProvider.currentSession()?.userID != principal else { return refreshed }
+        // Authentication may finish while the startup catalog request is in
+        // flight. Fetch once for the new account after discarding that response.
+        return await refreshBackendCatalogOnce(locale: locale)
+    }
+
+    @MainActor
+    private func refreshBackendCatalogOnce(locale: String) async -> Bool {
         guard let backendContentAPI else { return false }
         let principal = accessTokenProvider.currentSession()?.userID
         let revision = preferenceStore.preferencesRevision(locale: locale)

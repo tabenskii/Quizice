@@ -19,6 +19,48 @@ enum AuthSessionState: Equatable {
     case deletionPending
 }
 
+/// Startup waiting has its own lifetime: cancelling a splash waiter must leave
+/// Game Center and backend authentication running for the account presenter.
+@MainActor
+final class InitialAuthenticationReadiness {
+    private var resolved = false
+    private var waiters: [UUID: CheckedContinuation<Void, Never>] = [:]
+
+    func wait() async {
+        guard !resolved, !Task.isCancelled else { return }
+        let waiterID = UUID()
+        await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                guard !resolved, !Task.isCancelled else {
+                    continuation.resume()
+                    return
+                }
+                waiters[waiterID] = continuation
+            }
+        } onCancel: { [weak self] in
+            Task { @MainActor [weak self] in
+                self?.waiters.removeValue(forKey: waiterID)?.resume()
+            }
+        }
+    }
+
+    func resolveIfNeeded(_ state: AuthSessionState) {
+        switch state {
+        case .initializing, .authenticating: return
+        case .authenticated, .guest, .deletionPending: break
+        }
+        guard !resolved else { return }
+        resolved = true
+        let pending = Array(waiters.values)
+        waiters.removeAll()
+        pending.forEach { $0.resume() }
+    }
+}
+
+enum GameCenterAuthenticationError: Error, Equatable {
+    case playerChanged
+}
+
 /// Only authenticated accounts may enter the app's quiz screens. The legacy
 /// guest storage scope is never an app-access state.
 enum AppAccountAccessState: Equatable {

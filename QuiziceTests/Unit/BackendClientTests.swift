@@ -1210,6 +1210,117 @@ extension BackendClientTests {
 }
 
 extension BackendClientTests {
+    @MainActor
+    func testCatalogRetriesWhenAuthenticationChangesTheAccountDuringStartup() async {
+        let locale = AppLocalizationStore.shared.resolvedLanguageCode
+        for initialUserID in [nil, "A"] as [String?] {
+            let (_, defaults, suiteName) = makePreferenceStore()
+            defer { defaults.removePersistentDomain(forName: suiteName) }
+            let provider = ProgressSessionProvider()
+            provider.session = initialUserID.map(ProgressSessionProvider.session)
+            let store = OnboardingProgressStore(userDefaults: defaults, userIDProvider: { provider.session?.userID })
+            let backend = ThemePreferencesBackendContentAPI(catalogThemes: Self.preferenceCatalog)
+            let repository = ThemeCatalogRepository(backendContentAPI: backend, preferenceStore: store,
+                                                   accessTokenProvider: provider)
+            let requestStarted = expectation(description: "Catalog request before account change")
+            let gate = ProgressUploadGate()
+            var requestPrincipals: [String?] = []
+            backend.beforeCatalogResponse = {
+                let isFirstRequest = await MainActor.run {
+                    requestPrincipals.append(provider.session?.userID)
+                    return requestPrincipals.count == 1
+                }
+                if isFirstRequest {
+                    requestStarted.fulfill()
+                    await gate.wait()
+                }
+            }
+            let refresh = Task { await repository.refreshBackendCatalog(locale: locale) }
+            await fulfillment(of: [requestStarted], timeout: 1)
+            provider.session = ProgressSessionProvider.session("B")
+            await gate.open()
+
+            let applied = await refresh.value
+
+            XCTAssertTrue(applied)
+            XCTAssertEqual(requestPrincipals, [initialUserID, "B"])
+            XCTAssertEqual(backend.fetchedCatalogLocales, [locale, locale])
+            XCTAssertEqual(repository.catalogOrigin, .backend)
+            XCTAssertEqual(repository.themes?.map(\.stableID), Self.preferenceCatalog.map(\.id))
+        }
+    }
+
+    @MainActor
+    func testCatalogAccountChangeRetryIsLimitedToOneAttempt() async {
+        let locale = AppLocalizationStore.shared.resolvedLanguageCode
+        let (store, defaults, suiteName) = makePreferenceStore()
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let provider = ProgressSessionProvider()
+        let backend = ThemePreferencesBackendContentAPI(catalogThemes: Self.preferenceCatalog)
+        let repository = ThemeCatalogRepository(backendContentAPI: backend, preferenceStore: store,
+                                               accessTokenProvider: provider)
+        backend.beforeCatalogResponse = {
+            await MainActor.run {
+                provider.session = ProgressSessionProvider.session("changed-\(backend.fetchedCatalogLocales.count)")
+            }
+        }
+
+        let applied = await repository.refreshBackendCatalog(locale: locale)
+
+        XCTAssertFalse(applied)
+        XCTAssertEqual(backend.fetchedCatalogLocales, [locale, locale])
+        XCTAssertEqual(repository.catalogOrigin, .bundled)
+        XCTAssertNil(repository.themes)
+    }
+
+    @MainActor
+    func testCancelledCatalogRefreshDoesNotRetryAfterAccountChange() async {
+        let locale = AppLocalizationStore.shared.resolvedLanguageCode
+        let (store, defaults, suiteName) = makePreferenceStore()
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let provider = ProgressSessionProvider()
+        provider.session = nil
+        let backend = ThemePreferencesBackendContentAPI(catalogThemes: Self.preferenceCatalog)
+        let repository = ThemeCatalogRepository(backendContentAPI: backend, preferenceStore: store,
+                                               accessTokenProvider: provider)
+        let requestStarted = expectation(description: "Catalog request awaiting response")
+        let gate = ProgressUploadGate()
+        backend.beforeCatalogResponse = {
+            requestStarted.fulfill()
+            await gate.wait()
+        }
+        let refresh = Task { await repository.refreshBackendCatalog(locale: locale) }
+        await fulfillment(of: [requestStarted], timeout: 1)
+        provider.session = ProgressSessionProvider.session("B")
+        refresh.cancel()
+        await gate.open()
+
+        let applied = await refresh.value
+
+        XCTAssertFalse(applied)
+        XCTAssertEqual(backend.fetchedCatalogLocales, [locale])
+        XCTAssertEqual(repository.catalogOrigin, .bundled)
+        XCTAssertNil(repository.themes)
+    }
+
+    @MainActor
+    func testCatalogFailuresDoNotRetryWhenTheAccountIsUnchanged() async {
+        let locale = AppLocalizationStore.shared.resolvedLanguageCode
+        let (store, defaults, suiteName) = makePreferenceStore()
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        for error in [BackendContentError.transport(.notConnectedToInternet), .contractViolation] {
+            let backend = ThemePreferencesBackendContentAPI(catalogThemes: Self.preferenceCatalog)
+            backend.catalogError = error
+            let repository = ThemeCatalogRepository(backendContentAPI: backend, preferenceStore: store,
+                                                   accessTokenProvider: ProgressSessionProvider())
+
+            let applied = await repository.refreshBackendCatalog(locale: locale)
+
+            XCTAssertFalse(applied)
+            XCTAssertEqual(backend.fetchedCatalogLocales, [locale])
+        }
+    }
+
     func testDeletionInvalidatesInFlightFavoriteAndCatalogResponses() async {
         let locale = AppLocalizationStore.shared.resolvedLanguageCode
         let (_, defaults, suiteName) = makePreferenceStore()

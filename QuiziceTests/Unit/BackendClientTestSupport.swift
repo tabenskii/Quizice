@@ -266,6 +266,8 @@ final class ThemePreferencesBackendContentAPI: BackendContentAPI {
     var beforePreferencesResponse: (() -> Void)?
     var beforeAsyncPreferencesResponse: (() async -> Void)?
     var beforeCatalogResponse: (() async -> Void)?
+    var catalogError: Error?
+    private(set) var fetchedCatalogLocales: [String] = []
     private(set) var fetchedPreferenceLocales: [String] = []
     private(set) var replacedPreferences: [(locale: String, themeIDs: [String])] = []
 
@@ -278,7 +280,9 @@ final class ThemePreferencesBackendContentAPI: BackendContentAPI {
     }
 
     func fetchThemes(locale: String) async throws -> BackendThemeCatalogResponse {
+        fetchedCatalogLocales.append(locale)
         await beforeCatalogResponse?()
+        if let catalogError { throw catalogError }
         return BackendThemeCatalogResponse(locale: locale, themes: catalogThemes)
     }
 
