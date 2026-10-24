@@ -117,7 +117,9 @@
 "question.show_question" = "Show question";
 "question.tap_to_answer.accessibility_hint" = "Double tap to select this answer.";
 "question.unavailable.message" = "This theme has no available questions yet. Go back and choose another theme.";
-"question.progress_complete.message" = "You’ve completed all questions available for this repeat setting. Choose another setting or theme to keep playing.";
+"question.progress_complete.title" = "All questions completed";
+"question.progress_complete.message" = "You’ve completed all available questions with these settings. Reset answer progress for the entire topic and start again? Your game statistics will be kept.";
+"question.progress_complete.restart" = "Reset and start again";
 "question.loading_failed.title" = "Could not load questions";
 "question.loading_failed.message" = "We couldn't retrieve the questions. Please try again a little later.";
 "question.network_failure.message" = "Check your internet connection and try again.";

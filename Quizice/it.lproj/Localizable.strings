@@ -117,7 +117,9 @@
 "question.show_question" = "Mostra domanda";
 "question.tap_to_answer.accessibility_hint" = "Tocca due volte per selezionare questa risposta.";
 "question.unavailable.message" = "Questo tema non ha ancora domande disponibili. Torna indietro e scegli un altro tema.";
-"question.progress_complete.message" = "Hai completato tutte le domande disponibili per questa impostazione di ripetizione. Scegli un’altra impostazione o tema.";
+"question.progress_complete.title" = "Tutte le domande completate";
+"question.progress_complete.message" = "Hai completato tutte le domande disponibili con queste impostazioni. Vuoi azzerare i progressi delle risposte per l’intero tema e ricominciare? Le statistiche di gioco saranno conservate.";
+"question.progress_complete.restart" = "Azzera e ricomincia";
 "question.loading_failed.title" = "Impossibile caricare le domande";
 "question.loading_failed.message" = "Non è stato possibile recuperare le domande. Riprova tra poco.";
 "question.network_failure.message" = "Controlla la connessione a internet e riprova.";

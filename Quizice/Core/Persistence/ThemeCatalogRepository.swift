@@ -332,6 +332,34 @@ final class ThemeCatalogRepository: ThemeRepository {
         favoritesStore.favorites(for: accessTokenProvider.currentSession()?.userID) ?? []
     }
 
+    func validateQuestionProgressUser(expectedUserID: String) throws {
+        guard accessTokenProvider.currentSession()?.userID == expectedUserID else {
+            throw QuestionAnswerSyncError.accountChanged
+        }
+    }
+
+    @MainActor
+    func resetQuestionProgress(themeID: String, resetID: UUID, expectedUserID: String) async throws {
+        guard catalogOrigin == .backend, let backendContentAPI else {
+            throw QuizPreparationError.unavailable
+        }
+        try validateQuestionProgressUser(expectedUserID: expectedUserID)
+        try Task.checkCancellation()
+        // Upload the completed round before resetting. A retry uses the same
+        // reset ID, so losing the response cannot clear newly recorded answers.
+        try await answerOutbox.synchronizeBeforeFetchingQuestions(for: expectedUserID)
+        try Task.checkCancellation()
+        guard let session = accessTokenProvider.currentSession(), session.userID == expectedUserID else {
+            throw QuestionAnswerSyncError.accountChanged
+        }
+        _ = try await backendContentAPI.resetQuestionProgress(
+            themeID: themeID, resetID: resetID, session: session
+        )
+        try Task.checkCancellation()
+        try validateQuestionProgressUser(expectedUserID: expectedUserID)
+    }
+
+    @MainActor
     func prepareQuiz(
         themeID: String,
         questionCount: Int,
@@ -403,6 +431,14 @@ final class ThemeCatalogRepository: ThemeRepository {
             guard accessTokenProvider.currentSession()?.userID == userID else {
                 throw QuestionAnswerSyncError.accountChanged
             }
+            if response.isExhausted {
+                guard let userID, let progressMode = strategy.progressMode,
+                      response.progressMode == progressMode,
+                      response.questions.isEmpty, response.availableCount == 0 else {
+                    throw BackendContentError.contractViolation
+                }
+                throw QuizPreparationError.progressComplete(userID: userID)
+            }
             // The final filtered round can contain fewer questions than requested.
             // Preserve every issued question and record its actual completed count.
             let questions = response.questions.map { $0.makeModel(locale: response.locale) }
@@ -425,6 +461,8 @@ final class ThemeCatalogRepository: ThemeRepository {
             )
         } catch is CancellationError {
             throw CancellationError()
+        } catch let error as QuizPreparationError {
+            throw error
         } catch {
             AppLog.content.error(
                 "⚠️ BACKEND QUESTIONS: failed, no bundled fallback in backend catalog mode theme=\(themeID, privacy: .public) locale=\(locale, privacy: .public) count=\(questionCount, privacy: .public) seed=\(seed, privacy: .public) duration_ms=\(Self.durationMilliseconds(since: startedAt), privacy: .public) error=\(String(describing: error), privacy: .public)"

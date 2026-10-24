@@ -200,6 +200,9 @@ final class HomeThemeCardStateTests: HomeScreenVisualStateTestCase {
         try await waitUntil { controller.presentedViewController != nil }
         let alert = try XCTUnwrap(controller.activeQuizPreparationAlert)
         XCTAssertEqual(alert.message, L10n.Question.unavailableMessage)
+        XCTAssertEqual(alert.title, L10n.Question.loadingFailedTitle)
+        XCTAssertEqual(alert.primaryAction.title, L10n.AITheme.retry)
+        XCTAssertTrue(repository.resetIDs.isEmpty)
         XCTAssertEqual(router.showQuestionCallCount, 0)
         XCTAssertEqual(controller.homeCardState.phase, .expandedBack)
         let backAction = try XCTUnwrap(alert.secondaryAction)
@@ -213,6 +216,147 @@ final class HomeThemeCardStateTests: HomeScreenVisualStateTestCase {
         try await waitUntil { router.showQuestionCallCount == 1 }
         XCTAssertEqual(controller.session.chosenTheme?.questionsAndAnswers.count, 3)
         XCTAssertEqual(controller.session.questionsCount, 5)
+    }
+
+    func testCompletedTopicUsesCustomAlertAndCancelDoesNotResetProgress() async throws {
+        let (controller, repository, router, startButton) = try await makeBackendLaunchHarness()
+        repository.preparationError = QuizPreparationError.progressComplete(userID: "account-a")
+        startButton.sendActions(for: .touchUpInside)
+        try await waitUntil { controller.activeQuizPreparationAlert != nil }
+        let alert = try XCTUnwrap(controller.activeQuizPreparationAlert)
+        XCTAssertFalse(controller.presentedViewController is UIAlertController)
+        XCTAssertEqual(controller.presentedViewController?.view.accessibilityIdentifier, "quizProgressCompleteAlert")
+        XCTAssertEqual(alert.title, L10n.Question.progressCompleteTitle)
+        XCTAssertEqual(alert.message, L10n.Question.progressCompleteMessage)
+        XCTAssertEqual(alert.primaryAction.title, L10n.Question.resetProgressAndStart)
+        XCTAssertTrue(repository.resetIDs.isEmpty)
+        XCTAssertEqual(router.showQuestionCallCount, 0)
+
+        alert.onEscape()
+        try await waitUntil { controller.activeQuizPreparationAlert == nil }
+        XCTAssertTrue(repository.resetIDs.isEmpty)
+        XCTAssertEqual(repository.preparedThemeIDs, ["space"])
+        XCTAssertEqual(controller.homeCardState.phase, .expandedBack)
+        // Retained actions from an old overlay must not reset a later round.
+        alert.primaryAction.action()
+        XCTAssertTrue(repository.resetIDs.isEmpty)
+    }
+
+    func testCompletedTopicResetStartsFreshRoundWithSameConfigurationExactlyOnce() async throws {
+        let (controller, repository, router, startButton) = try await makeBackendLaunchHarness()
+        controller.homeStore.send(.questionCountSelected(10))
+        controller.homeStore.send(.difficultySelected(.hard))
+        repository.preparationError = QuizPreparationError.progressComplete(userID: "account-a")
+        startButton.sendActions(for: .touchUpInside)
+        try await waitUntil { controller.activeQuizPreparationAlert != nil }
+        let alert = try XCTUnwrap(controller.activeQuizPreparationAlert)
+        alert.primaryAction.action()
+        alert.primaryAction.action()
+        try await waitUntil { router.showQuestionCallCount == 1 }
+
+        XCTAssertEqual(repository.resetIDs.count, 1)
+        XCTAssertEqual(repository.resetThemeIDs, ["space"])
+        XCTAssertEqual(repository.resetUserIDs, ["account-a"])
+        XCTAssertEqual(repository.preparedThemeIDs, ["space", "space"])
+        XCTAssertEqual(repository.preparedQuestionCounts, [10, 10])
+        XCTAssertEqual(repository.preparedDifficulties, [.hard, .hard])
+        XCTAssertEqual(repository.preparedLocales, ["ru", "ru"])
+        XCTAssertEqual(controller.session.chosenTheme?.questionsAndAnswers.count, 10)
+        XCTAssertNil(controller.activeQuizPreparationAlert)
+    }
+
+    func testFailedResetRetriesSameIdentifierBeforeFetchingQuestions() async throws {
+        let (controller, repository, router, startButton) = try await makeBackendLaunchHarness()
+        repository.preparationError = QuizPreparationError.progressComplete(userID: "account-a")
+        repository.resetError = URLError(.networkConnectionLost)
+        startButton.sendActions(for: .touchUpInside)
+        try await waitUntil { controller.activeQuizPreparationAlert != nil }
+        try XCTUnwrap(controller.activeQuizPreparationAlert).primaryAction.action()
+        try await waitUntil { repository.resetIDs.count == 1 && controller.activeQuizPreparationAlert != nil }
+        let failureAlert = try XCTUnwrap(controller.activeQuizPreparationAlert)
+        XCTAssertEqual(failureAlert.title, L10n.Question.loadingFailedTitle)
+        XCTAssertEqual(failureAlert.message, L10n.Question.networkFailureMessage)
+        XCTAssertEqual(repository.preparedThemeIDs.count, 1)
+        XCTAssertEqual(router.showQuestionCallCount, 0)
+        repository.resetError = nil
+        failureAlert.primaryAction.action()
+        try await waitUntil { router.showQuestionCallCount == 1 }
+        XCTAssertEqual(repository.resetIDs.count, 2)
+        XCTAssertEqual(repository.resetIDs[0], repository.resetIDs[1])
+        XCTAssertEqual(repository.preparedThemeIDs.count, 2)
+    }
+
+    func testFetchFailureAfterSuccessfulResetRetriesFetchWithoutResettingAgain() async throws {
+        let (controller, repository, router, startButton) = try await makeBackendLaunchHarness()
+        repository.preparationError = QuizPreparationError.progressComplete(userID: "account-a")
+        repository.postResetPreparationError = URLError(.notConnectedToInternet)
+        startButton.sendActions(for: .touchUpInside)
+        try await waitUntil { controller.activeQuizPreparationAlert != nil }
+        try XCTUnwrap(controller.activeQuizPreparationAlert).primaryAction.action()
+        try await waitUntil { repository.preparedThemeIDs.count == 2 && controller.activeQuizPreparationAlert != nil }
+        XCTAssertEqual(repository.resetIDs.count, 1)
+        repository.preparationError = nil
+        try XCTUnwrap(controller.activeQuizPreparationAlert).primaryAction.action()
+        try await waitUntil { router.showQuestionCallCount == 1 }
+        XCTAssertEqual(repository.resetIDs.count, 1)
+        XCTAssertEqual(repository.preparedThemeIDs.count, 3)
+    }
+
+    func testAccountChangeAfterResetAndFetchFailureDoesNotFetchOrLaunchAnotherAccount() async throws {
+        let (controller, repository, router, startButton) = try await makeBackendLaunchHarness()
+        repository.preparationError = QuizPreparationError.progressComplete(userID: "account-a")
+        repository.postResetPreparationError = URLError(.notConnectedToInternet)
+        startButton.sendActions(for: .touchUpInside)
+        try await waitUntil { controller.activeQuizPreparationAlert != nil }
+        try XCTUnwrap(controller.activeQuizPreparationAlert).primaryAction.action()
+        try await waitUntil { repository.preparedThemeIDs.count == 2 && controller.activeQuizPreparationAlert != nil }
+        let oldAlertID = controller.activeQuizPreparationAlertID
+        repository.currentUserID = "account-b"
+        repository.preparationError = nil
+        try XCTUnwrap(controller.activeQuizPreparationAlert).primaryAction.action()
+        try await waitUntil { controller.activeQuizPreparationAlertID != oldAlertID && !controller.isQuizLaunchPending }
+        XCTAssertEqual(repository.resetIDs.count, 1)
+        XCTAssertEqual(repository.preparedThemeIDs.count, 2)
+        XCTAssertEqual(router.showQuestionCallCount, 0)
+    }
+
+    func testRemovingCardDuringResetCancelsLaunchAndClearsLoading() async throws {
+        let (controller, repository, router, startButton) = try await makeBackendLaunchHarness()
+        repository.preparationError = QuizPreparationError.progressComplete(userID: "account-a")
+        var resumeReset: CheckedContinuation<Void, Never>?
+        repository.resetDelay = { await withCheckedContinuation { resumeReset = $0 } }
+        startButton.sendActions(for: .touchUpInside)
+        try await waitUntil { controller.activeQuizPreparationAlert != nil }
+        let alert = try XCTUnwrap(controller.activeQuizPreparationAlert)
+        alert.primaryAction.action()
+        try await waitUntil { resumeReset != nil }
+        let indicator = try XCTUnwrap(controller.view.descendant(
+            withAccessibilityIdentifier: "descriptionStartActivityIndicator") as? UIActivityIndicatorView)
+        XCTAssertTrue(indicator.isAnimating)
+        XCTAssertFalse(startButton.isEnabled)
+        alert.primaryAction.action()
+        XCTAssertEqual(repository.resetIDs.count, 1)
+        controller.resetExpandedThemeCard()
+        XCTAssertFalse(controller.isQuizLaunchPending)
+        XCTAssertFalse(indicator.isAnimating)
+        resumeReset?.resume()
+        await Task.yield()
+        XCTAssertEqual(repository.preparedThemeIDs.count, 1)
+        XCTAssertEqual(router.showQuestionCallCount, 0)
+        XCTAssertNil(controller.activeQuizPreparationAlert)
+    }
+
+    func testChangedLocalePreventsResetFromStaleCompletedAlert() async throws {
+        let (controller, repository, router, startButton) = try await makeBackendLaunchHarness()
+        repository.preparationError = QuizPreparationError.progressComplete(userID: "account-a")
+        startButton.sendActions(for: .touchUpInside)
+        try await waitUntil { controller.activeQuizPreparationAlert != nil }
+        let alert = try XCTUnwrap(controller.activeQuizPreparationAlert)
+        AppLocalizationStore.shared.languagePreference = .english
+        alert.primaryAction.action()
+        try await waitUntil { controller.activeQuizPreparationAlert == nil }
+        XCTAssertTrue(repository.resetIDs.isEmpty)
+        XCTAssertEqual(router.showQuestionCallCount, 0)
     }
 
     private func makeBackendLaunchHarness() async throws ->
@@ -381,6 +525,16 @@ private final class BackendOnlyHomeThemeRepository: ThemeRepository {
     private(set) var preparedThemeIDs: [String] = []
     var preparationError: Error?
     var returnedQuestionCount: Int?
+    private(set) var preparedQuestionCounts: [Int] = []
+    private(set) var preparedDifficulties: [AIQuizDifficulty] = []
+    private(set) var preparedLocales: [String] = []
+    private(set) var resetIDs: [UUID] = []
+    private(set) var resetThemeIDs: [String] = []
+    private(set) var resetUserIDs: [String] = []
+    var currentUserID = "account-a"
+    var resetError: Error?
+    var postResetPreparationError: Error?
+    var resetDelay: (() async -> Void)?
 
     init(metadata: QuizTheme) {
         themes = [metadata]
@@ -390,6 +544,31 @@ private final class BackendOnlyHomeThemeRepository: ThemeRepository {
 
     func fetchQuizThemes() -> [QuizTheme] {
         themes ?? []
+    }
+
+    func validateQuestionProgressUser(expectedUserID: String) throws {
+        guard currentUserID == expectedUserID else { throw QuestionAnswerSyncError.accountChanged }
+    }
+
+    func resetQuestionProgress(themeID: String, resetID: UUID, expectedUserID: String) async throws {
+        resetIDs.append(resetID)
+        resetThemeIDs.append(themeID)
+        resetUserIDs.append(expectedUserID)
+        await resetDelay?()
+        if let resetError { throw resetError }
+        preparationError = postResetPreparationError
+    }
+
+    func prepareQuiz(
+        themeID: String,
+        questionCount: Int,
+        difficulty: AIQuizDifficulty,
+        locale: String
+    ) async throws -> QuizTheme {
+        preparedQuestionCounts.append(questionCount)
+        preparedDifficulties.append(difficulty)
+        preparedLocales.append(locale)
+        return try await prepareQuiz(themeID: themeID, questionCount: questionCount, locale: locale)
     }
 
     func prepareQuiz(

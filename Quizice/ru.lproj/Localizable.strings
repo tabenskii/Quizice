@@ -117,7 +117,9 @@
 "question.show_question" = "Показать вопрос";
 "question.tap_to_answer.accessibility_hint" = "Дважды коснитесь, чтобы выбрать этот ответ.";
 "question.unavailable.message" = "В этой теме пока нет доступных вопросов. Вернитесь назад и выберите другую тему.";
-"question.progress_complete.message" = "Вы прошли все вопросы для выбранного режима повторов. Измените режим или выберите другую тему.";
+"question.progress_complete.title" = "Все вопросы пройдены";
+"question.progress_complete.message" = "Вы прошли все доступные вопросы с выбранными настройками. Сбросить прогресс ответов по всей теме и начать заново? Статистика игр сохранится.";
+"question.progress_complete.restart" = "Сбросить и начать заново";
 "question.loading_failed.title" = "Не удалось загрузить вопросы";
 "question.loading_failed.message" = "Не удалось получить вопросы. Попробуйте ещё раз немного позже.";
 "question.network_failure.message" = "Проверьте подключение к интернету и попробуйте снова.";

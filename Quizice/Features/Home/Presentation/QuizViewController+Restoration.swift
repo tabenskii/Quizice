@@ -103,11 +103,17 @@ extension QuizViewController {
         showRoundConfigurationAfterExpansion = false
         quizPreparationTask?.cancel()
         quizPreparationTask = nil
+        quizPreparationRequestID = nil
+        if !hasQuizLaunchStarted {
+            isQuizLaunchPending = false
+            quizTransitionSourceView = nil
+        }
         expandedThemeCardView?.setStartLoading(false)
         aiAlertPresentationTask?.cancel()
         aiAlertPresentationTask = nil
         aiAlertPresenter.dismiss()
         activeQuizPreparationAlert = nil
+        activeQuizPreparationAlertID = nil
         quizPreparationAlertPresenter.dismiss()
         expandedAIKeyboardAnimator?.stopAnimation(true)
         expandedAIKeyboardAnimator = nil

@@ -241,11 +241,13 @@ enum L10n {
         static var timeRemaining: String { L10n.localized("question.time_remaining", comment: "Quiz timer accessibility label") }
         static var unavailableAnswer: String { L10n.localized("question.unavailable_answer", comment: "Unavailable answer placeholder") }
         static var unavailableMessage: String { L10n.localized("question.unavailable.message", comment: "Message when selected theme has no usable questions") }
+        static var progressCompleteTitle: String { L10n.localized("question.progress_complete.title", comment: "All available theme questions completed alert title") }
+        static var progressCompleteMessage: String { L10n.localized("question.progress_complete.message", comment: "Explain reset applies to the entire theme and keeps game statistics") }
+        static var resetProgressAndStart: String { L10n.localized("question.progress_complete.restart", comment: "Reset question progress and start again action") }
         static var loadingFailedTitle: String { L10n.localized("question.loading_failed.title", comment: "Question loading failure alert title") }
         static var loadingFailedMessage: String { L10n.localized("question.loading_failed.message", comment: "Question loading failure retry guidance") }
         static var networkFailureMessage: String { L10n.localized("question.network_failure.message", comment: "Question loading failure when internet access is unavailable") }
         static var insufficientQuestionsMessage: String { L10n.localized("question.insufficient.message", comment: "Fewer than five questions remain") }
-        static var progressCompleteMessage: String { L10n.localized("question.progress_complete.message", comment: "Message when repeat filtering leaves no questions") }
         static var unavailableNumber: String { L10n.localized("question.unavailable_number", comment: "Unavailable question number label") }
 
         static func number(_ number: Int) -> String {

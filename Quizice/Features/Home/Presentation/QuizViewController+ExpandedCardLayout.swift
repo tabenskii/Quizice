@@ -1,37 +1,81 @@
 import UIKit
 
 extension QuizViewController {
+    struct QuizLaunchConfiguration {
+        let themeID: String
+        let questionCount: Int
+        let difficulty: AIQuizDifficulty
+        let locale: String
+        let country: String?
+    }
+
+    struct QuizProgressRestart {
+        let resetID: UUID
+        let expectedUserID: String
+        var needsReset = true
+    }
+
     func launchQuiz(
         themeID: String,
         questionCount: Int,
-        difficulty: AIQuizDifficulty
+        difficulty: AIQuizDifficulty,
+        restart: QuizProgressRestart? = nil
     ) {
         guard !isQuizLaunchPending else { return }
         guard let cardView = expandedThemeCardView, let router else {
             homeStore.send(.launchFailed)
             return
         }
-
+        let configuration = QuizLaunchConfiguration(
+            themeID: themeID,
+            questionCount: questionCount,
+            difficulty: difficulty,
+            locale: AppLocalizationStore.shared.resolvedLanguageCode,
+            country: QuestionCountryStore.shared.country
+        )
         quizTransitionSourceView = cardView.transitionSourceView
         isQuizLaunchPending = true
         hasQuizLaunchStarted = false
         cardView.isUserInteractionEnabled = false
-        let locale = AppLocalizationStore.shared.resolvedLanguageCode
+        let requestID = UUID()
+        quizPreparationRequestID = requestID
         quizPreparationTask?.cancel()
         quizPreparationTask = Task { @MainActor [weak self, weak router] in
             guard let self, let router else { return }
+            var restart = restart
             do {
+                if let restart {
+                    try self.themeRepository.validateQuestionProgressUser(expectedUserID: restart.expectedUserID)
+                }
+                if let reset = restart, reset.needsReset {
+                    try await self.themeRepository.resetQuestionProgress(
+                        themeID: themeID,
+                        resetID: reset.resetID,
+                        expectedUserID: reset.expectedUserID
+                    )
+                    // Once the reset succeeds, retries only fetch a new round.
+                    // An uncertain reset result instead retries the same idempotency key.
+                    restart?.needsReset = false
+                    try Task.checkCancellation()
+                    try self.themeRepository.validateQuestionProgressUser(expectedUserID: reset.expectedUserID)
+                    guard self.isCurrentQuizConfiguration(configuration) else {
+                        throw CancellationError()
+                    }
+                }
                 let preparedTheme = try await self.themeRepository.prepareQuiz(
                     themeID: themeID,
                     questionCount: questionCount,
                     difficulty: difficulty,
-                    locale: locale
+                    locale: configuration.locale
                 )
                 try Task.checkCancellation()
+                if let restart {
+                    try self.themeRepository.validateQuestionProgressUser(expectedUserID: restart.expectedUserID)
+                }
                 guard
+                    self.quizPreparationRequestID == requestID,
                     self.homeCardState.phase == .launching,
-                    self.homeCardState.themeID == themeID,
-                    AppLocalizationStore.shared.resolvedLanguageCode == locale
+                    self.isCurrentQuizConfiguration(configuration)
                 else {
                     throw CancellationError()
                 }
@@ -44,23 +88,48 @@ extension QuizViewController {
                 self.session.questionsCount = questionCount
                 self.hasQuizLaunchStarted = true
                 router.showQuestion()
-            } catch is CancellationError {
-                guard !Task.isCancelled else { return }
-                self.finishFailedQuizPreparation(message: nil)
             } catch {
-                guard !Task.isCancelled else { return }
-                if QuizPreparationError.isCancellation(error) {
-                    self.finishFailedQuizPreparation(message: nil)
+                guard !Task.isCancelled, self.quizPreparationRequestID == requestID else { return }
+                self.finishFailedQuizPreparation()
+                guard !QuizPreparationError.isCancellation(error),
+                      self.isCurrentQuizConfiguration(configuration) else { return }
+                if case let QuizPreparationError.progressComplete(userID) = error, restart == nil {
+                    self.presentQuizProgressComplete(configuration: configuration, userID: userID)
                     return
                 }
                 self.analytics.reportOperationalError(error, context: .contentLoad)
-                self.finishFailedQuizPreparation(message: QuizPreparationError.message(for: error))
+                self.presentQuizPreparationFailure(message: QuizPreparationError.message(for: error)) { [weak self] in
+                    self?.retryQuizPreparation(configuration: configuration, restart: restart)
+                }
             }
         }
-        startQuizPreparationProgress(for: cardView)
+        cardView.setStartLoading(true)
     }
 
-    private func finishFailedQuizPreparation(message: String?) {
+    private func isCurrentQuizConfiguration(_ configuration: QuizLaunchConfiguration) -> Bool {
+        homeCardState.themeID == configuration.themeID
+            && homeCardState.selectedQuestionCount == configuration.questionCount
+            && homeCardState.selectedDifficulty == configuration.difficulty
+            && AppLocalizationStore.shared.resolvedLanguageCode == configuration.locale
+            && QuestionCountryStore.shared.country == configuration.country
+    }
+
+    private func retryQuizPreparation(
+        configuration: QuizLaunchConfiguration,
+        restart: QuizProgressRestart?
+    ) {
+        guard isCurrentQuizConfiguration(configuration),
+              case .launch = homeStore.send(.startRequested) else { return }
+        updateExpandedThemeCardParallaxPhase()
+        launchQuiz(
+            themeID: configuration.themeID,
+            questionCount: configuration.questionCount,
+            difficulty: configuration.difficulty,
+            restart: restart
+        )
+    }
+
+    private func finishFailedQuizPreparation() {
         stopQuizPreparationProgress()
         guard isQuizLaunchPending, !hasQuizLaunchStarted else { return }
         homeStore.send(.launchFailed)
@@ -68,62 +137,110 @@ extension QuizViewController {
         quizTransitionSourceView = nil
         expandedThemeCardView?.isUserInteractionEnabled = true
         updateExpandedThemeCardParallaxPhase()
-        if let message {
-            presentQuizPreparationFailure(message: message) { [weak self] in
-                self?.sendHomeCardAction(.startRequested)
+    }
+
+    private func presentQuizProgressComplete(configuration: QuizLaunchConfiguration, userID: String) {
+        guard activeQuizPreparationAlert == nil else { return }
+        let alertID = UUID()
+        let restart = QuizProgressRestart(resetID: UUID(), expectedUserID: userID)
+        let overlay = makeQuizProgressCompleteAlertOverlay(
+            restart: { [weak self] in
+                guard let self, self.activeQuizPreparationAlertID == alertID else { return }
+                self.dismissQuizPreparationFailure { [weak self] in
+                    self?.retryQuizPreparation(configuration: configuration, restart: restart)
+                }
+            },
+            dismiss: { [weak self] in
+                guard let self, self.activeQuizPreparationAlertID == alertID else { return }
+                self.dismissQuizPreparationFailure()
             }
-        }
+        )
+        presentQuizPreparationAlert(overlay, id: alertID, accessibilityIdentifier: "quizProgressCompleteAlert")
+    }
+
+    func makeQuizProgressCompleteAlertOverlay(
+        restart: @escaping () -> Void,
+        dismiss: @escaping () -> Void
+    ) -> QuizAlertOverlay {
+        QuizAlertOverlay(
+            title: L10n.Question.progressCompleteTitle,
+            message: L10n.Question.progressCompleteMessage,
+            systemImage: "checkmark.circle.fill",
+            iconColor: currentAppearance().accentColor,
+            primaryAction: QuizAlertAction(
+                title: L10n.Question.resetProgressAndStart,
+                emphasis: .primary,
+                accessibilityIdentifier: "quizProgressResetButton",
+                action: restart
+            ),
+            secondaryAction: QuizAlertAction(
+                title: L10n.Common.back,
+                emphasis: .secondary,
+                accessibilityIdentifier: "quizPreparationAlertDismissButton",
+                action: dismiss
+            ),
+            onEscape: dismiss
+        )
     }
 
     func presentQuizPreparationFailure(message: String, retry: @escaping () -> Void) {
         guard activeQuizPreparationAlert == nil else { return }
+        let alertID = UUID()
         let dismissAction = QuizAlertAction(
             title: L10n.Common.back,
             emphasis: .secondary,
             accessibilityIdentifier: "quizPreparationAlertDismissButton",
-            action: { [weak self] in self?.dismissQuizPreparationFailure() }
+            action: { [weak self] in
+                guard let self, self.activeQuizPreparationAlertID == alertID else { return }
+                self.dismissQuizPreparationFailure()
+            }
         )
         let retryAction = QuizAlertAction(
             title: L10n.AITheme.retry,
             emphasis: .primary,
             accessibilityIdentifier: "quizPreparationAlertRetryButton",
-            action: { [weak self] in self?.dismissQuizPreparationFailure(completion: retry) }
+            action: { [weak self] in
+                guard let self, self.activeQuizPreparationAlertID == alertID else { return }
+                self.dismissQuizPreparationFailure(completion: retry)
+            }
         )
-        let appearance = currentAppearance()
         let overlay = QuizAlertOverlay(
             title: L10n.Question.loadingFailedTitle,
             message: message,
             systemImage: "exclamationmark.triangle.fill",
-            iconColor: appearance.accentColor,
+            iconColor: currentAppearance().accentColor,
             primaryAction: retryAction,
             secondaryAction: dismissAction,
             onEscape: dismissAction.action
         )
+        presentQuizPreparationAlert(overlay, id: alertID, accessibilityIdentifier: "quizPreparationErrorAlert")
+    }
+
+    private func presentQuizPreparationAlert(_ overlay: QuizAlertOverlay, id: UUID, accessibilityIdentifier: String) {
         quizPreparationAlertPresenter.presentingViewController = self
         guard quizPreparationAlertPresenter.present(
             overlay,
-            appearance: appearance,
+            appearance: currentAppearance(),
             reduceMotion: cardReduceMotionProvider()
         ) else { return }
         activeQuizPreparationAlert = overlay
-        quizPreparationAlertPresenter.alertViewController?.view.accessibilityIdentifier = "quizPreparationErrorAlert"
+        activeQuizPreparationAlertID = id
+        quizPreparationAlertPresenter.alertViewController?.view.accessibilityIdentifier = accessibilityIdentifier
     }
 
     func dismissQuizPreparationFailure(completion: @escaping () -> Void = {}) {
-        guard activeQuizPreparationAlert != nil else { return }
+        guard let alertID = activeQuizPreparationAlertID else { return }
         quizPreparationAlertPresenter.dismiss { [weak self] in
-            guard let self, self.activeQuizPreparationAlert != nil else { return }
+            guard let self, self.activeQuizPreparationAlertID == alertID else { return }
             self.activeQuizPreparationAlert = nil
+            self.activeQuizPreparationAlertID = nil
             completion()
         }
     }
 
-    private func startQuizPreparationProgress(for cardView: ExpandedThemeCardView) {
-        cardView.setStartLoading(true)
-    }
-
     private func stopQuizPreparationProgress() {
         quizPreparationTask = nil
+        quizPreparationRequestID = nil
         expandedThemeCardView?.setStartLoading(false)
     }
 

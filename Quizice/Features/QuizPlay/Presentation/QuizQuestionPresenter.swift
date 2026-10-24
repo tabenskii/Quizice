@@ -354,7 +354,8 @@ final class QuizQuestionPresenter: QuizQuestionPresenterProtocol {
                 questionVersion: questionVersion,
                 locale: locale,
                 answer: answer,
-                answeredAt: Date()
+                answeredAt: Date(),
+                progressGeneration: question.progressGeneration
             ),
             for: answerUserID
         )
