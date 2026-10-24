@@ -8,6 +8,7 @@ final class QuizFlowCoordinator: NSObject, QuizRouting, UIViewControllerTransiti
     private let session: QuizSessionManaging
     private let aiQuizThemeService: AIQuizThemeServiceProtocol
     private let aiQuizAccessProvider: AIQuizAccessProviding
+    private let aiServiceStatusAPI: AIServiceStatusAPI?
     private let accountManager: AccountManaging?
     private let answerOutbox: QuestionAnswerOutboxing
     @MainActor private var dataSynchronizer: AccountDataSynchronizer?
@@ -40,6 +41,7 @@ final class QuizFlowCoordinator: NSObject, QuizRouting, UIViewControllerTransiti
         session: QuizSessionManaging = QuizSessionStore.shared,
         aiQuizThemeService: AIQuizThemeServiceProtocol? = nil,
         aiQuizAccessProvider: AIQuizAccessProviding? = nil,
+        aiServiceStatusAPI: AIServiceStatusAPI? = nil,
         accountManager: AccountManaging? = nil,
         answerOutbox: QuestionAnswerOutboxing = PersistentQuestionAnswerOutbox.shared,
         onboardingProgressStore: OnboardingProgressStoring = OnboardingProgressStore.shared,
@@ -61,6 +63,7 @@ final class QuizFlowCoordinator: NSObject, QuizRouting, UIViewControllerTransiti
         self.aiQuizThemeService = aiQuizThemeService
             ?? BackendServiceFactory.aiQuizThemeService(accessProvider: resolvedAIQuizAccessProvider)
         self.aiQuizAccessProvider = resolvedAIQuizAccessProvider
+        self.aiServiceStatusAPI = aiServiceStatusAPI
         self.accountManager = accountManager
         self.answerOutbox = answerOutbox
         self.onboardingProgressStore = onboardingProgressStore
@@ -107,6 +110,7 @@ final class QuizFlowCoordinator: NSObject, QuizRouting, UIViewControllerTransiti
             session: session,
             aiQuizThemeService: aiQuizThemeService,
             aiQuizAccessProvider: aiQuizAccessProvider,
+            aiServiceStatusAPI: aiServiceStatusAPI,
             analytics: analytics,
             randomQuestionsProvider: randomQuestionsProvider,
             randomQuestionSelectionModeProvider: randomQuestionSelectionModeProvider

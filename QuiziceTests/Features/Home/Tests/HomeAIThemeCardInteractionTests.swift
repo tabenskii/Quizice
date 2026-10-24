@@ -4,6 +4,178 @@ import XCTest
 
 @MainActor
 final class HomeAIThemeCardInteractionTests: HomeScreenVisualStateTestCase {
+    func testServiceNoticeDoesNotBlockSubmissionAndSurvivesProgressUpdates() {
+        let notice = "Сейчас вопросы создаются с задержкой."
+        for designStyle in AppDesignStyle.allCases {
+            let cardView = makeHostedServiceNoticeCard()
+            let appearance = AppAppearance(
+                designStyle: designStyle,
+                cleanColorSchemePreference: .dark,
+                traitCollection: UITraitCollection(userInterfaceStyle: .dark)
+            )
+            var state = HomeAIThemeCardState()
+            HomeAIThemeCardReducer.reduce(state: &state, action: .promptChanged("Космос"))
+            cardView.configure(state: state, appearance: appearance)
+            cardView.setServiceNotice("  \(notice)\n")
+            cardView.layoutIfNeeded()
+            attachServiceNoticeCard(cardView, name: "Service notice — \(designStyle.rawValue) front")
+
+            XCTAssertTrue(cardView.promptTextView.isEditable)
+            XCTAssertTrue(cardView.playButton.isEnabled)
+            XCTAssertTrue(cardView.submitButton.isEnabled)
+            var submissionCount = 0
+            cardView.onSubmit = { submissionCount += 1 }
+            cardView.setFace(.back, animated: false)
+            cardView.layoutIfNeeded()
+            attachServiceNoticeCard(cardView, name: "Service notice — \(designStyle.rawValue) back")
+            cardView.submitButton.sendActions(for: .touchUpInside)
+            XCTAssertEqual(submissionCount, 1)
+
+            let requestID = UUID()
+            HomeAIThemeCardReducer.reduce(
+                state: &state,
+                action: .submitRequested(
+                    requestID: requestID,
+                    locale: Locale(identifier: "ru"),
+                    now: Date()
+                )
+            )
+            cardView.configure(state: state, appearance: appearance)
+            HomeAIThemeCardReducer.reduce(
+                state: &state,
+                action: .progressAdvanced(requestID: requestID, phase: .generating)
+            )
+            cardView.configure(state: state, appearance: appearance)
+
+            XCTAssertEqual(cardView.progressLabel.text, AIQuizGenerationPhase.generating.title)
+            for label in [cardView.frontServiceNoticeLabel, cardView.backServiceNoticeLabel] {
+                XCTAssertEqual(label.text, notice)
+                XCTAssertEqual(label.accessibilityLabel, notice)
+                XCTAssertFalse(label.isHidden)
+                XCTAssertFalse(label.accessibilityElementsHidden)
+                XCTAssertTrue(label.isAccessibilityElement)
+                assertColor(label.textColor, equals: appearance.secondarySurfaceTextColor)
+            }
+            XCTAssertTrue(
+                (cardView.frontFaceView.accessibilityElements as? [UIView])?
+                    .contains(cardView.frontServiceNoticeLabel) == true
+            )
+            XCTAssertTrue(
+                (cardView.backFaceView.accessibilityElements as? [UIView])?
+                    .contains(cardView.backServiceNoticeLabel) == true
+            )
+        }
+    }
+
+    func testClearingServiceNoticeRemovesItsLayoutSpaceOnBothFaces() {
+        let cardView = makeHostedServiceNoticeCard()
+        let appearance = AppAppearance(
+            designStyle: .clean,
+            cleanColorSchemePreference: .dark,
+            traitCollection: UITraitCollection(userInterfaceStyle: .dark)
+        )
+        cardView.configure(state: HomeAIThemeCardState(), appearance: appearance)
+        let missingMessages: [String?] = [nil, "", " \n\t "]
+        let faces: [(HomeThemeCardFace, UIStackView)] = [
+            (.front, cardView.frontContentStack),
+            (.back, cardView.backContentStack)
+        ]
+        for (face, stack) in faces {
+            cardView.setFace(face, animated: false)
+            cardView.setServiceNotice(nil)
+            cardView.layoutIfNeeded()
+            let heightWithoutNotice = stack.bounds.height
+
+            for missingMessage in missingMessages {
+                cardView.setServiceNotice("Сейчас вопросы создаются с задержкой.")
+                cardView.layoutIfNeeded()
+                XCTAssertGreaterThan(stack.bounds.height, heightWithoutNotice)
+
+                cardView.setServiceNotice(missingMessage)
+                cardView.layoutIfNeeded()
+
+                XCTAssertEqual(stack.bounds.height, heightWithoutNotice, accuracy: 0.5)
+                for label in [cardView.frontServiceNoticeLabel, cardView.backServiceNoticeLabel] {
+                    XCTAssertTrue(label.isHidden)
+                    XCTAssertTrue(label.accessibilityElementsHidden)
+                    XCTAssertNil(label.text)
+                    XCTAssertNil(label.accessibilityLabel)
+                }
+            }
+        }
+    }
+
+    func testLongServiceNoticeWrapsAndRemainsScrollableWithAccessibilityTextSize() {
+        let cardView = makeHostedServiceNoticeCard(
+            size: CGSize(width: 280, height: 400),
+            category: .accessibilityExtraExtraExtraLarge
+        )
+        let appearance = AppAppearance(
+            designStyle: .clean,
+            cleanColorSchemePreference: .dark,
+            traitCollection: cardView.traitCollection
+        )
+        cardView.configure(state: HomeAIThemeCardState(), appearance: appearance)
+        cardView.setServiceNotice(
+            "Сейчас вопросы создаются с задержкой. Создание может занять несколько минут."
+        )
+        cardView.layoutIfNeeded()
+
+        let faces: [(HomeThemeCardFace, UILabel, UIScrollView, UIStackView)] = [
+            (.front, cardView.frontServiceNoticeLabel, cardView.frontScrollView, cardView.frontContentStack),
+            (.back, cardView.backServiceNoticeLabel, cardView.backScrollView, cardView.backContentStack)
+        ]
+        for (face, label, scrollView, stack) in faces {
+            cardView.setFace(face, animated: false)
+            cardView.setNeedsLayout()
+            cardView.layoutIfNeeded()
+            XCTAssertEqual(label.numberOfLines, 0)
+            XCTAssertTrue(label.adjustsFontForContentSizeCategory)
+            XCTAssertGreaterThan(label.font.pointSize, ExpandedAIThemeCardView.Typography.serviceNoticeSize)
+            XCTAssertGreaterThan(label.bounds.height, label.font.lineHeight)
+            let fittedHeight = label.sizeThatFits(
+                CGSize(width: label.bounds.width, height: .greatestFiniteMagnitude)
+            ).height
+            XCTAssertGreaterThanOrEqual(label.bounds.height + 0.5, fittedHeight)
+            XCTAssertGreaterThan(scrollView.contentSize.height, scrollView.bounds.height)
+            XCTAssertEqual(stack.bounds.maxY, label.frame.maxY, accuracy: 0.5)
+            scrollView.scrollRectToVisible(label.convert(label.bounds, to: scrollView), animated: false)
+            attachServiceNoticeCard(cardView, name: "Service notice — accessibility \(face)")
+        }
+        XCTAssertFalse(cardView.promptTextView.isScrollEnabled)
+        cardView.updateKeyboardInsets(overlap: 200, duration: 0, options: [])
+        XCTAssertEqual(cardView.frontScrollView.contentInset.bottom, 212)
+        XCTAssertFalse(cardView.frontServiceNoticeLabel.isHidden)
+    }
+
+    private func makeHostedServiceNoticeCard(
+        size: CGSize = CGSize(width: 342, height: 640),
+        category: UIContentSizeCategory = .large
+    ) -> ExpandedAIThemeCardView {
+        let cardView = ExpandedAIThemeCardView(frame: CGRect(origin: CGPoint(x: 20, y: 20), size: size))
+        let host = UIViewController()
+        host.view.addSubview(cardView)
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: size.width + 40, height: size.height + 40))
+        window.rootViewController = host
+        window.makeKeyAndVisible()
+        testWindows.append(window)
+        cardView.traitOverrides.preferredContentSizeCategory = category
+        cardView.updateTraitsIfNeeded()
+        window.layoutIfNeeded()
+        XCTAssertEqual(cardView.traitCollection.preferredContentSizeCategory, category)
+        return cardView
+    }
+
+    private func attachServiceNoticeCard(_ cardView: ExpandedAIThemeCardView, name: String) {
+        let image = UIGraphicsImageRenderer(bounds: cardView.bounds).image { _ in
+            cardView.drawHierarchy(in: cardView.bounds, afterScreenUpdates: true)
+        }
+        let attachment = XCTAttachment(image: image)
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
     func testPromptPlaceholderMatchesTextEntryOrigin() {
         let cardView = ExpandedAIThemeCardView(
             frame: CGRect(x: 0, y: 0, width: 342, height: 640)

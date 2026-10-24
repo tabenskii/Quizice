@@ -201,6 +201,11 @@ extension ExpandedAIThemeCardView {
         frontContentStack.addArrangedSubview(frontHeaderStack)
         frontContentStack.addArrangedSubview(promptContainerView)
         frontContentStack.addArrangedSubview(promptValidationLabel)
+        configureServiceNoticeLabel(
+            frontServiceNoticeLabel,
+            accessibilityIdentifier: AccessibilityID.frontServiceNotice
+        )
+        frontContentStack.addArrangedSubview(frontServiceNoticeLabel)
 
         configureScrollView(frontScrollView)
         frontScrollView.contentInset.bottom = Layout.scrollBottomInset
@@ -278,6 +283,7 @@ extension ExpandedAIThemeCardView {
             frontSubtitleLabel,
             promptTextView,
             promptValidationLabel,
+            frontServiceNoticeLabel,
             playButton,
             closeButton
         ]
@@ -370,6 +376,10 @@ extension ExpandedAIThemeCardView {
         progressLabel.numberOfLines = 0
         progressLabel.textAlignment = .center
         progressLabel.isHidden = true
+        configureServiceNoticeLabel(
+            backServiceNoticeLabel,
+            accessibilityIdentifier: AccessibilityID.backServiceNotice
+        )
 
         backContentStack.axis = .vertical
         backContentStack.spacing = Layout.sectionSpacing
@@ -381,7 +391,8 @@ extension ExpandedAIThemeCardView {
             difficultyLabel,
             difficultyStack,
             submitButton,
-            progressLabel
+            progressLabel,
+            backServiceNoticeLabel
         ].forEach(backContentStack.addArrangedSubview)
         backContentStack.setCustomSpacing(Layout.selectorSpacing, after: questionCountLabel)
         backContentStack.setCustomSpacing(Layout.selectorSpacing, after: difficultyLabel)
@@ -441,7 +452,12 @@ extension ExpandedAIThemeCardView {
         backAccessibilityElements.append(contentsOf: questionCountButtons)
         backAccessibilityElements.append(difficultyLabel)
         backAccessibilityElements.append(contentsOf: difficultyButtons)
-        backAccessibilityElements.append(contentsOf: [submitButton, progressLabel, backButton])
+        backAccessibilityElements.append(contentsOf: [
+            submitButton,
+            progressLabel,
+            backServiceNoticeLabel,
+            backButton
+        ])
         backFaceView.accessibilityElements = backAccessibilityElements
     }
 
@@ -456,6 +472,14 @@ extension ExpandedAIThemeCardView {
         label.numberOfLines = numberOfLines
         label.lineBreakMode = .byWordWrapping
         label.translatesAutoresizingMaskIntoConstraints = false
+    }
+
+    func configureServiceNoticeLabel(_ label: UILabel, accessibilityIdentifier: String) {
+        configureLabel(label, numberOfLines: 0)
+        label.accessibilityIdentifier = accessibilityIdentifier
+        label.isAccessibilityElement = true
+        label.accessibilityElementsHidden = true
+        label.isHidden = true
     }
 
     func configureSelectorStack(_ stackView: UIStackView) {

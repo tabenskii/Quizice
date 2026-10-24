@@ -68,6 +68,8 @@ final class ExpandedAIThemeCardView: UIView, UITextViewDelegate {
         static let submitButton = "aiThemeSubmitButton"
         static let keyboardDoneButton = "aiThemeKeyboardDoneButton"
         static let progressStatus = "aiThemeProgressStatus"
+        static let frontServiceNotice = "aiThemeFrontServiceNotice"
+        static let backServiceNotice = "aiThemeBackServiceNotice"
     }
 
     enum Layout {
@@ -94,6 +96,7 @@ final class ExpandedAIThemeCardView: UIView, UITextViewDelegate {
         static let optionSize: CGFloat = 15
         static let submitSize: CGFloat = 19
         static let progressSize: CGFloat = 15
+        static let serviceNoticeSize: CGFloat = 15
     }
 
     enum Animation {
@@ -163,6 +166,7 @@ final class ExpandedAIThemeCardView: UIView, UITextViewDelegate {
     let promptTextView = UITextView()
     let promptPlaceholderLabel = UILabel()
     let promptValidationLabel = UILabel()
+    let frontServiceNoticeLabel = UILabel()
     let closeButton = UIButton(type: .system)
     let playButton = UIButton(type: .system)
 
@@ -181,6 +185,7 @@ final class ExpandedAIThemeCardView: UIView, UITextViewDelegate {
     let submitActivityIndicator = UIActivityIndicatorView(style: .medium)
     let submitTitleLabel = UILabel()
     let progressLabel = UILabel()
+    let backServiceNoticeLabel = UILabel()
     var questionCountButtons: [UIButton] = []
     var difficultyButtons: [UIButton] = []
     var lastRenderedGenerationPhase: AIQuizGenerationPhase?
@@ -318,6 +323,18 @@ final class ExpandedAIThemeCardView: UIView, UITextViewDelegate {
 
     func finishFlipForResize() {
         faceTransitionDriver.finishAtRequestedFace()
+    }
+
+    func setServiceNotice(_ message: String?) {
+        let trimmedMessage = message?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let text = trimmedMessage?.isEmpty == false ? trimmedMessage : nil
+        [frontServiceNoticeLabel, backServiceNoticeLabel].forEach { label in
+            label.text = text
+            label.accessibilityLabel = text
+            label.isHidden = text == nil
+            label.accessibilityElementsHidden = text == nil
+        }
+        setNeedsLayout()
     }
 
     func setTransitionShadowHidden(_ isHidden: Bool) {
