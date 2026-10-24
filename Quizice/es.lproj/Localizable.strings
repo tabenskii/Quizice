@@ -301,3 +301,11 @@
 "debug_menu.test_account.no_backend" = "Activa el servidor antes de conectar.";
 "debug_menu.test_account.key_required" = "Introduce la clave privada de la cuenta de prueba.";
 "debug_menu.test_account.failure" = "No se pudo conectar. Revisa la clave y la conexión e inténtalo de nuevo.";
+
+"onboarding.question_strategy.title" = "¿Qué preguntas repetir?";
+"onboarding.question_strategy.subtitle" = "Elige qué preguntas volverás a ver.";
+"onboarding.question_strategy.settings_hint" = "Puedes cambiarlo después en Ajustes.";
+"onboarding.question_strategy.availability_hint" = "Se aplica a los temas preparados del catálogo en línea tras iniciar sesión en Game Center. Los invitados ven todas las preguntas.";
+"onboarding.question_strategy.hideAnswered.detail" = "Las preguntas que ya hayas respondido no volverán a aparecer.";
+"onboarding.question_strategy.retryIncorrect.detail" = "Oculta las preguntas acertadas y conserva las que fallaste.";
+"onboarding.question_strategy.showAll.detail" = "Cualquier pregunta puede volver a aparecer.";

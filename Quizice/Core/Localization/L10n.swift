@@ -54,6 +54,17 @@ enum L10n {
         static var tutorialStatisticsTitle: String { L10n.localized("onboarding.tutorial.statistics.title", comment: "Onboarding tutorial statistics feature title") }
         static var tutorialStatisticsDetail: String { L10n.localized("onboarding.tutorial.statistics.detail", comment: "Onboarding tutorial statistics feature detail") }
 
+        enum QuestionStrategy {
+            static var title: String { L10n.localized("onboarding.question_strategy.title", comment: "Onboarding question repetition choice heading") }
+            static var subtitle: String { L10n.localized("onboarding.question_strategy.subtitle", comment: "Onboarding question repetition choice introduction") }
+            static var settingsHint: String { L10n.localized("onboarding.question_strategy.settings_hint", comment: "Question repetition can be changed in Settings later") }
+            static var availabilityHint: String { L10n.localized("onboarding.question_strategy.availability_hint", comment: "Repeat preferences apply to online catalog themes after Game Center sign-in; guests see all questions") }
+
+            static func detail(for strategy: QuestionRepeatStrategy) -> String {
+                L10n.localized("onboarding.question_strategy.\(strategy.rawValue).detail", comment: "Brief explanation of a question repetition strategy")
+            }
+        }
+
         static func progress(current: Int, total: Int) -> String {
             L10n.formatted(
                 "onboarding.progress_format",

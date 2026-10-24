@@ -301,3 +301,11 @@
 "debug_menu.test_account.no_backend" = "Сначала включите работу с бэкендом.";
 "debug_menu.test_account.key_required" = "Введите секретный ключ тестового аккаунта.";
 "debug_menu.test_account.failure" = "Не удалось подключиться. Проверьте ключ и интернет, затем повторите.";
+
+"onboarding.question_strategy.title" = "Как повторять вопросы?";
+"onboarding.question_strategy.subtitle" = "Выберите, какие вопросы показывать снова.";
+"onboarding.question_strategy.settings_hint" = "Выбор можно изменить в Настройках.";
+"onboarding.question_strategy.availability_hint" = "Действует для готовых тем из онлайн-каталога после входа в Game Center. В гостевом режиме показываются все вопросы.";
+"onboarding.question_strategy.hideAnswered.detail" = "Уже отвеченные вопросы больше не появятся.";
+"onboarding.question_strategy.retryIncorrect.detail" = "Вопросы с верным ответом скрываются, с ошибкой — остаются.";
+"onboarding.question_strategy.showAll.detail" = "Любой вопрос может встретиться снова.";

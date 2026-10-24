@@ -301,3 +301,11 @@
 "debug_menu.test_account.no_backend" = "Enable the backend before connecting.";
 "debug_menu.test_account.key_required" = "Enter the private test account key.";
 "debug_menu.test_account.failure" = "Could not connect. Check the key and your connection, then retry.";
+
+"onboarding.question_strategy.title" = "How should questions repeat?";
+"onboarding.question_strategy.subtitle" = "Choose which questions you’ll see again.";
+"onboarding.question_strategy.settings_hint" = "You can change this later in Settings.";
+"onboarding.question_strategy.availability_hint" = "Applies to ready-made topics from the online catalog after Game Center sign-in. Guests see all questions.";
+"onboarding.question_strategy.hideAnswered.detail" = "Questions you’ve answered won’t appear again.";
+"onboarding.question_strategy.retryIncorrect.detail" = "Hide questions answered correctly and keep the ones you missed.";
+"onboarding.question_strategy.showAll.detail" = "Any question may appear again.";
