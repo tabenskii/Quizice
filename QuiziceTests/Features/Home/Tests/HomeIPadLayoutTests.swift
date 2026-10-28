@@ -19,7 +19,8 @@ final class HomeIPadLayoutTests: HomeScreenVisualStateTestCase {
     }
 
     func testCatalogUsesWindowWidthAndKeepsActionsInSeparateCenteredRows() throws {
-        QuizFactory.shared.themes = (0..<12).map { makeTheme(name: "Тема \($0)") }
+        QuizFactory.shared.themes = [makeTheme(name: String(repeating: "История и культура ", count: 7))]
+            + (1..<12).map { makeTheme(name: "Тема \($0)") }
         for (width, columns) in [(CGFloat(834), 3), (1_366, 4)] {
             let controller = makeHomeViewController(in: CGRect(x: 0, y: 0, width: width, height: 1_194))
             let outer = try XCTUnwrap(controller.themesCollectionView)
@@ -27,6 +28,10 @@ final class HomeIPadLayoutTests: HomeScreenVisualStateTestCase {
             XCTAssertEqual(outer.bounds.width, min(width, 1_180), accuracy: 1)
             let grid = controller.themesCollectionService.themeGrid(width: catalog.bounds.width, traits: catalog.traitCollection)
             XCTAssertEqual(grid.columnCount, columns)
+            let first = try XCTUnwrap(catalog.layoutAttributesForItem(at: IndexPath(item: 0, section: 0)))
+            let second = try XCTUnwrap(catalog.layoutAttributesForItem(at: IndexPath(item: 1, section: 0)))
+            XCTAssertEqual(first.frame.minY, second.frame.minY)
+            XCTAssertGreaterThan(first.frame.height, second.frame.height)
             let ai = try XCTUnwrap(controller.sourceAIThemeButton())
             let lucky = try XCTUnwrap(controller.view.descendant(withAccessibilityIdentifier: "homeFeelingLuckyButton"))
             XCTAssertLessThanOrEqual(ai.bounds.width, 640)

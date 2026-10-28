@@ -55,6 +55,25 @@ final class ScreenSnapshotTests: XCTestCase {
         SnapshotSupport.assertScreen(makeHomeViewController(), named: "clean-home", size: portraitSize)
     }
 
+    func testHomeMasonryCatalogSnapshot() {
+        let titles = [
+            "Музыка", "История Древнего Рима", "Кино", "Искусство и культура мира",
+            "Спорт", "Наука и жизнь", "Игры", "Мифы и легенды"
+        ]
+        let themes = titles.enumerated().map { index, title in
+            SnapshotSupport.makeTheme(
+                id: "masonry-\(index)", name: title,
+                sfSymbolName: index.isMultiple(of: 2) ? "sparkles" : "book.fill",
+                colorHex: index.isMultiple(of: 2) ? "#8B5CF6" : "#62A2E6"
+            )
+        }
+        SnapshotSupport.assertScreen(
+            makeHomeViewController(themes: themes),
+            named: "clean-home-masonry-catalog",
+            size: portraitSize
+        )
+    }
+
     func testCollapsedBackendCatalogSnapshot() {
         let themes = makeBackendCatalogThemes()
         SnapshotSupport.assertScreen(

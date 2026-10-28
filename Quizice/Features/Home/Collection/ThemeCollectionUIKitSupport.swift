@@ -219,15 +219,9 @@ final class ThemesViewportCollectionViewCell: UICollectionViewCell {
     private var lastCatalogWidth: CGFloat = 0
 
     override init(frame: CGRect) {
-        let layout = HomeThemesCollectionViewFlowLayout()
-        layout.scrollDirection = .vertical
-        layout.minimumLineSpacing = 16
-        layout.minimumInteritemSpacing = 16
-        layout.sectionInset = .zero
-
         themesCollectionView = HomeThemesCollectionView(
             frame: .zero,
-            collectionViewLayout: layout
+            collectionViewLayout: HomeThemeMasonryLayout()
         )
         super.init(frame: frame)
 
@@ -258,6 +252,11 @@ final class ThemesViewportCollectionViewCell: UICollectionViewCell {
             ThemeCardCollectionViewCell.self,
             forCellWithReuseIdentifier: ThemeCardCollectionViewCell.reuseIdentifier
         )
+        themesCollectionView.registerForTraitChanges([UITraitPreferredContentSizeCategory.self]) {
+            (catalog: HomeThemesCollectionView, _: UITraitCollection) in
+            catalog.collectionViewLayout.invalidateLayout()
+            catalog.reloadData()
+        }
 
         contentView.addSubview(themesCollectionView)
         NSLayoutConstraint.activate([
@@ -275,6 +274,7 @@ final class ThemesViewportCollectionViewCell: UICollectionViewCell {
 
     override func layoutSubviews() {
         super.layoutSubviews()
+        contentView.layoutIfNeeded()
         let width = themesCollectionView.bounds.width
         guard width > 0, width != lastCatalogWidth else { return }
         lastCatalogWidth = width
