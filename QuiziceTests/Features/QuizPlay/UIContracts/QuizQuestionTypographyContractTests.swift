@@ -3,6 +3,32 @@ import XCTest
 
 @MainActor
 final class QuizQuestionTypographyContractTests: CrossScreenVisualTestCase {
+    func testLongSourceThemeHeaderStaysAboveQuestionAtLargeTextSizes() {
+        let title = "История науки, технологий и великих географических открытий"
+        for style in [AppDesignStyle.classic, .radar, .clean] {
+            UserDefaults.standard.set(style.rawValue, forKey: AppAppearanceStore.Keys.designStyle)
+            for category in [UIContentSizeCategory.large, .accessibilityExtraExtraExtraLarge] {
+                let controller = QuizQuestionViewController()
+                controller.configurePresenter(ExitConfirmationPresenterSpy())
+                controller.traitOverrides.preferredContentSizeCategory = category
+                controller.loadViewIfNeeded()
+                controller.view.frame = CGRect(x: 0, y: 0, width: 320, height: 568)
+                controller.loadQuestionToView(QuizQuestionViewModel(
+                    themeName: title, questionText: "Короткий вопрос?", questionNumberText: "Вопрос №1",
+                    answers: ["A", "B", "C", "D"].enumerated().map {
+                        QuizAnswerOption(id: String($0.offset), title: $0.element)
+                    }
+                ))
+                controller.view.layoutIfNeeded()
+                XCTAssertEqual(controller.themeNameLabel.text, title)
+                XCTAssertGreaterThan(controller.themeNameLabel.bounds.height, 0)
+                XCTAssertLessThanOrEqual(controller.themeNameLabel.frame.maxY, controller.questionNumberLabel.frame.minY)
+                XCTAssertLessThanOrEqual(controller.questionNumberLabel.frame.maxY, controller.cardContainerView.frame.minY)
+                XCTAssertLessThanOrEqual(controller.themeNameLabel.frame.maxX, controller.closeButton.frame.minX)
+            }
+        }
+    }
+
     func testReportedBundeswehrQuestionFitsFixedCardAcrossStylesAndScreenSizes() throws {
         let question = "Чьё согласие по общему правилу требуется федеральному правительству для вооружённой операции Бундесвера за рубежом?"
         let answers = [
