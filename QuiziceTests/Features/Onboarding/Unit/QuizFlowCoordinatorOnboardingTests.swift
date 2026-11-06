@@ -136,6 +136,73 @@ final class QuizFlowCoordinatorOnboardingTests: QuizFlowCoordinatorTestCase {
         )
     }
 
+    func testFallingTopicsStartWithBaseThemesInEveryLocalization() throws {
+        let previousLanguage = AppLocalizationStore.shared.languagePreference
+        defer { AppLocalizationStore.shared.languagePreference = previousLanguage }
+        let baseThemeIDs = ["music", "technology", "history_culture", "politics_business"]
+
+        for language in AppLanguagePreference.allCases where language != .system {
+            AppLocalizationStore.shared.languagePreference = language
+            let localizedThemes = try LocalizedThemeDataLoader().load().themes.map {
+                OnboardingTheme(id: $0.id, title: $0.theme, sfSymbolName: $0.sfSymbolName)
+            }
+            let additionalThemes = [
+                OnboardingTheme(id: "cinema", title: "Cinema \(language.rawValue)"),
+                OnboardingTheme(id: "space", title: "Space \(language.rawValue)")
+            ]
+            // The backend may put additional or favorite themes before the base catalog.
+            let input = additionalThemes + Array(localizedThemes.reversed())
+
+            let descriptors = TopicsPhysicsDescriptor.make(from: input)
+
+            XCTAssertEqual(descriptors.map(\.theme.id), baseThemeIDs + ["cinema", "space"])
+            XCTAssertEqual(descriptors.map(\.theme), baseThemeIDs.compactMap { id in
+                localizedThemes.first { $0.id == id }
+            } + additionalThemes)
+            XCTAssertEqual(input.first?.id, "cinema", "Only the falling stage should reorder themes")
+        }
+    }
+
+    func testFallingTopicsKeepAdditionalOrderWhenBaseThemesAreMissing() {
+        let themes = [
+            OnboardingTheme(id: "space", title: "Space"),
+            OnboardingTheme(id: "technology", title: "Technology"),
+            OnboardingTheme(id: "cinema", title: "Cinema"),
+            OnboardingTheme(id: "music", title: "Music")
+        ]
+
+        XCTAssertEqual(
+            TopicsPhysicsDescriptor.make(from: themes).map(\.theme.id),
+            ["music", "technology", "space", "cinema"]
+        )
+        XCTAssertTrue(TopicsPhysicsDescriptor.make(from: []).isEmpty)
+    }
+
+    func testStaticTopicsAreImmediatelyVisibleAndKeepSelectionWithBaseThemesFirst() {
+        let themes = [
+            OnboardingTheme(id: "space", title: "Space"),
+            OnboardingTheme(id: "technology", title: "Technology"),
+            OnboardingTheme(id: "cinema", title: "Cinema"),
+            OnboardingTheme(id: "music", title: "Music")
+        ]
+        let stage = TopicsPhysicsView(frame: CGRect(x: 0, y: 0, width: 390, height: 500))
+        defer { stage.stop() }
+        stage.configure(
+            appearance: SnapshotSupport.appearance(designStyle: .clean),
+            themes: themes,
+            selectedThemeIDs: ["space"],
+            usesStaticLayout: true
+        )
+        stage.setActive(true)
+
+        let cards = stage.subviews.compactMap { $0 as? PhysicsTopicCardView }
+        XCTAssertEqual(cards.map(\.themeID), ["music", "technology", "space", "cinema"])
+        for card in cards {
+            XCTAssertTrue(stage.bounds.contains(card.frame), "\(card.themeID) should be visible without waiting")
+            XCTAssertEqual(card.accessibilityTraits.contains(.selected), card.themeID == "space")
+        }
+    }
+
     func testFallingTopicCardsSizeToBackendTitlesWithoutWrapping() throws {
         let themes = [
             "Музыка",
