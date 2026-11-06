@@ -32,7 +32,8 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 window: window,
                 aiQuizThemeService: aiRuntimeDependencies.themeService,
                 aiQuizAccessProvider: aiRuntimeDependencies.accessProvider,
-                accountManager: authenticationService
+                accountManager: authenticationService,
+                statisticsHistoryStore: .live()
             )
             coordinator.start()
             self.coordinator = coordinator

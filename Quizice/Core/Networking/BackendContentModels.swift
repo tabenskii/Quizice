@@ -4,6 +4,7 @@ enum BackendOperation: String, Equatable {
     case authentication
     case accountDeletion = "account_deletion"
     case statisticsSync = "statistics_sync"
+    case statisticsHistory = "statistics_history"
     case themes
     case themePreferences = "theme_preferences"
     case questions

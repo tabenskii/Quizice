@@ -9,6 +9,7 @@ final class QuizFlowCoordinator: NSObject, QuizRouting, UIViewControllerTransiti
     private let aiQuizThemeService: AIQuizThemeServiceProtocol
     private let aiQuizAccessProvider: AIQuizAccessProviding
     private let accountManager: AccountManaging?
+    private let statisticsHistoryStore: StatisticsHistoryStore?
     private let onboardingProgressStore: OnboardingProgressStoring
     private let analytics: AnalyticsTracking
     private let notificationCenter: NotificationCenter
@@ -38,6 +39,7 @@ final class QuizFlowCoordinator: NSObject, QuizRouting, UIViewControllerTransiti
         aiQuizThemeService: AIQuizThemeServiceProtocol? = nil,
         aiQuizAccessProvider: AIQuizAccessProviding? = nil,
         accountManager: AccountManaging? = nil,
+        statisticsHistoryStore: StatisticsHistoryStore? = nil,
         onboardingProgressStore: OnboardingProgressStoring = OnboardingProgressStore.shared,
         analytics: AnalyticsTracking = AppMetricaAnalyticsTracker.shared,
         notificationCenter: NotificationCenter = .default,
@@ -58,6 +60,7 @@ final class QuizFlowCoordinator: NSObject, QuizRouting, UIViewControllerTransiti
             ?? Self.makeDefaultAIQuizThemeService(accessProvider: resolvedAIQuizAccessProvider)
         self.aiQuizAccessProvider = resolvedAIQuizAccessProvider
         self.accountManager = accountManager
+        self.statisticsHistoryStore = statisticsHistoryStore
         self.onboardingProgressStore = onboardingProgressStore
         self.analytics = analytics
         self.notificationCenter = notificationCenter
@@ -101,6 +104,7 @@ final class QuizFlowCoordinator: NSObject, QuizRouting, UIViewControllerTransiti
         let viewController = QuizViewController(
             themeRepository: themeRepository,
             session: session,
+            statisticsHistoryStore: statisticsHistoryStore,
             aiQuizThemeService: aiQuizThemeService,
             aiQuizAccessProvider: aiQuizAccessProvider,
             analytics: analytics,
