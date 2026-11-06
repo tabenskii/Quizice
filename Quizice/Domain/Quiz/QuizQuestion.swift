@@ -8,6 +8,7 @@ class QuizQuestion {
     var answers: [String]
     var correctAnswer: String
     var explanation: String?
+    var sourceThemeName: String?
     
     init(
         questionID: String? = nil,
@@ -16,7 +17,8 @@ class QuizQuestion {
         question: String,
         answers: [String],
         correctAnswer: String,
-        explanation: String? = nil
+        explanation: String? = nil,
+        sourceThemeName: String? = nil
     ) {
         self.questionID = questionID
         self.questionVersion = questionVersion
@@ -25,6 +27,16 @@ class QuizQuestion {
         self.answers = answers
         self.correctAnswer = correctAnswer
         self.explanation = explanation
+        self.sourceThemeName = sourceThemeName
+    }
+
+    func roundSnapshot() -> QuizQuestion {
+        QuizQuestion(
+            questionID: questionID, questionVersion: questionVersion,
+            locale: locale, question: question, answers: answers,
+            correctAnswer: correctAnswer, explanation: explanation,
+            sourceThemeName: sourceThemeName
+        )
     }
 }
 

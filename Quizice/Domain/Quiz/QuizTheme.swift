@@ -110,11 +110,20 @@ enum RandomQuizSelection {
         let selectedQuestions = Array((unseenQuestions + repeatedQuestions).prefix(questionCount))
         guard selectedQuestions.count == questionCount else { return nil }
 
+        // Keep round metadata separate from the shared catalog questions.
+        let roundQuestions = selectedQuestions.map { question in
+            let snapshot = question.roundSnapshot()
+            snapshot.sourceThemeName = themes.first { theme in
+                theme.questions.contains { $0 === question }
+            }?.theme
+            return snapshot
+        }
+
         return QuizTheme(
             id: themeID,
             theme: title,
             themeDescription: description,
-            questions: selectedQuestions
+            questions: roundQuestions
         )
     }
 

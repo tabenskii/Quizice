@@ -62,6 +62,68 @@ final class QuizQuestionPresenterTests: XCTestCase {
         XCTAssertEqual(presenter.answerFeedback(for: wrongOption.id), .wrong)
     }
 
+    func testRandomRoundShowsEachSourceThemeAfterShufflingAndKeepsSnapshot() throws {
+        let music = makeQuestion("Music?", correctAnswer: "A")
+        music.sourceThemeName = "Музыка"
+        let technology = makeQuestion("Technology?", correctAnswer: "B")
+        technology.sourceThemeName = "Технологии"
+        let session = QuestionPresenterSession()
+        session.chosenTheme = ThemeModel(quizTheme: SnapshotSupport.makeTheme(
+            id: RandomQuizSelection.themeID, name: L10n.Home.randomSelection,
+            questions: [music, technology]
+        ))
+        let view = QuestionPresenterViewSpy()
+        let presenter = QuizQuestionPresenter(
+            session: session, statisticsStore: makeStatisticsHarness().store,
+            randomizer: QuizQuestionRandomizer(questions: { Array($0.reversed()) }, answers: { $0 })
+        )
+        presenter.view = view
+        presenter.loadQuestions()
+        music.sourceThemeName = "Changed after round started"
+        technology.sourceThemeName = nil
+        presenter.loadQuestion()
+
+        XCTAssertEqual(view.loadedViewModels.last?.themeName, "Технологии")
+        XCTAssertEqual(view.loadedViewModels.last?.questionText, "Technology?")
+        presenter.checkAnswer(optionID: try XCTUnwrap(view.loadedViewModels.last?.answers.first?.id))
+        presenter.checkQuestionNumberAndProceed()
+        XCTAssertEqual(view.loadedViewModels.last?.themeName, "Музыка")
+        XCTAssertEqual(view.loadedViewModels.last?.questionText, "Music?")
+        XCTAssertEqual(presenter.themeID, RandomQuizSelection.themeID)
+    }
+
+    func testRandomRoundWithoutUsableSourceThemeKeepsRoundTitle() {
+        for sourceThemeName in [nil, "", " \n "] as [String?] {
+            let question = makeQuestion("Question?", correctAnswer: "A")
+            question.sourceThemeName = sourceThemeName
+            let session = QuestionPresenterSession()
+            session.chosenTheme = ThemeModel(quizTheme: SnapshotSupport.makeTheme(
+                id: RandomQuizSelection.themeID, name: L10n.Home.randomSelection, questions: [question]
+            ))
+            let view = QuestionPresenterViewSpy()
+            let presenter = QuizQuestionPresenter(session: session, statisticsStore: makeStatisticsHarness().store)
+            presenter.view = view
+            presenter.viewDidLoad()
+
+            XCTAssertEqual(view.loadedViewModels.last?.themeName, L10n.Home.randomSelection)
+        }
+    }
+
+    func testRegularRoundKeepsItsTitleWhenQuestionHasSourceTheme() {
+        let question = makeQuestion("Question?", correctAnswer: "A")
+        question.sourceThemeName = "Other source"
+        let session = QuestionPresenterSession()
+        session.chosenTheme = ThemeModel(quizTheme: SnapshotSupport.makeTheme(
+            id: "music", name: "Музыка", questions: [question]
+        ))
+        let view = QuestionPresenterViewSpy()
+        let presenter = QuizQuestionPresenter(session: session, statisticsStore: makeStatisticsHarness().store)
+        presenter.view = view
+        presenter.viewDidLoad()
+
+        XCTAssertEqual(view.loadedViewModels.last?.themeName, "Музыка")
+    }
+
     func testCorrectAnswerRecordsSingleCompletedAttemptAndEmitsResult() throws {
         let harness = makeStatisticsHarness()
         let session = QuestionPresenterSession()
