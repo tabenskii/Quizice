@@ -7,6 +7,51 @@ final class BackendClientTests: XCTestCase {
         super.tearDown()
     }
 
+    func testStatisticsHistoryUsesAuthenticatedAccountPeriodAndTimeZone() async throws {
+        let provider = ProgressSessionProvider()
+        let api = HTTPBackendContentAPI(configuration: Self.configuration, session: makeSession(), accessTokenProvider: provider)
+        BackendTestURLProtocol.requestHandler = { request in
+            XCTAssertEqual(request.url?.path, "/api/v1/me/statistics/history")
+            let query = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems
+            XCTAssertEqual(query?.first { $0.name == "period" }?.value, "week")
+            XCTAssertEqual(query?.first { $0.name == "timeZone" }?.value, "Europe/Moscow")
+            XCTAssertEqual(request.value(forHTTPHeaderField: "X-Quizice-Authorization"), "Bearer token-A")
+            return Self.response(for: request, data: Self.statisticsHistoryBody)
+        }
+        let response = try await api.fetchStatisticsHistory(period: .week, timeZone: TimeZone(identifier: "Europe/Moscow")!, session: provider.session!)
+        XCTAssertEqual(response.days.first?.playedQuizzes, 2)
+    }
+
+    func testStatisticsHistoryRejectsSuccessfulResponseAfterAccountSwitch() async {
+        let provider = ProgressSessionProvider()
+        let api = HTTPBackendContentAPI(configuration: Self.configuration, session: makeSession(), accessTokenProvider: provider)
+        let original = provider.session!
+        BackendTestURLProtocol.requestHandler = { request in
+            provider.session = ProgressSessionProvider.session("B")
+            return Self.response(for: request, data: Self.statisticsHistoryBody)
+        }
+        await assertBackendContentError(.unauthenticated) {
+            try await api.fetchStatisticsHistory(period: .week, timeZone: TimeZone(identifier: "Europe/Moscow")!, session: original)
+        }
+    }
+
+    func testStatisticsHistoryRecovers401OnceWithoutLosingAccountScope() async throws {
+        let provider = ProgressSessionProvider()
+        let recovery = BackendAuthenticationRecovererSpy(refreshedToken: "fresh")
+        let api = HTTPBackendContentAPI(configuration: Self.configuration, session: makeSession(), accessTokenProvider: provider, authenticationRecoverer: recovery)
+        var requests = 0
+        BackendTestURLProtocol.requestHandler = { request in
+            requests += 1
+            if requests == 1 { return Self.response(for: request, statusCode: 401, data: Data("{}".utf8)) }
+            XCTAssertEqual(request.value(forHTTPHeaderField: "X-Quizice-Authorization"), "Bearer fresh")
+            return Self.response(for: request, data: Self.statisticsHistoryBody)
+        }
+        _ = try await api.fetchStatisticsHistory(period: .week, timeZone: TimeZone(identifier: "Europe/Moscow")!, session: provider.session!)
+        XCTAssertEqual(requests, 2)
+    }
+
+    private static let statisticsHistoryBody = Data(#"{"period":"week","timeZone":"Europe/Moscow","periodStart":"2026-10-31","periodEnd":"2026-11-07","days":[{"date":"2026-11-01","playedQuizzes":2,"correctAnswers":5,"totalQuestions":20}],"undatedPlayedQuizzes":53}"#.utf8)
+
     func testThemeCatalogUsesLocaleEnvelopeAndRecordsDecodedLatency() async throws {
         let metrics = BackendMetricSpy()
         let api = makeContentAPI(metrics: metrics, accessToken: "catalog-token")

@@ -291,3 +291,18 @@
 "account_start.deletion_pending.message" = "Удаление аккаунта ещё не завершено. Повторите запрос, чтобы удалить аккаунт и его данные.";
 "account_start.deletion_pending.action" = "Повторить удаление";
 "account_start.deletion_pending.sign_in" = "Чтобы завершить удаление, войдите в исходный аккаунт Game Center в настройках iPhone и повторите попытку.";
+
+/* Daily account statistics */
+"statistics.history.title" = "История игр";
+"statistics.history.empty" = "За этот период пока нет игр с сохранённой датой.";
+"statistics.history.accuracy" = "Точность ответов";
+"statistics.history.games" = "Сыграно игр";
+"statistics.history.day" = "День";
+"statistics.period.title" = "Период";
+"statistics.period.week" = "Неделя";
+"statistics.period.month" = "Месяц";
+"statistics.period.all_time" = "Всё время";
+"statistics.history.loading" = "Загружаем историю…";
+"statistics.history.error" = "Не удалось загрузить историю игр. Проверьте подключение и попробуйте ещё раз.";
+"statistics.history.retry" = "Повторить";
+"statistics.history.undated" = "Графики доступны для игр с сохранённой датой. Старые игры без даты остаются в общей статистике.";

@@ -291,3 +291,18 @@
 "account_start.deletion_pending.message" = "Account deletion is not yet complete. Retry the request to delete your account and its data.";
 "account_start.deletion_pending.action" = "Retry account deletion";
 "account_start.deletion_pending.sign_in" = "To finish deletion, sign in to the original Game Center account in iPhone Settings, then try again.";
+
+/* Daily account statistics */
+"statistics.history.title" = "Game history";
+"statistics.history.empty" = "No dated games in this period yet.";
+"statistics.history.accuracy" = "Answer accuracy";
+"statistics.history.games" = "Games played";
+"statistics.history.day" = "Day";
+"statistics.period.title" = "Period";
+"statistics.period.week" = "Week";
+"statistics.period.month" = "Month";
+"statistics.period.all_time" = "All time";
+"statistics.history.loading" = "Loading history…";
+"statistics.history.error" = "Game history could not be loaded. Check your connection and try again.";
+"statistics.history.retry" = "Retry";
+"statistics.history.undated" = "Charts include games with a recorded date. Older games without a date remain in your overall statistics.";
