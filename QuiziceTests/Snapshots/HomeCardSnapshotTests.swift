@@ -20,12 +20,14 @@ final class HomeCardSnapshotTests: XCTestCase {
     }
 
     func testStatisticsChartsAcrossAppearances() throws {
-        for style in [AppDesignStyle.classic, .clean, .radar] {
-            let view = StatisticsChartsView(frame: CGRect(x: 0, y: 0, width: 375, height: 0))
-            let appearance = SnapshotSupport.appearance(designStyle: style)
-            view.configure(state: .loaded(try chartTimeline()), period: .week, appearance: appearance)
-            SnapshotSupport.assertComponent(view, named: "statistics-charts-\(style.rawValue)",
-                                            size: CGSize(width: 375, height: 760), backgroundAppearance: appearance)
+        try withSystemCalendarTimeZones {
+            for style in [AppDesignStyle.classic, .clean, .radar] {
+                let view = StatisticsChartsView(frame: CGRect(x: 0, y: 0, width: 375, height: 0))
+                let appearance = SnapshotSupport.appearance(designStyle: style)
+                view.configure(state: .loaded(try chartTimeline()), period: .week, appearance: appearance)
+                SnapshotSupport.assertComponent(view, named: "statistics-charts-\(style.rawValue)",
+                                                size: CGSize(width: 375, height: 760), backgroundAppearance: appearance)
+            }
         }
     }
 
@@ -53,19 +55,32 @@ final class HomeCardSnapshotTests: XCTestCase {
     }
 
     func testStatisticsChartsAccessibilityExtraExtraExtraLarge() throws {
-        let appearance = SnapshotSupport.appearance(designStyle: .clean)
-        let charts = StatisticsChartsView()
-        charts.configure(state: .loaded(try chartTimeline()), period: .week, appearance: appearance)
-        let host = UIViewController()
-        host.view.backgroundColor = appearance.backgroundColor
-        host.view.addSubview(charts)
-        NSLayoutConstraint.activate([
-            charts.leadingAnchor.constraint(equalTo: host.view.leadingAnchor),
-            charts.trailingAnchor.constraint(equalTo: host.view.trailingAnchor),
-            charts.topAnchor.constraint(equalTo: host.view.topAnchor)
-        ])
-        SnapshotSupport.assertScreen(host, named: "statistics-charts-accessibility-xxxl",
-                                     size: CGSize(width: 375, height: 2300), contentSizeCategory: .accessibilityExtraExtraExtraLarge)
+        try withSystemCalendarTimeZones {
+            let appearance = SnapshotSupport.appearance(designStyle: .clean)
+            let charts = StatisticsChartsView()
+            charts.configure(state: .loaded(try chartTimeline()), period: .week, appearance: appearance)
+            let host = UIViewController()
+            host.view.backgroundColor = appearance.backgroundColor
+            host.view.addSubview(charts)
+            NSLayoutConstraint.activate([
+                charts.leadingAnchor.constraint(equalTo: host.view.leadingAnchor),
+                charts.trailingAnchor.constraint(equalTo: host.view.trailingAnchor),
+                charts.topAnchor.constraint(equalTo: host.view.topAnchor)
+            ])
+            SnapshotSupport.assertScreen(host, named: "statistics-charts-accessibility-xxxl",
+                                         size: CGSize(width: 375, height: 2300), contentSizeCategory: .accessibilityExtraExtraExtraLarge)
+        }
+    }
+
+    private func withSystemCalendarTimeZones(_ body: () throws -> Void) rethrows {
+        let previous = NSTimeZone.default
+        defer { NSTimeZone.default = previous }
+        // The same Moscow history must render identically on a UTC CI runner and locally.
+        for zone in [TimeZone(secondsFromGMT: 0)!, TimeZone(identifier: "Europe/Moscow")!] {
+            NSTimeZone.default = zone
+            XCTAssertEqual(Calendar.current.timeZone, zone)
+            try body()
+        }
     }
 
     private func chartTimeline(empty: Bool = false) throws -> StatisticsTimeline {

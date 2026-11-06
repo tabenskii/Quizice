@@ -196,7 +196,10 @@ private struct StatisticsChartsContent: View {
         let maximumGames = max(timeline.days.map(\.playedQuizzes).max() ?? 0, 1)
         let gameTicks = Array(Set([0, max(1, maximumGames / 2), maximumGames])).sorted()
         return Chart(timeline.days) { day in
-            BarMark(x: .value(L10n.Statistics.day, day.date, unit: .day), y: .value(L10n.Statistics.dailyGames, day.playedQuizzes))
+            BarMark(
+                x: .value(L10n.Statistics.day, day.date, unit: .day, calendar: calendar),
+                y: .value(L10n.Statistics.dailyGames, day.playedQuizzes)
+            )
                 .foregroundStyle(accent)
                 .cornerRadius(3)
                 .accessibilityLabel(day.date.formatted(Date.FormatStyle(date: .long, time: .omitted, locale: locale, calendar: calendar, timeZone: timeline.timeZone)))
@@ -224,13 +227,14 @@ private struct StatisticsChartsContent: View {
     }
 
     private func dateAxis(_ timeline: StatisticsTimeline) -> some AxisContent {
-        AxisMarks(values: .automatic(desiredCount: 3)) { value in
+        let format = Date.FormatStyle(locale: locale, calendar: calendar, timeZone: timeline.timeZone)
+        return AxisMarks(values: .automatic(desiredCount: 3)) { value in
             AxisValueLabel {
                 if let date = value.as(Date.self) {
                     if timeline.interval.duration > 366 * 24 * 60 * 60 {
-                        Text(date, format: .dateTime.month(.abbreviated).year()).foregroundStyle(secondary)
+                        Text(date, format: format.month(.abbreviated).year()).foregroundStyle(secondary)
                     } else {
-                        Text(date, format: .dateTime.day().month(.abbreviated)).foregroundStyle(secondary)
+                        Text(date, format: format.day().month(.abbreviated)).foregroundStyle(secondary)
                     }
                 }
             }
