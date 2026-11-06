@@ -9,6 +9,20 @@ final class AppAppearanceTests: XCTestCase {
         super.tearDown()
     }
 
+    func testThemeSymbolsFallBackWhenUnavailableOnTheCurrentOS() throws {
+        for symbol in ["quizice.nonexistent.theme.symbol", "", " \n "] {
+            let resolved = ThemeVisualCatalog.resolvedSymbolName(symbol)
+            XCTAssertEqual(resolved, QuizTheme.defaultSFSymbolName)
+            XCTAssertNotNil(UIImage(systemName: resolved))
+            let image = try XCTUnwrap(ThemeVisualCatalog.logoImage(sfSymbolName: symbol))
+            XCTAssertEqual(image.renderingMode, .alwaysTemplate)
+        }
+    }
+
+    func testThemeSymbolsPreserveAvailableServerMetadata() {
+        XCTAssertEqual(ThemeVisualCatalog.resolvedSymbolName("  moon.stars.fill \n"), "moon.stars.fill")
+    }
+
     func testAllDesignStylesResolveExpectedSurfaceFamilies() {
         let clean = SnapshotSupport.appearance(designStyle: .clean, cleanColorScheme: .light)
         let radar = SnapshotSupport.appearance(designStyle: .radar)

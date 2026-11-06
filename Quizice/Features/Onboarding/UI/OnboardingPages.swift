@@ -203,7 +203,7 @@ private struct WelcomeArtwork: View {
             }
             .frame(width: size, height: size)
             .overlay {
-                Image(systemName: systemImage)
+                Image(systemName: ThemeVisualCatalog.resolvedSymbolName(systemImage))
                     .font(appearance.typography.swiftUIFont(size: size * 0.36, weight: .semibold))
                     .foregroundStyle(Color(uiColor: appearance.themeCardTextColor(baseColor: color)))
             }
