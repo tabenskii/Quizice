@@ -71,6 +71,8 @@ final class TopicsPhysicsView: UIView {
 
     private enum Animation {
         static let replayFadeDuration: TimeInterval = 0.5
+        static let regularDropInterval: TimeInterval = 0.12
+        static let denseDropInterval: TimeInterval = 0.22
     }
 
     private enum Motion {
@@ -330,7 +332,9 @@ final class TopicsPhysicsView: UIView {
         collisionBehavior = collisions
         itemBehavior = bodyProperties
 
-        let dropInterval = themes.count > 10 ? 0.16 : 0.075
+        let dropInterval = themes.count > 10
+            ? Animation.denseDropInterval
+            : Animation.regularDropInterval
         for (index, pair) in zip(descriptors.indices, zip(descriptors, bodyViews)) {
             let (descriptor, view) = pair
             placeForDrop(view, descriptor: descriptor, index: index)
