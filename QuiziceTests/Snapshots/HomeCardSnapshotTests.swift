@@ -20,7 +20,7 @@ final class HomeCardSnapshotTests: XCTestCase {
     }
 
     func testStatisticsChartsAcrossAppearances() throws {
-        try withSystemCalendarTimeZones {
+        try withSystemTimeZones {
             for style in [AppDesignStyle.classic, .clean, .radar] {
                 let view = StatisticsChartsView(frame: CGRect(x: 0, y: 0, width: 375, height: 0))
                 let appearance = SnapshotSupport.appearance(designStyle: style)
@@ -55,7 +55,7 @@ final class HomeCardSnapshotTests: XCTestCase {
     }
 
     func testStatisticsChartsAccessibilityExtraExtraExtraLarge() throws {
-        try withSystemCalendarTimeZones {
+        try withSystemTimeZones {
             let appearance = SnapshotSupport.appearance(designStyle: .clean)
             let charts = StatisticsChartsView()
             charts.configure(state: .loaded(try chartTimeline()), period: .week, appearance: appearance)
@@ -72,12 +72,22 @@ final class HomeCardSnapshotTests: XCTestCase {
         }
     }
 
-    private func withSystemCalendarTimeZones(_ body: () throws -> Void) rethrows {
-        let previous = NSTimeZone.default
-        defer { NSTimeZone.default = previous }
+    private func withSystemTimeZones(_ body: () throws -> Void) rethrows {
+        let previousDefault = NSTimeZone.default
+        let previousEnvironment = getenv("TZ").map { String(cString: $0) }
+        defer {
+            if let previousEnvironment { setenv("TZ", previousEnvironment, 1) } else { unsetenv("TZ") }
+            tzset()
+            NSTimeZone.resetSystemTimeZone()
+            NSTimeZone.default = previousDefault
+        }
         // The same Moscow history must render identically on a UTC CI runner and locally.
         for zone in [TimeZone(secondsFromGMT: 0)!, TimeZone(identifier: "Europe/Moscow")!] {
+            setenv("TZ", zone.identifier, 1)
+            tzset()
+            NSTimeZone.resetSystemTimeZone()
             NSTimeZone.default = zone
+            XCTAssertEqual(TimeZone.current, zone)
             XCTAssertEqual(Calendar.current.timeZone, zone)
             try body()
         }

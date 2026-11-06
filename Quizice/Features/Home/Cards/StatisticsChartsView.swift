@@ -232,9 +232,9 @@ private struct StatisticsChartsContent: View {
             AxisValueLabel {
                 if let date = value.as(Date.self) {
                     if timeline.interval.duration > 366 * 24 * 60 * 60 {
-                        Text(date, format: format.month(.abbreviated).year()).foregroundStyle(secondary)
+                        Text(date.formatted(format.month(.abbreviated).year())).foregroundStyle(secondary)
                     } else {
-                        Text(date, format: format.day().month(.abbreviated)).foregroundStyle(secondary)
+                        Text(date.formatted(format.day().month(.abbreviated))).foregroundStyle(secondary)
                     }
                 }
             }
