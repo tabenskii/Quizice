@@ -291,3 +291,18 @@
 "account_start.deletion_pending.message" = "L’eliminazione dell’account non è ancora completata. Riprova per eliminare il tuo account e i suoi dati.";
 "account_start.deletion_pending.action" = "Riprova l’eliminazione";
 "account_start.deletion_pending.sign_in" = "Per completare l’eliminazione, accedi all’account Game Center originale nelle Impostazioni di iPhone e riprova.";
+
+/* Daily account statistics */
+"statistics.history.title" = "Cronologia delle partite";
+"statistics.history.empty" = "Non ci sono ancora partite con data in questo periodo.";
+"statistics.history.accuracy" = "Precisione delle risposte";
+"statistics.history.games" = "Partite giocate";
+"statistics.history.day" = "Giorno";
+"statistics.period.title" = "Periodo";
+"statistics.period.week" = "Settimana";
+"statistics.period.month" = "Mese";
+"statistics.period.all_time" = "Tutto";
+"statistics.history.loading" = "Caricamento cronologia…";
+"statistics.history.error" = "Impossibile caricare la cronologia. Controlla la connessione e riprova.";
+"statistics.history.retry" = "Riprova";
+"statistics.history.undated" = "I grafici includono le partite con una data registrata. Le vecchie partite senza data restano nelle statistiche generali.";

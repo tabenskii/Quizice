@@ -436,6 +436,19 @@ enum L10n {
     }
 
     enum Statistics {
+        static var historyLoading: String { L10n.localized("statistics.history.loading", comment: "Statistics history loading") }
+        static var historyError: String { L10n.localized("statistics.history.error", comment: "Statistics history error") }
+        static var historyRetry: String { L10n.localized("statistics.history.retry", comment: "Statistics history retry") }
+        static var historyUndated: String { L10n.localized("statistics.history.undated", comment: "Statistics history undated") }
+        static var historyTitle: String { L10n.localized("statistics.history.title", comment: "Daily statistics charts section title") }
+        static var historyEmpty: String { L10n.localized("statistics.history.empty", comment: "No dated games in the selected period") }
+        static var dailyAccuracy: String { L10n.localized("statistics.history.accuracy", comment: "Daily answer accuracy chart title") }
+        static var dailyGames: String { L10n.localized("statistics.history.games", comment: "Daily completed games chart title") }
+        static var day: String { L10n.localized("statistics.history.day", comment: "Statistics date axis label") }
+        static var period: String { L10n.localized("statistics.period.title", comment: "Statistics period picker label") }
+        static var periodWeek: String { L10n.localized("statistics.period.week", comment: "Last seven calendar days") }
+        static var periodMonth: String { L10n.localized("statistics.period.month", comment: "Last thirty calendar days") }
+        static var periodAllTime: String { L10n.localized("statistics.period.all_time", comment: "All recorded history") }
         static var accessibilityLabel: String { L10n.localized("statistics.accessibility_label", comment: "Expanded statistics card accessibility label") }
         static var bestResult: String { L10n.localized("statistics.best_result", comment: "Best result row title") }
         static var correctAnswers: String { L10n.localized("statistics.correct_answers", comment: "Correct answers row title") }

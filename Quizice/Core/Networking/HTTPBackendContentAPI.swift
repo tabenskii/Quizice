@@ -1,6 +1,6 @@
 import Foundation
 
-final class HTTPBackendContentAPI: BackendContentAPI {
+final class HTTPBackendContentAPI: BackendContentAPI, StatisticsHistoryAPI {
     private let baseURL: URL
     private let session: URLSession
     private let encoder: JSONEncoder
@@ -38,6 +38,24 @@ final class HTTPBackendContentAPI: BackendContentAPI {
     // the existing 401 recovery path instead of silently fetching as a guest.
     private var requestAccessToken: String? {
         accessTokenProvider.validAccessToken() ?? accessTokenProvider.currentSession()?.accessToken
+    }
+
+    func fetchStatisticsHistory(period: StatisticsPeriod, timeZone: TimeZone, session: AuthSession) async throws -> StatisticsHistoryResponse {
+        guard accessTokenProvider.currentSession()?.userID == session.userID else {
+            throw BackendContentError.unauthenticated
+        }
+        let url = try makeURL(pathComponents: ["v1", "me", "statistics", "history"], queryItems: [
+            URLQueryItem(name: "period", value: period.rawValue),
+            URLQueryItem(name: "timeZone", value: timeZone.identifier)
+        ])
+        let response: StatisticsHistoryResponse = try await get(
+            url: url, operation: .statisticsHistory, accessToken: session.accessToken,
+            validate: { (try? $0.timeline(requestedPeriod: period, timeZone: timeZone)) != nil }
+        )
+        guard accessTokenProvider.currentSession()?.userID == session.userID else {
+            throw BackendContentError.unauthenticated
+        }
+        return response
     }
 
     func fetchThemes(locale: String) async throws -> BackendThemeCatalogResponse {

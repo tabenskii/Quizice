@@ -28,6 +28,7 @@ extension QuizViewController {
             let summary = statisticsStore.loadSummary()
             expandedStatisticsSummary = summary
             cardView.configure(summary: summary, appearance: currentAppearance())
+            refreshStatisticsCharts()
             if expandedCardBlurView == nil {
                 expandedCardBackdropView?.backgroundColor = currentAppearance().backgroundColor.withAlphaComponent(
                     Appearance.reducedTransparencyBackdropAlpha
@@ -113,6 +114,7 @@ extension QuizViewController {
         expandedAIKeyboardAnimator = nil
         expandedThemeCardView?.setParallaxPresentationPhase(.inactive)
         expandedThemeCardView?.removeFromSuperview()
+        statisticsHistoryStore.stop()
         expandedStatisticsCardView?.removeFromSuperview()
         expandedAIThemeCardView?.removeFromSuperview()
         expandedCardSnapshotView?.removeFromSuperview()
