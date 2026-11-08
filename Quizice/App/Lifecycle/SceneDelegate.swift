@@ -51,6 +51,13 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     private func startAuthenticatedContent(in window: UIWindow, authenticationService: GameCenterAuthenticationService) {
         self.authenticationService = authenticationService
+#if DEBUG && targetEnvironment(simulator)
+        if authenticationService.usesDebugBackendAuthentication {
+            // Keep Settings/debug recovery reachable even if the test key is rejected.
+            startSimulatorContent(in: window, authenticationService: authenticationService)
+            return
+        }
+#endif
 #if DEBUG
         let usesDebugBackendAuthentication = authenticationService.usesDebugBackendAuthentication
 #else
@@ -131,20 +138,24 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         }
     }
 
-    private func startSimulatorContent(in window: UIWindow) {
+    private func startSimulatorContent(in window: UIWindow, authenticationService: GameCenterAuthenticationService? = nil) {
         StatisticsStore().activateGuest()
-        let aiDependencies = AIQuizRuntimeDependencies.live()
+        let aiDependencies = AIQuizRuntimeDependencies.live(usesDebugBackendAuthentication: authenticationService != nil)
         let coordinator = QuizFlowCoordinator(
             window: window,
             aiQuizThemeService: aiDependencies.themeService,
-            aiQuizAccessProvider: aiDependencies.accessProvider
+            aiQuizAccessProvider: aiDependencies.accessProvider,
+            accountManager: authenticationService
         )
         coordinator.start()
         self.coordinator = coordinator
         launchOverlayPresenter.present(
             in: window,
             appearance: AppAppearanceStore.shared.appearance(compatibleWith: window.traitCollection),
-            preparation: { [weak coordinator] in await coordinator?.prepareInitialCatalog() },
+            preparation: { [weak coordinator, weak authenticationService] in
+                await authenticationService?.waitForDebugAuthentication()
+                await coordinator?.prepareInitialCatalog()
+            },
             prepareContentForReveal: { [weak coordinator] completion in
                 guard let coordinator else { completion(); return }
                 coordinator.presentInitialOnboardingIfNeeded(completion: completion)
