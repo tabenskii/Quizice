@@ -1475,3 +1475,80 @@ extension HTTPAuthAPITests {
         _ = try await makeAPI().authenticate(identity: Self.identity, recreateDeletedAccount: true)
     }
 }
+
+@MainActor
+final class AccountDataSynchronizerTests: XCTestCase {
+    func testConcurrentLifecycleAndScreenRefreshesShareOneFlight() async {
+        let started = expectation(description: "Statistics started")
+        var resume: CheckedContinuation<Void, Never>?
+        var calls = [0, 0, 0]
+        let sync = AccountDataSynchronizer(statistics: {
+            calls[0] += 1
+            if calls[0] == 1 {
+                await withCheckedContinuation { continuation in resume = continuation; started.fulfill() }
+            }
+        }, answers: { calls[1] += 1 }, favorites: { calls[2] += 1 })
+        let first = Task { await sync.refresh() }
+        await fulfillment(of: [started], timeout: 1)
+        let secondRequested = expectation(description: "Second refresh requested")
+        let second = Task { secondRequested.fulfill(); await sync.refresh() }
+        await fulfillment(of: [secondRequested], timeout: 1)
+        resume?.resume()
+        await first.value
+        await second.value
+        XCTAssertEqual(calls, [1, 1, 1])
+        await sync.refresh()
+        XCTAssertEqual(calls, [2, 2, 2])
+    }
+
+    func testCancelledFlightCannotClearReplacementAccountRefresh() async {
+        let firstStarted = expectation(description: "First account")
+        let secondStarted = expectation(description: "Second account")
+        var continuations: [CheckedContinuation<Void, Never>] = []
+        var calls = 0
+        let sync = AccountDataSynchronizer(statistics: {
+            calls += 1
+            await withCheckedContinuation { continuation in
+                continuations.append(continuation)
+                if calls == 1 { firstStarted.fulfill() } else if calls == 2 { secondStarted.fulfill() }
+            }
+        }, answers: {}, favorites: {})
+        let first = Task { await sync.refresh() }
+        await fulfillment(of: [firstStarted], timeout: 1)
+        sync.cancel()
+        let second = Task { await sync.refresh() }
+        await fulfillment(of: [secondStarted], timeout: 1)
+        continuations[0].resume()
+        await first.value
+        let sharedRequested = expectation(description: "Shared refresh requested")
+        let shared = Task { sharedRequested.fulfill(); await sync.refresh() }
+        await fulfillment(of: [sharedRequested], timeout: 1)
+        XCTAssertEqual(calls, 2)
+        continuations[1].resume()
+        await second.value
+        await shared.value
+    }
+}
+
+extension AccountDataSynchronizerTests {
+    func testAuthenticationDuringRefreshRequestsOneFreshPass() async {
+        let started = expectation(description: "Refresh in flight")
+        let loginRequested = expectation(description: "Login notification")
+        var continuation: CheckedContinuation<Void, Never>?
+        var favoritesCalls = 0
+        let sync = AccountDataSynchronizer(statistics: {}, answers: {}, favorites: {
+            favoritesCalls += 1
+            if favoritesCalls == 1 {
+                await withCheckedContinuation { continuation = $0; started.fulfill() }
+            }
+        })
+        let first = Task { await sync.refresh() }
+        await fulfillment(of: [started], timeout: 1)
+        let login = Task { loginRequested.fulfill(); await sync.refresh(requiringNewPass: true) }
+        await fulfillment(of: [loginRequested], timeout: 1)
+        continuation?.resume()
+        await first.value
+        await login.value
+        XCTAssertEqual(favoritesCalls, 2)
+    }
+}

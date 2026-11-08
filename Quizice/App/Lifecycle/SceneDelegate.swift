@@ -1,4 +1,5 @@
 import UIKit
+import Network
 
 class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     private static let gameCenterBannerSettleDelay: TimeInterval = 2.5
@@ -8,6 +9,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     private let launchOverlayPresenter = LaunchOverlayPresenter()
     private var authenticationService: GameCenterAuthenticationService?
     private var accountAccessPresenter: AppAccountAccessPresenter?
+    private var networkMonitor: NWPathMonitor?
 
     func scene(
         _ scene: UIScene,
@@ -75,6 +77,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         )
         coordinator.start()
         self.coordinator = coordinator
+        monitorAccountConnectivity(for: coordinator)
         let appearance = AppAppearanceStore.shared.appearance(
             compatibleWith: window.traitCollection
         )
@@ -149,6 +152,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         )
         coordinator.start()
         self.coordinator = coordinator
+        monitorAccountConnectivity(for: coordinator)
         launchOverlayPresenter.present(
             in: window,
             appearance: AppAppearanceStore.shared.appearance(compatibleWith: window.traitCollection),
@@ -167,6 +171,17 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     }
 #endif
 
+    private func monitorAccountConnectivity(for coordinator: QuizFlowCoordinator) {
+        networkMonitor?.cancel()
+        let monitor = NWPathMonitor()
+        monitor.pathUpdateHandler = { [weak coordinator] path in
+            guard path.status == .satisfied else { return }
+            Task { @MainActor in await coordinator?.refreshAccountData() }
+        }
+        monitor.start(queue: DispatchQueue(label: "quizice.account-sync.network"))
+        networkMonitor = monitor
+    }
+
     func sceneDidDisconnect(_ scene: UIScene) {
         // Called as the scene is being released by the system.
         // This occurs shortly after the scene enters the background, or when its session is discarded.
@@ -174,11 +189,12 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // The scene may re-connect later, as its session was not necessarily discarded (see `application:didDiscardSceneSessions` instead).
         launchOverlayPresenter.dismiss(animated: false)
         accountAccessPresenter?.stop()
+        networkMonitor?.cancel()
+        networkMonitor = nil
     }
 
     func sceneDidBecomeActive(_ scene: UIScene) {
-        authenticationService?.retrySynchronization()
-        Task { await PersistentQuestionAnswerOutbox.shared.synchronize() }
+        Task { @MainActor [weak coordinator] in await coordinator?.refreshAccountData() }
     }
 
     func sceneWillResignActive(_ scene: UIScene) {

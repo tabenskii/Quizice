@@ -157,15 +157,20 @@ extension QuizFactoryTests {
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
         let preferences = OnboardingProgressStore(userDefaults: defaults, userIDProvider: { provider.session?.userID })
-        let backend = RecordingBackendContentAPI(catalogThemes: [BackendThemeDTO(
+        let backend = ThemePreferencesBackendContentAPI(catalogThemes: [BackendThemeDTO(
             id: "music", name: "Music", description: "Music", sfSymbol: "music.note", emoji: "🎵",
-            colorHex: "#FF8252", isFavorite: true)])
+            colorHex: "#FF8252", isFavorite: true)], remoteFavoriteThemeIDs: ["music"])
         let repository = ThemeCatalogRepository(backendContentAPI: backend, preferenceStore: preferences,
                                                accessTokenProvider: provider)
         repository.setModelContext(container.mainContext)
         let locale = AppLocalizationStore.shared.resolvedLanguageCode
         let refreshed = await repository.refreshBackendCatalog(locale: locale)
         XCTAssertTrue(refreshed)
+        // A localized catalog flag must not become the global account baseline.
+        XCTAssertEqual(repository.themes?.filter(\.isFavorite).count, 0)
+        let synchronized = await repository.synchronizeThemePreferences(locale: locale)
+        XCTAssertTrue(synchronized)
+        XCTAssertEqual(backend.fetchedFavorites, 1)
         XCTAssertEqual(repository.themes?.filter(\.isFavorite).count, 1)
         XCTAssertEqual(SwiftDataThemeStore(context: container.mainContext).fetchThemes().filter(\.isFavorite).count, 0)
         provider.session = ProgressSessionProvider.session("B")
@@ -174,6 +179,8 @@ extension QuizFactoryTests {
         reopened.setModelContext(container.mainContext)
         reopened.loadData()
         XCTAssertEqual(reopened.themes?.filter(\.isFavorite).count, 0)
+        provider.session = ProgressSessionProvider.session("A")
+        XCTAssertEqual(reopened.themes?.filter(\.isFavorite).count, 1)
     }
 
     func testSwiftDataReplacementWithSameIdentifiersUpdatesContentAtomically() throws {

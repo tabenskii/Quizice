@@ -42,6 +42,11 @@ extension AppAccountAccessProviding {
 }
 
 @MainActor
+protocol AccountSynchronizing: AnyObject {
+    func synchronizeAccountData() async
+}
+
+@MainActor
 protocol AccountManaging: AnyObject {
     var accountDeletionAvailable: Bool { get }
     var canCreateAccount: Bool { get }

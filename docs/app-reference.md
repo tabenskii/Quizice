@@ -39,7 +39,7 @@ iOS 18+, Swift (language mode 5), UIKit + SwiftUI, SwiftData. Навигацие
 | Встроенные темы, вопросы, ответы и объяснения | `Quizice/<locale>.lproj/data.json`; резервный файл `Quizice/data.json` |
 | Правильный ответ | Приходит вместе с вопросом либо лежит в JSON; немедленная проверка и счёт выполняются на клиенте |
 | AI-викторина | В обычной сборке — результат `POST /v1/quizzes/generate`; Debug описан отдельно |
-| Избранные темы | Локальный выбор в onboarding + синхронизация с бэкендом по языку |
+| Избранные темы | Один набор на аккаунт для всех языков и устройств; локальная очередь изменений + API v2 |
 | Итоговая статистика | Серверный baseline + ещё не отправленные локальные завершённые попытки + legacy-данные |
 | Учёт отвеченных вопросов для фильтрации повторов | Отдельные события ответов отправляются на бэкенд; фильтрация следующей выдачи выполняется сервером |
 | Описания результата квиза | Публичный `GET /v1/result-messages`; кеш по языку; встроенные `result.description.*` как fallback |
@@ -64,7 +64,7 @@ iOS 18+, Swift (language mode 5), UIKit + SwiftUI, SwiftData. Навигацие
 ### Первый запуск и Home
 
 - Onboarding показывается, пока сохранённая версия прохождения меньше `1`. Его можно повторно открыть кнопкой помощи на Home. Список тем берётся из текущего каталога.
-- Выбор тем сохраняется для текущего языка; выбранные темы идут первыми на Home, остальные остаются доступны. При pending-изменениях выполняется PUT предпочтений, иначе GET; после авторизации синхронизация повторяется.
+- Выбор тем общий для всех языков и устройств. На Home показывается пересечение избранного с текущим каталогом; отсутствие перевода не удаляет тему. Клиент 1.1 получает snapshot через GET v2 и отправляет отдельные добавления/удаления через идемпотентный PATCH; после авторизации синхронизация повторяется.
 - Home содержит каталог, промобаннер подписки, AI, «Мне повезёт» и статистику. Описание/настройка темы и статистика раскрываются внутри карточек Home. Настройки и подписка открываются отдельными sheets.
 
 Источники: [coordinator](../Quizice/App/Navigation/QuizFlowCoordinator.swift), [OnboardingProgressStore](../Quizice/Core/Persistence/OnboardingProgressStore.swift), [ThemesCollectionService](../Quizice/Features/Home/Collection/ThemesCollectionService.swift).
@@ -128,6 +128,8 @@ iOS 18+, Swift (language mode 5), UIKit + SwiftUI, SwiftData. Навигацие
 | `POST /v1/auth/game-center` | Game Center proof в body | `teamPlayerId`, `bundleId`, `publicKeyUrl`, `signature`, `salt`, `timestamp` (строки) | `userId`, `accessToken`, `expiresAt` |
 | `GET /v1/result-messages` | Не нужна; Bearer не отправляется | query `locale`, опциональный `If-None-Match` | `200 {locale, messages: {category: [String]}}` + `ETag`; `304` без тела |
 | `GET /v1/themes` | Bearer, если есть | query `locale` | `{locale, themes: [{id, name, description, sfSymbol, emoji, colorHex, isFavorite}]}` |
+| `GET /v2/me/favorites` | Обязательна | Без `locale` | `{favoriteThemeIds: [String], revision: Int64}` |
+| `PATCH /v2/me/favorites` | Обязательна | `{mutationId: UUID, addThemeIds, removeThemeIds}` | `{favoriteThemeIds, revision, mutationId}`; повтор сохраняет mutation ID |
 | `GET /v1/me/theme-preferences` | Обязательна | query `locale` | `{locale, favoriteThemeIds: [String]}` |
 | `PUT /v1/me/theme-preferences` | Обязательна | body `{locale, favoriteThemeIds}` | Тот же envelope; заменяет список |
 | `GET /v1/themes/{themeID}/questions` | Bearer, если есть; обязателен для `progressMode` | query `count`, `locale`, `difficulty`, `seed`, опционально `progressMode`, `country` | Пачка вопросов, формат ниже |
@@ -297,3 +299,17 @@ QUIZICE_SKIP_XCODEBUILD=1 ./scripts/verify-s04-tests-and-failure-states.sh --che
 Для проверки изменений начинать с профильных тестов: [backend](../QuiziceTests/Unit/BackendClientTests.swift), [тексты результата](../QuiziceTests/Unit/ResultMessagesTests.swift), [auth](../QuiziceTests/Unit/AuthServiceTests.swift), [AI session](../QuiziceTests/Unit/BackendAIClientSessionTests.swift), [статистика](../QuiziceTests/Unit/StatisticsStoreTests.swift), [игра](../QuiziceTests/Unit/QuizQuestionPresenterTests.swift), [app flow](../QuiziceTests/Features/AppFlow/Unit), [Home](../QuiziceTests/Features/Home).
 
 **Как поддерживать:** при изменении endpoint/DTO обновлять таблицу API и ограничения; при переносе логики клиент ↔ сервер — источники данных и offline-поведение; при смене ключей хранения — таблицу persistence; при изменении `#if DEBUG` — только отдельный Debug-раздел. После сверки обновлять коммит/дату в начале. Планы в соседних `*-plan.md` не считать доказательством уже реализованного поведения: окончательный источник — код и тесты.
+
+### Избранное 1.1: миграция и конфликты
+
+`GlobalFavoritesStore` хранит snapshot, серверную revision и очередь мутаций отдельно для каждого backend userID в одном кодируемом record. Ответы со старой revision не откатывают snapshot; новые неподтвержденные изменения накладываются поверх него. Смена языка не меняет владельца и не отменяет глобальный ответ. После удаления аккаунта tombstone запрещает восстановить данные поздним callback.
+
+При первом обращении объединяются старые локализованные snapshots аккаунта для offline отображения. Только списки с pending-флагом импортируются добавлением, с один раз сохраненными UUID. Старые списки не содержат baseline: их неподтвержденные удаления восстановить нельзя; при объединении может вернуться тема, удаленная на другом устройстве. Новый явный гостевой выбор импортируется добавлением ровно одному аккаунту; исторические бесхозные guest snapshots не присваиваются.
+
+Транспортные ошибки сохраняют очередь для следующей синхронизации. HTTP 409 с конфликтом mutation ID сохраняется как отклоненная операция; HTTP 422 разбивает пакет на отдельные темы, чтобы устаревшая тема не блокировала остальные. API v1 остается для старых клиентов; клиент 1.1 не откатывается к полной PUT-замене при недоступном v2.
+
+### Обновление между устройствами
+
+`AccountDataSynchronizer` объединяет одновременные запросы при входе, активации сцены, возврате на Home, открытии статистики и восстановлении сети. Сначала завершается восстановление авторизации/статистики, затем обновляются ответы и избранное. Вход, произошедший во время уже выполняющейся синхронизации, гарантирует дополнительный проход для нового аккаунта. Push, polling и передача незавершенного раунда не используются.
+
+Сохраненная статистика и глобальное избранное публикуют события изменения. Home перечитывает данные и обновляет раскрытую карточку статистики; во время анимации обновление откладывается до ее завершения, не заменяя исходные views перехода. Все прежние guards владельца аккаунта, удаления и устаревших ответов сохраняются.

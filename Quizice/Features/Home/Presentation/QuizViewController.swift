@@ -299,7 +299,10 @@ final class QuizViewController: BaseQuizViewController, ThemeCollectionDelegate,
         super.init(nibName: nil, bundle: nil)
     }
 
+    private var accountDataObservers: [NSObjectProtocol] = []
+
     deinit {
+        accountDataObservers.forEach { NotificationCenter.default.removeObserver($0) }
         aiSubmissionTask?.cancel()
         aiProgressTask?.cancel()
         aiAlertPresentationTask?.cancel()
@@ -329,6 +332,11 @@ final class QuizViewController: BaseQuizViewController, ThemeCollectionDelegate,
 
         configureThemesCollectionService()
         installLocalizationObserver()
+        accountDataObservers = [Notification.Name.statisticsDidChange, .favoritesDidChange].map { name in
+            NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                Task { @MainActor [weak self] in self?.refreshVisibleAccountData() }
+            }
+        }
         updateThemeAvailabilityMessage()
     }
 
@@ -376,6 +384,14 @@ final class QuizViewController: BaseQuizViewController, ThemeCollectionDelegate,
         super.viewWillAppear(animated)
         restoreHomeAfterQuizIfNeeded()
         themesCollectionView.reloadData()
+        Task { @MainActor [weak self] in await self?.router?.refreshAccountData() }
+    }
+
+    func refreshVisibleAccountData() {
+        guard isViewLoaded else { return }
+        // Keep the source views stable while a card animation owns them.
+        if homeCardState.phase == .grid { themesCollectionView.reloadData() }
+        refreshExpandedThemeCardAppearance()
     }
 
     override func viewDidAppear(_ animated: Bool) {

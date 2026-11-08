@@ -1,6 +1,9 @@
 import Foundation
 
 protocol BackendContentAPI {
+    func fetchFavorites() async throws -> BackendFavoritesSnapshot
+    func patchFavorites(_ mutation: FavoriteMutation, session: AuthSession) async throws -> BackendFavoritesSnapshot
+
     func fetchRandomQuestions(
         selectionMode: CrossThemeQuestionSelectionMode, count: Int, locale: String,
         difficulty: AIQuizDifficulty, seed: String,
@@ -66,6 +69,11 @@ protocol BackendContentAPI {
 }
 
 extension BackendContentAPI {
+    func fetchFavorites() async throws -> BackendFavoritesSnapshot { throw BackendContentError.unauthenticated }
+    func patchFavorites(_ mutation: FavoriteMutation, session: AuthSession) async throws -> BackendFavoritesSnapshot {
+        throw BackendContentError.unauthenticated
+    }
+
     func fetchQuestions(
         themeID: String, count: Int, locale: String,
         difficulty: AIQuizDifficulty, seed: String,

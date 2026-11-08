@@ -371,3 +371,27 @@ final class StatisticsStoreTests: XCTestCase {
         return (StatisticsStore(userDefaults: defaults, key: key), defaults, key)
     }
 }
+
+extension StatisticsStoreTests {
+    func testRemoteSummaryNotifiesObserversAfterPersistingVisibleAccountData() {
+        let suite = "StatisticsStoreTests.notifications.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let center = NotificationCenter()
+        let store = StatisticsStore(userDefaults: defaults, notificationCenter: center)
+        store.activateAuthenticatedUser("A")
+        let summary = StatisticsSummary(playedQuizzes: 1, correctAnswers: 4, totalQuestions: 5,
+                                        bestCorrectAnswers: 4, bestTotalQuestions: 5)
+        var observed: [StatisticsSummary] = []
+        let observer = center.addObserver(forName: .statisticsDidChange, object: nil, queue: nil) { _ in
+            observed.append(store.loadSummary())
+        }
+        defer { center.removeObserver(observer) }
+        let response = StatisticsStore.SyncResponse(summary: summary, acceptedAttemptIds: [], legacySummaryAccepted: false)
+        store.applySyncResponse(response, for: "A")
+        store.applySyncResponse(response, for: "A")
+        XCTAssertEqual(observed, [summary])
+        store.activateGuest()
+        XCTAssertEqual(observed.last, .empty)
+    }
+}

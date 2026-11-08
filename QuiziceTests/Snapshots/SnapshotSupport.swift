@@ -69,6 +69,7 @@ enum SnapshotSupport {
     }
 
     private static func resetLocalizedThemePreferences() {
+        UserDefaults.standard.removeObject(forKey: "quizice.favorites.global.v2")
         UserDefaults.standard.removeObject(
             forKey: OnboardingProgressStore.Keys.legacyPreferencesMigrationLocale
         )

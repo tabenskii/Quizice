@@ -30,6 +30,10 @@ final class ThemeCatalogRepository: ThemeRepository {
     private let themeDataLoader = LocalizedThemeDataLoader()
     private let backendContentAPI: BackendContentAPI?
     private let preferenceStore: OnboardingProgressStoring
+    private let favoritesStore: GlobalFavoritesStore
+    @MainActor private var favoritesSyncTask: Task<Bool, Never>?
+    @MainActor private var favoritesSyncID: UUID?
+    @MainActor private var favoritesSyncUserID: String?
     private let seedGenerator: () -> String
     private let accessTokenProvider: BackendAccessTokenProviding
     private let answerOutbox: QuestionAnswerOutboxing
@@ -37,22 +41,24 @@ final class ThemeCatalogRepository: ThemeRepository {
     private let repeatStrategyProvider: () -> QuestionRepeatStrategy
 
     private var loadedThemes: [QuizTheme]?
+    private var catalogOrder: [String] = []
     private var favoritePrincipal: String?
+    private var favoriteRevision = -1
     private var personalizationGeneration = UUID()
     var themes: [QuizTheme]? {
         get {
             let principal = accessTokenProvider.currentSession()?.userID
-            if catalogOrigin == .backend, favoritePrincipal != principal {
+            let revision = favoritesStore.localRevision(for: principal)
+            if favoritePrincipal != principal || favoriteRevision != revision {
                 favoritePrincipal = principal
-                loadedThemes?.sort { $0.stableID < $1.stableID }
-                applyFavoriteOrder(preferenceStore.orderedPreferredThemeIDs(
-                    locale: AppLocalizationStore.shared.resolvedLanguageCode
-                ))
+                favoriteRevision = revision
+                applyFavoriteOrder(currentFavoriteIDs)
             }
             return loadedThemes
         }
         set {
             loadedThemes = newValue
+            catalogOrder = newValue?.map(\.stableID) ?? []
             favoritePrincipal = accessTokenProvider.currentSession()?.userID
         }
     }
@@ -62,6 +68,7 @@ final class ThemeCatalogRepository: ThemeRepository {
     init(
         backendContentAPI: BackendContentAPI? = nil,
         preferenceStore: OnboardingProgressStoring = OnboardingProgressStore.shared,
+        favoritesStore: GlobalFavoritesStore? = nil,
         seedGenerator: @escaping () -> String = { UUID().uuidString.lowercased() },
         accessTokenProvider: BackendAccessTokenProviding = StoredBackendAccessTokenProvider(),
         answerOutbox: QuestionAnswerOutboxing = PersistentQuestionAnswerOutbox.shared,
@@ -70,6 +77,7 @@ final class ThemeCatalogRepository: ThemeRepository {
     ) {
         self.backendContentAPI = backendContentAPI
         self.preferenceStore = preferenceStore
+        self.favoritesStore = favoritesStore ?? (preferenceStore as? OnboardingProgressStore)?.favoritesStore ?? GlobalFavoritesStore()
         self.seedGenerator = seedGenerator
         self.accessTokenProvider = accessTokenProvider
         self.answerOutbox = answerOutbox
@@ -99,6 +107,9 @@ final class ThemeCatalogRepository: ThemeRepository {
     @MainActor
     func eraseCachedPersonalization() throws {
         personalizationGeneration = UUID()
+        favoritesSyncTask?.cancel()
+        favoritesSyncTask = nil
+        favoritesSyncID = nil
         loadedThemes?.forEach { $0.isFavorite = false }
         favoritePrincipal = nil
         try themeStore?.erasePersonalization()
@@ -118,7 +129,7 @@ final class ThemeCatalogRepository: ThemeRepository {
             )
             themes = cachedThemes
             catalogOrigin = .backend
-            applyFavoriteOrder(preferenceStore.orderedPreferredThemeIDs(locale: currentLocale))
+            applyFavoriteOrder(currentFavoriteIDs)
             return
         }
 
@@ -143,6 +154,7 @@ final class ThemeCatalogRepository: ThemeRepository {
                 AppLog.content.debug("JSON unchanged, loading \(existingThemes.count) themes from SwiftData")
                 themes = existingThemes
                 catalogOrigin = .bundled
+                applyFavoriteOrder(currentFavoriteIDs)
                 return
             }
 
@@ -155,6 +167,7 @@ final class ThemeCatalogRepository: ThemeRepository {
             UserDefaults.standard.set(localizedHash, forKey: Content.localizedDataHashKey)
             themes = loadedData.themes
             catalogOrigin = .bundled
+            applyFavoriteOrder(currentFavoriteIDs)
             onCatalogReplaced?()
         } catch {
             AppLog.content.error("Localized data loading error: \(String(describing: error), privacy: .public)")
@@ -186,7 +199,6 @@ final class ThemeCatalogRepository: ThemeRepository {
     func refreshBackendCatalog(locale: String) async -> Bool {
         guard let backendContentAPI else { return false }
         let principal = accessTokenProvider.currentSession()?.userID
-        let revision = preferenceStore.preferencesRevision(locale: locale)
         let generation = personalizationGeneration
         do {
             let response = try await backendContentAPI.fetchThemes(locale: locale)
@@ -205,13 +217,12 @@ final class ThemeCatalogRepository: ThemeRepository {
                     sfSymbolName: remoteTheme.sfSymbol,
                     emoji: remoteTheme.emoji,
                     colorHex: remoteTheme.colorHex,
-                    isFavorite: remoteTheme.isFavorite,
+                    isFavorite: false,
                     source: .catalog,
                     questionOrigin: .backend,
                     countries: remoteTheme.countries
                 )
             }
-            let remoteFavoriteIDs = response.themes.filter(\.isFavorite).map(\.id)
 
             // All mutations of shared state (themes, catalogOrigin,
             // preferenceStore) and the onCatalogReplaced callback run on the
@@ -235,10 +246,7 @@ final class ThemeCatalogRepository: ThemeRepository {
                     catalogOrigin: .backend
                 )
                 themes = backendThemes
-                if preferenceStore.preferencesRevision(locale: locale) == revision,
-                   !preferenceStore.hasPendingThemePreferences(locale: locale) {
-                    preferenceStore.applyRemotePreferredThemeIDs(remoteFavoriteIDs, locale: locale)
-                }
+                applyFavoriteOrder(currentFavoriteIDs)
                 catalogOrigin = .backend
                 onCatalogReplaced?()
                 AppLog.content.info(
@@ -260,63 +268,70 @@ final class ThemeCatalogRepository: ThemeRepository {
     @discardableResult
     @MainActor
     func synchronizeThemePreferences(locale: String) async -> Bool {
-        guard let backendContentAPI else { return false }
-        let principal = accessTokenProvider.currentSession()?.userID
-        let storedIDs = preferenceStore.orderedPreferredThemeIDs(locale: locale)
-        let revision = preferenceStore.preferencesRevision(locale: locale)
-        let generation = personalizationGeneration
-        let favoriteThemeIDs: [String]
-        if catalogOrigin == .backend {
-            let availableIDs = Set((themes ?? []).map(\.stableID))
-            favoriteThemeIDs = storedIDs.filter(availableIDs.contains)
-        } else {
-            favoriteThemeIDs = storedIDs
+        guard let userID = accessTokenProvider.currentSession()?.userID else { return false }
+        if let task = favoritesSyncTask {
+            let previousUserID = favoritesSyncUserID
+            let previousID = favoritesSyncID
+            let result = await task.value
+            guard accessTokenProvider.currentSession()?.userID == userID else { return false }
+            if previousUserID != userID {
+                if favoritesSyncID == previousID { favoritesSyncTask = nil; favoritesSyncID = nil }
+                return await synchronizeThemePreferences(locale: locale)
+            }
+            return result
         }
+        let id = UUID()
+        favoritesSyncID = id
+        favoritesSyncUserID = userID
+        let task = Task { await self.performFavoritesSync(for: userID) }
+        favoritesSyncTask = task
+        let result = await task.value
+        if favoritesSyncID == id { favoritesSyncTask = nil; favoritesSyncID = nil }
+        return result
+    }
 
+    @MainActor
+    private func performFavoritesSync(for userID: String) async -> Bool {
+        guard let backendContentAPI else { return false }
+        let generation = personalizationGeneration
+        _ = favoritesStore.favorites(for: userID) // Persist migration IDs before any network work.
+        func isCurrent() -> Bool {
+            !Task.isCancelled && personalizationGeneration == generation
+                && accessTokenProvider.currentSession()?.userID == userID
+        }
         do {
-            let response: BackendThemePreferencesResponse
-            if preferenceStore.hasPendingThemePreferences(locale: locale) {
-                response = try await backendContentAPI.replaceThemePreferences(
-                    locale: locale,
-                    favoriteThemeIDs: favoriteThemeIDs
-                )
-            } else {
-                response = try await backendContentAPI.fetchThemePreferences(locale: locale)
+            let snapshot = try await backendContentAPI.fetchFavorites()
+            guard isCurrent() else { return false }
+            favoritesStore.apply(snapshot, for: userID)
+            while let mutation = favoritesStore.nextMutation(for: userID) {
+                guard isCurrent(), let session = accessTokenProvider.currentSession() else { return false }
+                do {
+                    let response = try await backendContentAPI.patchFavorites(mutation, session: session)
+                    guard isCurrent() else { return false }
+                    guard response.mutationId == mutation.mutationId else { throw BackendContentError.contractViolation }
+                    favoritesStore.apply(response, for: userID, acknowledging: mutation.mutationId)
+                } catch BackendContentError.httpStatus(let status, _) where status == 409 || status == 422 {
+                    guard isCurrent() else { return false }
+                    favoritesStore.reject(mutation, for: userID, isolateInvalidThemes: status == 422)
+                    AppLog.persistence.error("Favorite mutation rejected: status=\(status)")
+                }
             }
-            try Task.checkCancellation()
-
-            // Post-await mutations of preferenceStore, themes ordering, and
-            // the onCatalogReplaced callback run on the main queue.
-            return await MainActor.run {
-                guard AppLocalizationStore.shared.resolvedLanguageCode == locale,
-                      personalizationGeneration == generation,
-                      accessTokenProvider.currentSession()?.userID == principal,
-                      preferenceStore.preferencesRevision(locale: locale) == revision else { return false }
-                preferenceStore.applyRemotePreferredThemeIDs(
-                    response.favoriteThemeIds,
-                    locale: locale
-                )
-                applyFavoriteOrder(response.favoriteThemeIds)
-                onCatalogReplaced?()
-                AppLog.content.info(
-                    "Theme preferences synchronized: locale=\(locale, privacy: .public) favorites=\(response.favoriteThemeIds.count, privacy: .public)"
-                )
-                return true
-            }
+            applyFavoriteOrder(currentFavoriteIDs)
+            onCatalogReplaced?()
+            return true
         } catch is CancellationError {
-            return false
-        } catch BackendContentError.unauthenticated {
             return false
         } catch {
             handleAuthenticationFailureIfNeeded(error)
-            AppLog.content.error(
-                "Theme preferences sync deferred: locale=\(locale, privacy: .public) error=\(String(describing: error), privacy: .public)"
-            )
+            AppLog.persistence.notice("Favorites synchronization deferred")
             return false
         }
     }
 
-    @MainActor
+    private var currentFavoriteIDs: [String] {
+        favoritesStore.favorites(for: accessTokenProvider.currentSession()?.userID) ?? []
+    }
+
     func prepareQuiz(
         themeID: String,
         questionCount: Int,
@@ -555,14 +570,17 @@ final class ThemeCatalogRepository: ThemeRepository {
     }
 
     private func applyFavoriteOrder(_ favoriteThemeIDs: [String]) {
-        guard let currentThemes = themes else { return }
+        guard let loadedThemes else { return }
+        let currentThemes = loadedThemes.sorted {
+            (catalogOrder.firstIndex(of: $0.stableID) ?? Int.max) < (catalogOrder.firstIndex(of: $1.stableID) ?? Int.max)
+        }
         let rankByID = Dictionary(
             uniqueKeysWithValues: favoriteThemeIDs.enumerated().map { ($0.element, $0.offset) }
         )
         currentThemes.forEach {
             $0.isFavorite = rankByID[$0.stableID] != nil
         }
-        themes = currentThemes.enumerated()
+        self.loadedThemes = currentThemes.enumerated()
             .sorted { lhs, rhs in
                 let lhsRank = rankByID[lhs.element.stableID]
                 let rhsRank = rankByID[rhs.element.stableID]

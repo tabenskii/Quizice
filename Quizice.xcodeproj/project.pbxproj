@@ -11,6 +11,9 @@
 		EA1100020000000000000003 /* ThemesCollectionService+Layout.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA1100010000000000000003 /* ThemesCollectionService+Layout.swift */; };
 		EA1100020000000000000001 /* AppAdaptiveLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA1100010000000000000001 /* AppAdaptiveLayout.swift */; };
 		EA1100020000000000000002 /* AppAdaptiveLayoutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA1100010000000000000002 /* AppAdaptiveLayoutTests.swift */; };
+		F01300000000000000000001 /* BackendServiceFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = F01300000000000000000002 /* BackendServiceFactory.swift */; };
+		F01200000000000000000001 /* AccountDataSynchronizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F01200000000000000000002 /* AccountDataSynchronizer.swift */; };
+		F01100000000000000000001 /* GlobalFavoritesStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F01100000000000000000002 /* GlobalFavoritesStore.swift */; };
 		5A2094584CAC44A6958C4625 /* ThemesCollectionService+Ordering.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63391CFDA407414A9006C148 /* ThemesCollectionService+Ordering.swift */; };
 		5079EEED26914A8A9282A036 /* BackendContentResponseValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBB882E2FE414E0CB6B16876 /* BackendContentResponseValidator.swift */; };
 		55AF62AF27204B888E377FAB /* QuestionAnswerOutbox.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7BB544353014B47B422AFE9 /* QuestionAnswerOutbox.swift */; };
@@ -229,6 +232,9 @@
 		EA1100010000000000000003 /* ThemesCollectionService+Layout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ThemesCollectionService+Layout.swift"; sourceTree = "<group>"; };
 		EA1100010000000000000001 /* AppAdaptiveLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppAdaptiveLayout.swift; sourceTree = "<group>"; };
 		EA1100010000000000000002 /* AppAdaptiveLayoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppAdaptiveLayoutTests.swift; sourceTree = "<group>"; };
+		F01300000000000000000002 /* BackendServiceFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackendServiceFactory.swift; sourceTree = "<group>"; };
+		F01200000000000000000002 /* AccountDataSynchronizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountDataSynchronizer.swift; sourceTree = "<group>"; };
+		F01100000000000000000002 /* GlobalFavoritesStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobalFavoritesStore.swift; sourceTree = "<group>"; };
 		63391CFDA407414A9006C148 /* ThemesCollectionService+Ordering.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ThemesCollectionService+Ordering.swift"; sourceTree = "<group>"; };
 		BBB882E2FE414E0CB6B16876 /* BackendContentResponseValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BackendContentResponseValidator.swift"; sourceTree = "<group>"; };
 		F7BB544353014B47B422AFE9 /* QuestionAnswerOutbox.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = QuestionAnswerOutbox.swift; sourceTree = "<group>"; };
@@ -654,6 +660,8 @@
 				A30000022F90000100A30002 /* AIQuizRuntimeDependencies.swift */,
 				C14F2A48ECEC53C698749172 /* AppDelegate.swift */,
 				C8F820A9113657A638FA15DA /* SceneDelegate.swift */,
+				F01200000000000000000002 /* AccountDataSynchronizer.swift */,
+				F01300000000000000000002 /* BackendServiceFactory.swift */,
 			);
 			path = Lifecycle;
 			sourceTree = "<group>";
@@ -1258,6 +1266,7 @@
 			children = (
 				1B1B9ADB5AE94077FE602F9F /* LocalizedThemeDataLoader.swift */,
 				A40000012FA0000100A40001 /* OnboardingProgressStore.swift */,
+				F01100000000000000000002 /* GlobalFavoritesStore.swift */,
 				F7F56DA885D3B6FAAC9A7C58 /* QuizFactoryCompatibility.swift */,
 				16F873EE286CA20A0A821D9A /* StatisticsStore.swift */,
 				F7BB544353014B47B422AFE9 /* QuestionAnswerOutbox.swift */,
@@ -1438,6 +1447,7 @@
 				C10000000000000000000003 /* OnboardingPhysicsTopicCard.swift in Sources */,
 				A40000062FA0000100A40006 /* OnboardingPages.swift in Sources */,
 				A40000042FA0000100A40004 /* OnboardingProgressStore.swift in Sources */,
+				F01100000000000000000001 /* GlobalFavoritesStore.swift in Sources */,
 				A40000052FA0000100A40005 /* QuizOnboardingView.swift in Sources */,
 				D3B600022FE0000100D3B601 /* DebugMenuView.swift in Sources */,
 				3A8BE011ACEECD51866A1DF0 /* DebugYandexAIAPIKeyStore.swift in Sources */,
@@ -1445,6 +1455,8 @@
 				980B202D9D50C75229DD0042 /* LaunchOverlayPresenter.swift in Sources */,
 				78E740EECE32B5AB38B0A31F /* AppDelegate.swift in Sources */,
 				B740A1655C5D91EC1FE95F66 /* SceneDelegate.swift in Sources */,
+				F01200000000000000000001 /* AccountDataSynchronizer.swift in Sources */,
+				F01300000000000000000001 /* BackendServiceFactory.swift in Sources */,
 				9513724A0EA74596BA4B56C7 /* QuizFlowCoordinator.swift in Sources */,
 				2465B215AD94E69D77F872BB /* AnalyticsService.swift in Sources */,
 				F93000000000000000000001 /* HTTPResultMessagesAPI.swift in Sources */,

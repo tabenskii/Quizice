@@ -31,6 +31,34 @@ struct OnboardingTheme: Identifiable, Equatable {
     }
 }
 
+@MainActor
+final class OnboardingThemeSelection: ObservableObject {
+    @Published private(set) var selectedIDs: Set<String>
+    private(set) var savedIDs: Set<String>
+    private var edits: [String: Bool] = [:]
+
+    init(savedIDs: Set<String>) {
+        self.savedIDs = savedIDs
+        selectedIDs = savedIDs
+    }
+
+    func select(_ ids: Set<String>) {
+        for id in selectedIDs.symmetricDifference(ids) {
+            edits[id] = ids.contains(id)
+        }
+        selectedIDs = ids
+    }
+
+    func applySavedIDs(_ ids: Set<String>) {
+        savedIDs = ids
+        var selection = ids
+        for (id, isSelected) in edits {
+            if isSelected { selection.insert(id) } else { selection.remove(id) }
+        }
+        if selectedIDs != selection { selectedIDs = selection }
+    }
+}
+
 struct QuizOnboardingView: View {
     private enum Layout {
         static let horizontalInset: CGFloat = 20
@@ -51,7 +79,7 @@ struct QuizOnboardingView: View {
     let onComplete: (Set<String>) -> Void
 
     @State private var selectedPage: OnboardingPage
-    @State private var selectedThemeIDs: Set<String>
+    @ObservedObject private(set) var selection: OnboardingThemeSelection
     @AccessibilityFocusState private var focusedHeaderPage: OnboardingPage?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -61,6 +89,7 @@ struct QuizOnboardingView: View {
         catalogOrigin: QuizCatalogOrigin = .bundled,
         initialPage: OnboardingPage = .welcome,
         preferredThemeIDs: Set<String> = [],
+        selection: OnboardingThemeSelection? = nil,
         onComplete: @escaping (Set<String>) -> Void
     ) {
         self.appearance = appearance
@@ -68,9 +97,7 @@ struct QuizOnboardingView: View {
         self.catalogOrigin = catalogOrigin
         self.onComplete = onComplete
         _selectedPage = State(initialValue: initialPage)
-        _selectedThemeIDs = State(
-            initialValue: preferredThemeIDs.intersection(Set(themes.map(\.id)))
-        )
+        self.selection = selection ?? OnboardingThemeSelection(savedIDs: preferredThemeIDs.intersection(themes.map(\.id)))
     }
 
     var body: some View {
@@ -92,7 +119,7 @@ struct QuizOnboardingView: View {
                     OnboardingTopicsPage(
                         themes: themes,
                         catalogOrigin: catalogOrigin,
-                        selectedThemeIDs: $selectedThemeIDs,
+                        selectedThemeIDs: Binding(get: { selection.selectedIDs }, set: selection.select),
                         isActive: selectedPage == .topics,
                         focusedHeaderPage: $focusedHeaderPage
                     )
@@ -291,7 +318,7 @@ struct QuizOnboardingView: View {
     }
 
     private func complete() {
-        onComplete(selectedThemeIDs)
+        onComplete(selection.selectedIDs)
     }
 
     private var pageAnimation: Animation? {

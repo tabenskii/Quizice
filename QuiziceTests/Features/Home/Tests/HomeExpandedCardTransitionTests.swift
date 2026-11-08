@@ -618,3 +618,30 @@ final class HomeExpandedCardTransitionTests: HomeScreenVisualStateTestCase {
     }
 
 }
+
+extension HomeExpandedCardTransitionTests {
+    func testRemoteStatisticsRefreshUpdatesAnAlreadyExpandedCard() async throws {
+        QuizFactory.shared.themes = [makeTheme(name: "Музыка", questionCount: 15)]
+        let statistics = makeStatisticsStore()
+        statistics.activateAuthenticatedUser("remote-player")
+        let controller = QuizViewController(statisticsStore: statistics, cardReduceMotionProvider: { true })
+        let router = HomeRouterSpy()
+        controller.router = router
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
+        window.rootViewController = controller
+        window.makeKeyAndVisible()
+        window.layoutIfNeeded()
+        testWindows.append(window)
+        try await waitUntil { router.refreshAccountDataCallCount >= 1 }
+        let initialRefreshes = router.refreshAccountDataCallCount
+        let button = try XCTUnwrap(controller.view.descendant(withAccessibilityIdentifier: "homeStatisticsCard") as? UIButton)
+        button.sendActions(for: .touchUpInside)
+        try await waitUntil { controller.homeCardState.phase == .expandedFront }
+        try await waitUntil { router.refreshAccountDataCallCount > initialRefreshes }
+        let summary = StatisticsSummary(playedQuizzes: 2, correctAnswers: 9, totalQuestions: 10,
+                                        bestCorrectAnswers: 5, bestTotalQuestions: 5)
+        statistics.applySyncResponse(.init(summary: summary, acceptedAttemptIds: [], legacySummaryAccepted: false), for: "remote-player")
+        try await waitUntil { controller.expandedStatisticsSummary == summary }
+        XCTAssertTrue(controller.homeCardState.isStatisticsPresented)
+    }
+}

@@ -277,6 +277,27 @@ final class ThemePreferencesBackendContentAPI: BackendContentAPI {
         self.remoteFavoriteThemeIDs = remoteFavoriteThemeIDs
     }
 
+    private(set) var fetchedFavorites = 0
+    private(set) var favoriteMutations: [FavoriteMutation] = []
+    private var revision: Int64 = 0
+
+    func fetchFavorites() async throws -> BackendFavoritesSnapshot {
+        fetchedFavorites += 1
+        beforePreferencesResponse?()
+        await beforeAsyncPreferencesResponse?()
+        if let preferencesError { throw preferencesError }
+        return BackendFavoritesSnapshot(favoriteThemeIds: remoteFavoriteThemeIDs, revision: revision)
+    }
+
+    func patchFavorites(_ mutation: FavoriteMutation, session: AuthSession) async throws -> BackendFavoritesSnapshot {
+        favoriteMutations.append(mutation)
+        if let preferencesError { throw preferencesError }
+        remoteFavoriteThemeIDs.removeAll { mutation.removeThemeIds.contains($0) }
+        remoteFavoriteThemeIDs.append(contentsOf: mutation.addThemeIds.filter { !remoteFavoriteThemeIDs.contains($0) })
+        revision += 1
+        return BackendFavoritesSnapshot(favoriteThemeIds: remoteFavoriteThemeIDs, revision: revision, mutationId: mutation.mutationId)
+    }
+
     func fetchThemes(locale: String) async throws -> BackendThemeCatalogResponse {
         await beforeCatalogResponse?()
         return BackendThemeCatalogResponse(locale: locale, themes: catalogThemes)

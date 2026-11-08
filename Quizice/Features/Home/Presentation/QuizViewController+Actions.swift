@@ -320,6 +320,7 @@ extension QuizViewController {
 
         case .expandStatistics:
             guard let sourceView else { return }
+            Task { @MainActor [weak self] in await self?.router?.refreshAccountData() }
             expandStatisticsCard(
                 summary: statisticsStore.loadSummary(),
                 from: sourceView

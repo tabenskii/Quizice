@@ -32,7 +32,7 @@ extension BackendClientTests {
         let defaults = UserDefaults(suiteName: suiteName)!
         defaults.removePersistentDomain(forName: suiteName)
         return (
-            OnboardingProgressStore(userDefaults: defaults),
+            OnboardingProgressStore(userDefaults: defaults, userIDProvider: { "A" }),
             defaults,
             suiteName
         )

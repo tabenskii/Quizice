@@ -233,6 +233,7 @@ class HomeScreenVisualStateTestCase: XCTestCase {
     }
 
     private func resetLocalizedThemePreferences() {
+        UserDefaults.standard.removeObject(forKey: "quizice.favorites.global.v2")
         UserDefaults.standard.removeObject(
             forKey: OnboardingProgressStore.Keys.legacyPreferencesMigrationLocale
         )
@@ -357,6 +358,9 @@ final class HomeAnalyticsTrackingSpy: AnalyticsTracking {
 
 final class HomeRouterSpy: QuizRouting {
     var onShowQuestion: (() -> Void)?
+
+    private(set) var refreshAccountDataCallCount = 0
+    @MainActor func refreshAccountData() async { refreshAccountDataCallCount += 1 }
 
     private(set) var showQuestionCallCount = 0
     private(set) var showResultCallCount = 0

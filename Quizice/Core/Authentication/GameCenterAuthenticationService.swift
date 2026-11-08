@@ -1,7 +1,7 @@
 import Foundation
 import UIKit
 @MainActor
-final class GameCenterAuthenticationService: AccountManaging, AppAccountAccessProviding {
+final class GameCenterAuthenticationService: AccountManaging, AccountSynchronizing, AppAccountAccessProviding {
     private(set) var state: AuthSessionState = .initializing {
         didSet { accountAccessStateDidChange?(accountAccessState) }
     }
@@ -94,9 +94,7 @@ final class GameCenterAuthenticationService: AccountManaging, AppAccountAccessPr
         }
     }
     static func live(bundle: Bundle = .main) -> GameCenterAuthenticationService {
-        let api: AuthAPI = BackendConfiguration.load(bundle: bundle).map {
-            HTTPAuthAPI(configuration: $0, metrics: AppMetricaAnalyticsTracker.shared) as AuthAPI
-        } ?? UnavailableAuthAPI()
+        let api = BackendServiceFactory.authAPI(bundle: bundle)
         let service = GameCenterAuthenticationService(
             gameCenter: GameCenterClient(),
             api: api,
@@ -155,10 +153,7 @@ final class GameCenterAuthenticationService: AccountManaging, AppAccountAccessPr
 
 #if DEBUG
     private func beginDevAuthentication(using provider: AuthenticationProvider) {
-        authenticationTask?.cancel()
-        synchronizationTask?.cancel()
-        synchronizationTask = nil
-        synchronizationAttemptID = nil
+        stopAccountWork()
         statisticsStore.activateGuest()
         let attemptID = UUID()
         authenticationAttemptID = attemptID
@@ -199,6 +194,15 @@ final class GameCenterAuthenticationService: AccountManaging, AppAccountAccessPr
         }
     }
 #endif
+
+    func synchronizeAccountData() async {
+        retrySynchronization()
+        if let authenticationTask { await authenticationTask.value }
+        while let synchronizationTask {
+            await synchronizationTask.value
+            if Task.isCancelled { return }
+        }
+    }
 
     func retrySynchronization() {
         guard !accountOperationInProgress, deletionRecord == nil else { return }
@@ -255,10 +259,7 @@ final class GameCenterAuthenticationService: AccountManaging, AppAccountAccessPr
         allowsCachedSession: Bool,
         statisticsMayRefreshToken: Bool
     ) {
-        authenticationTask?.cancel()
-        synchronizationTask?.cancel()
-        synchronizationTask = nil
-        synchronizationAttemptID = nil
+        stopAccountWork()
         statisticsStore.activateGuest()
         if currentTeamPlayerID != teamPlayerID {
             // Remove the previous account before any asynchronous exchange starts.

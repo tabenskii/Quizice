@@ -56,6 +56,35 @@ final class HTTPBackendContentAPI: BackendContentAPI {
         )
     }
 
+    func fetchFavorites() async throws -> BackendFavoritesSnapshot {
+        guard let token = requestAccessToken else { throw BackendContentError.unauthenticated }
+        return try await get(url: makeURL(pathComponents: ["v2", "me", "favorites"], queryItems: []),
+                             operation: .themePreferences, accessToken: token,
+                             validate: Self.validFavorites)
+    }
+
+    func patchFavorites(_ mutation: FavoriteMutation, session: AuthSession) async throws -> BackendFavoritesSnapshot {
+        guard accessTokenProvider.currentSession()?.userID == session.userID else { throw BackendContentError.unauthenticated }
+        guard mutation.addThemeIds.count <= 100, mutation.removeThemeIds.count <= 100,
+              BackendContentResponseValidator.normalizedThemeIDs(mutation.addThemeIds) == mutation.addThemeIds,
+              BackendContentResponseValidator.normalizedThemeIDs(mutation.removeThemeIds) == mutation.removeThemeIds,
+              Set(mutation.addThemeIds).isDisjoint(with: mutation.removeThemeIds) else { throw BackendContentError.invalidRequest }
+        var request = URLRequest(url: try makeURL(pathComponents: ["v2", "me", "favorites"], queryItems: []), timeoutInterval: requestTimeout)
+        request.httpMethod = "PATCH"
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.httpBody = try encoder.encode(mutation)
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(session.accessToken)", forHTTPHeaderField: BackendConfiguration.authorizationHeader)
+        return try await perform(request: request, operation: .themePreferences,
+                                 validate: { Self.validFavorites($0) && $0.mutationId == mutation.mutationId },
+                                 expectedUserID: session.userID)
+    }
+
+    private static func validFavorites(_ response: BackendFavoritesSnapshot) -> Bool {
+        response.revision >= 0 && BackendContentResponseValidator.normalizedThemeIDs(response.favoriteThemeIds) == response.favoriteThemeIds
+    }
+
     func fetchThemePreferences(locale: String) async throws -> BackendThemePreferencesResponse {
         guard Self.isSupported(locale: locale) else {
             throw BackendContentError.invalidRequest

@@ -330,7 +330,7 @@ final class BackendClientTests: XCTestCase {
         XCTAssertEqual(themes[1].sfSymbolName, "globe")
         XCTAssertEqual(themes[1].emoji, "🚀")
         XCTAssertEqual(themes[1].colorHex, "#4F46E5")
-        XCTAssertTrue(themes[0].isFavorite)
+        XCTAssertFalse(themes[0].isFavorite) // Catalog flags cannot overwrite the global store.
         XCTAssertFalse(themes[1].isFavorite)
 
         let prepared = try await repository.prepareQuiz(
@@ -344,7 +344,7 @@ final class BackendClientTests: XCTestCase {
         XCTAssertEqual(prepared.questionOrigin, .backend)
     }
 
-    func testPendingLocalThemePreferencesArePUTInTheirSavedOrder() async {
+    func testPendingGlobalFavoritesArePatchedWithoutReplacingRemoteSelection() async {
         let locale = AppLocalizationStore.shared.resolvedLanguageCode
         let (store, defaults, suiteName) = makePreferenceStore()
         defer { defaults.removePersistentDomain(forName: suiteName) }
@@ -354,17 +354,17 @@ final class BackendClientTests: XCTestCase {
         )
         let repository = ThemeCatalogRepository(
             backendContentAPI: backend,
-            preferenceStore: store
+            preferenceStore: store,
+            accessTokenProvider: ProgressSessionProvider()
         )
 
         _ = await repository.refreshBackendCatalog(locale: locale)
         let didSynchronize = await repository.synchronizeThemePreferences(locale: locale)
 
         XCTAssertTrue(didSynchronize)
-        XCTAssertEqual(backend.fetchedPreferenceLocales, [])
-        XCTAssertEqual(backend.replacedPreferences.count, 1)
-        XCTAssertEqual(backend.replacedPreferences.first?.locale, locale)
-        XCTAssertEqual(backend.replacedPreferences.first?.themeIDs, ["space", "music"])
+        XCTAssertEqual(backend.fetchedFavorites, 1)
+        XCTAssertEqual(backend.favoriteMutations.count, 1)
+        XCTAssertEqual(backend.favoriteMutations.first?.addThemeIds, ["space", "music"])
         XCTAssertEqual(
             store.orderedPreferredThemeIDs(locale: locale),
             ["space", "music"]
@@ -384,15 +384,16 @@ final class BackendClientTests: XCTestCase {
         )
         let repository = ThemeCatalogRepository(
             backendContentAPI: backend,
-            preferenceStore: store
+            preferenceStore: store,
+            accessTokenProvider: ProgressSessionProvider()
         )
 
         _ = await repository.refreshBackendCatalog(locale: locale)
         let didSynchronize = await repository.synchronizeThemePreferences(locale: locale)
 
         XCTAssertTrue(didSynchronize)
-        XCTAssertEqual(backend.fetchedPreferenceLocales, [locale])
-        XCTAssertTrue(backend.replacedPreferences.isEmpty)
+        XCTAssertEqual(backend.fetchedFavorites, 1)
+        XCTAssertTrue(backend.favoriteMutations.isEmpty)
         XCTAssertEqual(
             store.orderedPreferredThemeIDs(locale: locale),
             ["cinema", "music"]
@@ -412,14 +413,15 @@ final class BackendClientTests: XCTestCase {
         backend.preferencesError = BackendContentError.transport(.notConnectedToInternet)
         let repository = ThemeCatalogRepository(
             backendContentAPI: backend,
-            preferenceStore: store
+            preferenceStore: store,
+            accessTokenProvider: ProgressSessionProvider()
         )
 
         _ = await repository.refreshBackendCatalog(locale: locale)
         let didSynchronize = await repository.synchronizeThemePreferences(locale: locale)
 
         XCTAssertFalse(didSynchronize)
-        XCTAssertEqual(backend.replacedPreferences.first?.themeIDs, ["space"])
+        XCTAssertTrue(backend.favoriteMutations.isEmpty)
         XCTAssertEqual(store.orderedPreferredThemeIDs(locale: locale), ["space"])
         XCTAssertTrue(store.hasPendingThemePreferences(locale: locale))
     }
@@ -1254,14 +1256,14 @@ extension BackendClientTests {
         defer { defaults.removePersistentDomain(forName: suiteName) }
         let backend = ThemePreferencesBackendContentAPI(catalogThemes: Self.preferenceCatalog,
                                                        remoteFavoriteThemeIDs: ["music"])
-        let repository = ThemeCatalogRepository(backendContentAPI: backend, preferenceStore: store)
+        let repository = ThemeCatalogRepository(backendContentAPI: backend, preferenceStore: store, accessTokenProvider: ProgressSessionProvider())
         _ = await repository.refreshBackendCatalog(locale: locale)
         store.complete(preferredThemeIDs: ["music"], locale: locale)
         backend.beforePreferencesResponse = { store.complete(preferredThemeIDs: ["space"], locale: locale) }
         let applied = await repository.synchronizeThemePreferences(locale: locale)
-        XCTAssertFalse(applied)
+        XCTAssertTrue(applied)
         XCTAssertEqual(store.orderedPreferredThemeIDs(locale: locale), ["space"])
-        XCTAssertTrue(store.hasPendingThemePreferences(locale: locale))
+        XCTAssertFalse(store.hasPendingThemePreferences(locale: locale))
     }
 
     func testPreferenceResponseFromPreviousAccountIsDiscarded() async {
@@ -1323,5 +1325,47 @@ extension BackendClientTests {
         }
         XCTAssertEqual(calls, 1)
         XCTAssertTrue(recoverer.rejectedTokens.isEmpty)
+    }
+}
+
+extension BackendClientTests {
+    func testGlobalFavoritesTransportHasNoLocaleAndAcknowledgesExactMutation() async throws {
+        let provider = ProgressSessionProvider()
+        let api = HTTPBackendContentAPI(configuration: Self.configuration, session: makeSession(), accessTokenProvider: provider)
+        let mutation = FavoriteMutation(mutationId: UUID(), addThemeIds: ["music"], removeThemeIds: ["space"])
+        BackendTestURLProtocol.requestHandler = { request in
+            XCTAssertEqual(request.url?.path, "/api/v2/me/favorites")
+            XCTAssertNil(request.url?.query)
+            XCTAssertEqual(request.value(forHTTPHeaderField: BackendConfiguration.authorizationHeader), "Bearer token-A")
+            if request.httpMethod == "PATCH" {
+                let body = try XCTUnwrap(Self.bodyData(from: request))
+                XCTAssertEqual(try JSONDecoder().decode(FavoriteMutation.self, from: body), mutation)
+                return Self.response(for: request, data: try JSONEncoder().encode(
+                    BackendFavoritesSnapshot(favoriteThemeIds: ["music"], revision: 2, mutationId: mutation.mutationId)))
+            }
+            XCTAssertEqual(request.httpMethod, "GET")
+            return Self.response(for: request, data: Data(#"{"favoriteThemeIds":["space"],"revision":1}"#.utf8))
+        }
+        let fetched = try await api.fetchFavorites()
+        XCTAssertEqual(fetched.revision, 1)
+        let patched = try await api.patchFavorites(mutation, session: try XCTUnwrap(provider.session))
+        XCTAssertEqual(patched.mutationId, mutation.mutationId)
+    }
+
+    func testGlobalFavoritesRejectWrongAcknowledgementAndReplacementAccount() async throws {
+        let provider = ProgressSessionProvider()
+        let original = try XCTUnwrap(provider.session)
+        let api = HTTPBackendContentAPI(configuration: Self.configuration, session: makeSession(), accessTokenProvider: provider)
+        let mutation = FavoriteMutation(mutationId: UUID(), addThemeIds: ["music"], removeThemeIds: [])
+        var requests = 0
+        BackendTestURLProtocol.requestHandler = { request in
+            requests += 1
+            return Self.response(for: request, data: try JSONEncoder().encode(
+                BackendFavoritesSnapshot(favoriteThemeIds: ["music"], revision: 1, mutationId: UUID())))
+        }
+        await assertBackendContentError(.contractViolation) { try await api.patchFavorites(mutation, session: original) }
+        provider.session = ProgressSessionProvider.session("B")
+        await assertBackendContentError(.unauthenticated) { try await api.patchFavorites(mutation, session: original) }
+        XCTAssertEqual(requests, 1)
     }
 }

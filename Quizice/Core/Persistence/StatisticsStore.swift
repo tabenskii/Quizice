@@ -1,6 +1,7 @@
 import Foundation
 
 extension Notification.Name {
+    static let statisticsDidChange = Notification.Name("quizice.statistics.changed")
     static let statisticsPendingSync = Notification.Name("quizice.statistics.pending-sync")
 }
 
@@ -141,6 +142,7 @@ final class StatisticsStore {
         self.notificationCenter = notificationCenter
         self.idGenerator = idGenerator
         self.dateProvider = dateProvider
+        encoder.outputFormatting = [.sortedKeys]
     }
 
     func recordAttempt(correctAnswers: Int, totalQuestions: Int, accessibilityMode: Bool = false) {
@@ -202,11 +204,15 @@ final class StatisticsStore {
             save(state: .empty(migrationId: idGenerator()), for: nil)
         }
 
+        let changed = activeUserID != normalizedUserID
         userDefaults.set(normalizedUserID, forKey: activePrincipalKey)
+        if changed { notificationCenter.post(name: .statisticsDidChange, object: normalizedUserID) }
     }
 
     func activateGuest() {
+        let changed = userDefaults.string(forKey: activePrincipalKey) != nil
         userDefaults.removeObject(forKey: activePrincipalKey)
+        if changed { notificationCenter.post(name: .statisticsDidChange, object: nil) }
     }
 
     /// Called after the backend confirms deletion and the authentication owner
@@ -339,7 +345,9 @@ final class StatisticsStore {
         guard !isErased(userID) else { return }
         let storageKey = storageKey(for: userID)
         guard let data = try? encoder.encode(state) else { return }
+        guard userDefaults.data(forKey: storageKey) != data else { return }
         userDefaults.set(data, forKey: storageKey)
+        notificationCenter.post(name: .statisticsDidChange, object: userID)
     }
 
     private func isErased(_ userID: String?) -> Bool {
