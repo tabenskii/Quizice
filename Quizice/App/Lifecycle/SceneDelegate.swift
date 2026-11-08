@@ -23,6 +23,16 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         if isRunningTests {
             window.rootViewController = UIViewController()
         } else {
+#if DEBUG && targetEnvironment(simulator)
+            // Local UI development must not require a real Game Center account.
+            // Opt in explicitly when testing the production authentication flow.
+            if ProcessInfo.processInfo.environment["QUIZICE_REQUIRE_GAME_CENTER"] != "1" {
+                startSimulatorContent(in: window)
+                window.makeKeyAndVisible()
+                self.window = window
+                return
+            }
+#endif
             let authenticationService = GameCenterAuthenticationService.live()
             self.authenticationService = authenticationService
             let aiRuntimeDependencies = AIQuizRuntimeDependencies.live(
@@ -83,6 +93,32 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         }
 
     }
+
+#if DEBUG && targetEnvironment(simulator)
+    private func startSimulatorContent(in window: UIWindow) {
+        StatisticsStore().activateGuest()
+        let aiDependencies = AIQuizRuntimeDependencies.live()
+        let coordinator = QuizFlowCoordinator(
+            window: window,
+            aiQuizThemeService: aiDependencies.themeService,
+            aiQuizAccessProvider: aiDependencies.accessProvider
+        )
+        coordinator.start()
+        self.coordinator = coordinator
+        launchOverlayPresenter.present(
+            in: window,
+            appearance: AppAppearanceStore.shared.appearance(compatibleWith: window.traitCollection),
+            preparation: { [weak coordinator] in await coordinator?.prepareInitialCatalog() },
+            prepareContentForReveal: { [weak coordinator] completion in
+                guard let coordinator else { completion(); return }
+                coordinator.presentInitialOnboardingIfNeeded(completion: completion)
+            },
+            onDismissed: { [weak coordinator] in
+                coordinator?.restoreInitialAccessibilityFocusAfterLaunch()
+            }
+        )
+    }
+#endif
 
     func sceneDidDisconnect(_ scene: UIScene) {
         // Called as the scene is being released by the system.
