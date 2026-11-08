@@ -141,6 +141,27 @@ final class HTTPAuthAPI: AuthAPI {
     }
 
 #if DEBUG
+    func authenticateTestAccount(secret: String) async throws -> AuthSession {
+        struct Request: Encodable {}
+        struct Response: Decodable {
+            let userId: UUID
+            let developerUserId: UUID
+            let accessToken: String
+            let expiresAt: Date
+        }
+        return try await post(
+            path: "v1/auth/test-account", body: Request(), accessToken: nil,
+            additionalHeaders: ["X-Test-Account-Key": secret], operation: .authentication
+        ) { [now] (response: Response) in
+            guard !response.accessToken.isEmpty, response.expiresAt > now() else {
+                throw BackendAPIError.contractViolation
+            }
+            return AuthSession(userID: response.userId.uuidString.lowercased(),
+                               accessToken: response.accessToken, expiresAt: response.expiresAt,
+                               teamPlayerID: "dev:\(response.developerUserId.uuidString.lowercased())")
+        }
+    }
+
     func authenticate(developerUserID: UUID, secret: String) async throws -> AuthSession {
         try await post(
             path: "v1/auth/dev",

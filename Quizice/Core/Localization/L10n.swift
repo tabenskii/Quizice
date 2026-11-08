@@ -121,6 +121,14 @@ enum L10n {
 
 #if DEBUG
     enum DebugMenu {
+        static var testAccountTitle: String { L10n.localized("debug_menu.test_account.title", comment: "Debug test account") }
+        static var testAccountKey: String { L10n.localized("debug_menu.test_account.key", comment: "Debug test account") }
+        static var testAccountConnect: String { L10n.localized("debug_menu.test_account.connect", comment: "Debug test account") }
+        static var testAccountHelp: String { L10n.localized("debug_menu.test_account.help", comment: "Debug test account") }
+        static var testAccountNoBackend: String { L10n.localized("debug_menu.test_account.no_backend", comment: "Debug test account") }
+        static var testAccountKeyRequired: String { L10n.localized("debug_menu.test_account.key_required", comment: "Debug test account") }
+        static var testAccountFailure: String { L10n.localized("debug_menu.test_account.failure", comment: "Debug test account") }
+
         static var title: String { L10n.localized("debug_menu.title", comment: "Debug menu screen title") }
         static var interfaceSectionTitle: String { L10n.localized("debug_menu.section.interface", comment: "Debug menu interface section title") }
         static var backendSectionTitle: String { L10n.localized("debug_menu.section.backend", comment: "Debug menu backend section title") }

@@ -430,6 +430,32 @@ final class BackendRandomQuestionTests: XCTestCase {
                 seed: seed
             )
             XCTAssertEqual(response.questions.count, 5)
+            XCTAssertTrue(response.questions.allSatisfy { $0.makeModel().sourceThemeName == nil })
+        }
+    }
+
+    func testRandomQuestionsDecodeLocalizedThemeNamesWithoutChangingQuestionIdentity() async throws {
+        let api = makeContentAPI()
+        let seed = "550e8400-e29b-41d4-a716-446655440000"
+        for selectionMode in CrossThemeQuestionSelectionMode.allCases {
+            BackendTestURLProtocol.requestHandler = { request in
+                let questions = (0..<5).map { index in
+                    var question = Self.questionJSON(index: index)
+                    question["themeName"] = index.isMultiple(of: 2) ? "Музыка" : "Технологии"
+                    return question
+                }
+                let body = try JSONSerialization.data(withJSONObject: [
+                    "locale": "ru", "seed": seed, "questions": questions
+                ])
+                return Self.response(for: request, data: body)
+            }
+            let response = try await api.fetchRandomQuestions(
+                selectionMode: selectionMode, count: 5, locale: "ru", seed: seed
+            )
+            let questions = response.questions.map { $0.makeModel(locale: response.locale) }
+            XCTAssertEqual(questions.map(\.sourceThemeName), ["Музыка", "Технологии", "Музыка", "Технологии", "Музыка"])
+            XCTAssertEqual(questions.map(\.questionID), (0..<5).map { "question-\($0)" })
+            XCTAssertTrue(questions.allSatisfy { $0.locale == "ru" && $0.questionVersion == 1 })
         }
     }
 

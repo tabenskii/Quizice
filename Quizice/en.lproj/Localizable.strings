@@ -291,3 +291,11 @@
 "account_start.deletion_pending.message" = "Account deletion is not yet complete. Retry the request to delete your account and its data.";
 "account_start.deletion_pending.action" = "Retry account deletion";
 "account_start.deletion_pending.sign_in" = "To finish deletion, sign in to the original Game Center account in iPhone Settings, then try again.";
+
+"debug_menu.test_account.title" = "Backend test account";
+"debug_menu.test_account.key" = "Private test account key";
+"debug_menu.test_account.connect" = "Connect / renew test account";
+"debug_menu.test_account.help" = "Enter the key once. Leave this field empty to reuse the saved key. Sessions renew automatically; your statistics stay with the same account.";
+"debug_menu.test_account.no_backend" = "Enable the backend before connecting.";
+"debug_menu.test_account.key_required" = "Enter the private test account key.";
+"debug_menu.test_account.failure" = "Could not connect. Check the key and your connection, then retry.";

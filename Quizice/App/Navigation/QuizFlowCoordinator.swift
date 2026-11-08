@@ -23,13 +23,12 @@ final class QuizFlowCoordinator: NSObject, QuizRouting, UIViewControllerTransiti
     private var roundSession: QuizSessionStore?
     private weak var activeOnboardingViewController: UIViewController?
     private var onboardingVisibleThemeIDs: Set<String>?
-    private var onboardingInitialSelection: Set<String>?
+    private var onboardingSelection: (userID: String?, model: OnboardingThemeSelection)?
     private var pendingSystemViewController: UIViewController?
     private var catalogReplayTask: Task<Void, Never>?
     private var catalogReplayProgressTask: Task<Void, Never>?
     private var aiReplayTask: Task<Void, Never>?
     private var aiReplayProgressTask: Task<Void, Never>?
-    private var themePreferencesSyncTask: Task<Void, Never>?
     private var authenticationEstablishedObserver: NSObjectProtocol?
     private var accountDeletionObserver: NSObjectProtocol?
     private let catalogReplayProgressDelay: () async -> Void
@@ -83,7 +82,6 @@ final class QuizFlowCoordinator: NSObject, QuizRouting, UIViewControllerTransiti
                 guard let self else { return }
                 self.catalogReplayTask?.cancel()
                 self.aiReplayTask?.cancel()
-                self.themePreferencesSyncTask?.cancel()
                 self.dataSynchronizer?.cancel()
                 self.roundSession = nil
                 self.session.chosenTheme = nil
@@ -98,7 +96,6 @@ final class QuizFlowCoordinator: NSObject, QuizRouting, UIViewControllerTransiti
         catalogReplayProgressTask?.cancel()
         aiReplayTask?.cancel()
         aiReplayProgressTask?.cancel()
-        themePreferencesSyncTask?.cancel()
         if let authenticationEstablishedObserver { notificationCenter.removeObserver(authenticationEstablishedObserver) }
         if let accountDeletionObserver { notificationCenter.removeObserver(accountDeletionObserver) }
     }
@@ -129,6 +126,7 @@ final class QuizFlowCoordinator: NSObject, QuizRouting, UIViewControllerTransiti
             locale: locale
         )
         guard !Task.isCancelled else { return }
+        refreshOnboardingSelection()
         (navigationController.viewControllers.first as? QuizViewController)?
             .applyBackendCatalogRefresh(
                 didRefresh: didRefresh || didSynchronizePreferences,
@@ -215,18 +213,16 @@ final class QuizFlowCoordinator: NSObject, QuizRouting, UIViewControllerTransiti
         let appearance = AppAppearanceStore.shared.appearance(
             compatibleWith: window.traitCollection
         )
-        onboardingVisibleThemeIDs = Set(onboardingThemes.map(\.id))
-        onboardingInitialSelection = Set(onboardingProgressStore.orderedPreferredThemeIDs(locale: AppLocalizationStore.shared.resolvedLanguageCode))
+        let themes = onboardingThemes
+        let visibleIDs = Set(themes.map(\.id))
+        let locale = AppLocalizationStore.shared.resolvedLanguageCode
+        let selection = OnboardingThemeSelection(savedIDs: Set(onboardingProgressStore.orderedPreferredThemeIDs(locale: locale)).intersection(visibleIDs))
         let editingUserID = onboardingProgressStore.preferenceUserID
+        onboardingVisibleThemeIDs = visibleIDs
+        onboardingSelection = (editingUserID, selection)
         let onboardingView = QuizOnboardingView(
-            appearance: appearance,
-            themes: onboardingThemes,
-            catalogOrigin: themeRepository.catalogOrigin,
-            preferredThemeIDs: Set(
-                onboardingProgressStore.orderedPreferredThemeIDs(
-                    locale: AppLocalizationStore.shared.resolvedLanguageCode
-                )
-            ),
+            appearance: appearance, themes: themes, catalogOrigin: themeRepository.catalogOrigin,
+            selection: selection,
             onComplete: { [weak self] preferredThemeIDs in
                 guard let self, self.onboardingProgressStore.preferenceUserID == editingUserID else { return }
                 self.completeOnboarding(preferredThemeIDs: preferredThemeIDs)
@@ -261,16 +257,16 @@ final class QuizFlowCoordinator: NSObject, QuizRouting, UIViewControllerTransiti
         onboardingProgressStore.complete(
             preferredThemeIDs: orderedPreferredThemeIDs,
             visibleThemeIDs: onboardingVisibleThemeIDs ?? Set(onboardingThemes.map(\.id)),
-            initiallySelected: onboardingInitialSelection ?? Set(onboardingProgressStore.orderedPreferredThemeIDs(locale: locale)),
+            initiallySelected: onboardingSelection?.model.savedIDs ?? Set(onboardingProgressStore.orderedPreferredThemeIDs(locale: locale)),
             locale: locale
         )
         (navigationController.viewControllers.first as? QuizViewController)?
             .applyThemePreferencesRefresh(locale: locale)
-        synchronizeThemePreferences(locale: locale)
+        Task { @MainActor [weak self] in await self?.refreshAccountData(requiringNewPass: true) }
         let viewController = activeOnboardingViewController
         activeOnboardingViewController = nil
         onboardingVisibleThemeIDs = nil
-        onboardingInitialSelection = nil
+        onboardingSelection = nil
         guard let viewController else {
             presentPendingSystemViewControllerIfNeeded()
             return
@@ -297,25 +293,19 @@ final class QuizFlowCoordinator: NSObject, QuizRouting, UIViewControllerTransiti
             dataSynchronizer = AccountDataSynchronizer(
                 accountManager: accountManager, answerOutbox: answerOutbox, themeRepository: themeRepository
             ) { [weak self] in
+                self?.refreshOnboardingSelection()
                 (self?.navigationController.viewControllers.first as? QuizViewController)?.refreshVisibleAccountData()
             }
         }
         await dataSynchronizer?.refresh(requiringNewPass: requiringNewPass)
     }
 
-    private func synchronizeThemePreferences(locale: String) {
-        themePreferencesSyncTask?.cancel()
-        themePreferencesSyncTask = Task { @MainActor [weak self] in
-            guard let self else { return }
-            let didSynchronize = await themeRepository.synchronizeThemePreferences(locale: locale)
-            guard
-                !Task.isCancelled,
-                AppLocalizationStore.shared.resolvedLanguageCode == locale
-            else { return }
-            themePreferencesSyncTask = nil
-            (navigationController.viewControllers.first as? QuizViewController)?
-                .applyBackendCatalogRefresh(didRefresh: didSynchronize, locale: locale)
-        }
+    private func refreshOnboardingSelection() {
+        guard let onboardingSelection, let onboardingVisibleThemeIDs,
+              onboardingSelection.userID == onboardingProgressStore.preferenceUserID else { return }
+        let locale = AppLocalizationStore.shared.resolvedLanguageCode
+        let savedIDs = Set(onboardingProgressStore.orderedPreferredThemeIDs(locale: locale))
+        onboardingSelection.model.applySavedIDs(savedIDs.intersection(onboardingVisibleThemeIDs))
     }
 
     func closeQuestion() {
@@ -588,6 +578,8 @@ final class QuizFlowCoordinator: NSObject, QuizRouting, UIViewControllerTransiti
 
     func resetAccountNavigation(completion: @escaping () -> Void) {
         dataSynchronizer?.cancel()
+        onboardingSelection = nil
+        onboardingVisibleThemeIDs = nil
         activeOnboardingViewController = nil
         pendingSystemViewController = nil
         activeQuestionViewController = nil

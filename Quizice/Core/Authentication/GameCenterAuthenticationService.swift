@@ -1,6 +1,5 @@
 import Foundation
 import UIKit
-
 @MainActor
 final class GameCenterAuthenticationService: AccountManaging, AccountSynchronizing, AppAccountAccessProviding {
     private(set) var state: AuthSessionState = .initializing {
@@ -35,6 +34,13 @@ final class GameCenterAuthenticationService: AccountManaging, AccountSynchronizi
     private var started = false
 #if DEBUG
     private var devAuthenticationProvider: AuthenticationProvider?
+    var usesDebugBackendAuthentication: Bool { devAuthenticationProvider != nil }
+    func waitForDebugAuthentication() async { await authenticationTask?.value }
+    func stopForDebugReconnection() { stopAccountWork(); accountOperationInProgress = true }
+    func configureDebugAuthentication(_ provider: AuthenticationProvider?) {
+        guard !started else { return }
+        devAuthenticationProvider = provider
+    }
 #endif
 
     init(
@@ -87,7 +93,6 @@ final class GameCenterAuthenticationService: AccountManaging, AccountSynchronizi
             notificationCenter.removeObserver(authenticationInvalidationObserver)
         }
     }
-
     static func live(bundle: Bundle = .main) -> GameCenterAuthenticationService {
         let api = BackendServiceFactory.authAPI(bundle: bundle)
         let service = GameCenterAuthenticationService(
@@ -105,22 +110,7 @@ final class GameCenterAuthenticationService: AccountManaging, AccountSynchronizi
             }
         )
 #if DEBUG
-        let environment = ProcessInfo.processInfo.environment
-        let enabled = ["1", "true", "yes"].contains(
-            environment["DEV_AUTH_ENABLED"]?.lowercased() ?? ""
-        )
-        if enabled,
-           let configuration = BackendConfiguration.load(bundle: bundle),
-           let secret = environment["DEV_AUTH_SECRET"] {
-            service.devAuthenticationProvider = DevAuthenticationProvider(
-                api: HTTPAuthAPI(
-                    configuration: configuration,
-                    metrics: AppMetricaAnalyticsTracker.shared
-                ),
-                developerUserIDStore: KeychainDeveloperUserIDStore(),
-                secret: secret
-            )
-        }
+        service.configureDebugAuthentication(DebugBackendSessionProvider.configured(bundle: bundle))
 #endif
         return service
     }
@@ -145,11 +135,16 @@ final class GameCenterAuthenticationService: AccountManaging, AccountSynchronizi
             self?.handle(playerState)
         }
     }
-
     func signIn(present: @escaping (UIViewController) -> Void) {
         guard started else { start(present: present); return }
         guard !accountOperationInProgress, deletionRecord == nil,
               accountAccessState == .signInRequired else { return }
+#if DEBUG
+        if let devAuthenticationProvider {
+            beginDevAuthentication(using: devAuthenticationProvider)
+            return
+        }
+#endif
         state = .initializing
         gameCenter.start(present: present) { [weak self] playerState in
             self?.handle(playerState)
@@ -158,10 +153,7 @@ final class GameCenterAuthenticationService: AccountManaging, AccountSynchronizi
 
 #if DEBUG
     private func beginDevAuthentication(using provider: AuthenticationProvider) {
-        authenticationTask?.cancel()
-        synchronizationTask?.cancel()
-        synchronizationTask = nil
-        synchronizationAttemptID = nil
+        stopAccountWork()
         statisticsStore.activateGuest()
         let attemptID = UUID()
         authenticationAttemptID = attemptID
@@ -169,7 +161,8 @@ final class GameCenterAuthenticationService: AccountManaging, AccountSynchronizi
         authenticationTask = Task { [weak self] in
             guard let self else { return }
             do {
-                if let cached = self.loadStoredSession(),
+                if provider is DevAuthenticationProvider,
+                   let cached = self.loadStoredSession(),
                    cached.teamPlayerID.hasPrefix("dev:"),
                    cached.expiresAt > self.now() {
                     self.currentTeamPlayerID = cached.teamPlayerID
@@ -194,7 +187,7 @@ final class GameCenterAuthenticationService: AccountManaging, AccountSynchronizi
                 return
             } catch {
                 AppLog.auth.error(
-                    "DEBUG dev authentication failed: \(String(describing: error), privacy: .public)"
+                    "DEBUG backend authentication failed; retry from the debug menu"
                 )
                 self.enterGuestMode()
             }
@@ -222,7 +215,6 @@ final class GameCenterAuthenticationService: AccountManaging, AccountSynchronizi
         }
         synchronizeStatistics()
     }
-
     private func handle(_ playerState: GameCenterPlayerState) {
         guard !accountOperationInProgress else {
             deferredPlayerState = playerState
@@ -267,10 +259,7 @@ final class GameCenterAuthenticationService: AccountManaging, AccountSynchronizi
         allowsCachedSession: Bool,
         statisticsMayRefreshToken: Bool
     ) {
-        authenticationTask?.cancel()
-        synchronizationTask?.cancel()
-        synchronizationTask = nil
-        synchronizationAttemptID = nil
+        stopAccountWork()
         statisticsStore.activateGuest()
         if currentTeamPlayerID != teamPlayerID {
             // Remove the previous account before any asynchronous exchange starts.
@@ -417,12 +406,7 @@ final class GameCenterAuthenticationService: AccountManaging, AccountSynchronizi
             aiQuizAccessStore.update(isAuthenticated: false)
             return
         }
-        authenticationTask?.cancel()
-        authenticationTask = nil
-        authenticationAttemptID = nil
-        synchronizationTask?.cancel()
-        synchronizationTask = nil
-        synchronizationAttemptID = nil
+        stopAccountWork()
         if preservingGameCenterPlayer == false {
             currentTeamPlayerID = nil
         }
@@ -486,6 +470,12 @@ final class GameCenterAuthenticationService: AccountManaging, AccountSynchronizi
             return false
         } catch BackendAPIError.unauthorized {
             guard !Task.isCancelled, state == .authenticated(userID: session.userID, teamPlayerID: session.teamPlayerID) else { return false }
+#if DEBUG
+            if devAuthenticationProvider is DebugBackendSessionProvider {
+                handleBackendAuthenticationInvalidation(); return false
+            }
+            if let renewable = devAuthenticationProvider as? DebugTestAccountProvider { try? renewable.invalidate() }
+#endif
             enterGuestMode()
             return false
         } catch {
@@ -493,10 +483,17 @@ final class GameCenterAuthenticationService: AccountManaging, AccountSynchronizi
             return false
         }
     }
-
     private func handleBackendAuthenticationInvalidation() {
         guard !accountOperationInProgress, deletionRecord == nil else { return }
 #if DEBUG
+        if let provisioned = devAuthenticationProvider as? DebugBackendSessionProvider {
+            try? provisioned.invalidate()
+            devAuthenticationProvider = nil
+            clearStoredSession()
+            enterGuestMode()
+            return
+        }
+        if let renewable = devAuthenticationProvider as? DebugTestAccountProvider { try? renewable.invalidate() }
         if let devAuthenticationProvider {
             clearStoredSession()
             beginDevAuthentication(using: devAuthenticationProvider)
@@ -517,6 +514,9 @@ final class GameCenterAuthenticationService: AccountManaging, AccountSynchronizi
         for teamPlayerID: String,
         statisticsMayRefreshToken: Bool
     ) {
+#if DEBUG
+        if devAuthenticationProvider != nil { handleBackendAuthenticationInvalidation(); return }
+#endif
         guard currentTeamPlayerID == teamPlayerID, !accountOperationInProgress,
               deletionStateStore.record(for: teamPlayerID) == nil else { return }
         if state == .authenticating, authenticationTask != nil {

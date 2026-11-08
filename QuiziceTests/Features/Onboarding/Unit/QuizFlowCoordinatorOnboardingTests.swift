@@ -136,6 +136,137 @@ final class QuizFlowCoordinatorOnboardingTests: QuizFlowCoordinatorTestCase {
         )
     }
 
+    func testUprightGravityPointsDownInBothIPadLandscapeOrientations() {
+        for (orientation, x, y): (UIInterfaceOrientation, Double, Double) in [
+            (.portrait, 0, -1), (.portraitUpsideDown, 0, 1),
+            (.landscapeLeft, 1, 0), (.landscapeRight, -1, 0)
+        ] {
+            XCTAssertEqual(
+                TopicsPhysicsView.motionGravityTarget(.init(x: x, y: y, z: 0), orientation: orientation),
+                CGVector(dx: 0, dy: 1)
+            )
+        }
+        XCTAssertEqual(TopicsPhysicsView.motionGravityTarget(.init(x: 0, y: -1, z: 0), orientation: .landscapeRight),
+                       CGVector(dx: 1, dy: 0), "A deliberate tilt still moves the cards in screen coordinates")
+        XCTAssertEqual(TopicsPhysicsView.motionGravityTarget(.init(x: 0.01, y: 0, z: 1), orientation: .landscapeRight),
+                       CGVector(dx: 0, dy: 1), "A flat iPad should return to downward gravity")
+    }
+
+    func testPhoneFavoritesUpdateOpenIPadOnboardingAndMoveToTopOfHome() async throws {
+        let phoneSuite = "Favorites.phone.\(UUID())"
+        let iPadSuite = "Favorites.iPad.\(UUID())"
+        let phoneDefaults = try XCTUnwrap(UserDefaults(suiteName: phoneSuite))
+        let iPadDefaults = try XCTUnwrap(UserDefaults(suiteName: iPadSuite))
+        defer {
+            phoneDefaults.removePersistentDomain(forName: phoneSuite)
+            iPadDefaults.removePersistentDomain(forName: iPadSuite)
+        }
+        let phoneSession = ProgressSessionProvider()
+        let iPadSession = ProgressSessionProvider()
+        let phone = OnboardingProgressStore(userDefaults: phoneDefaults, userIDProvider: { phoneSession.session?.userID })
+        let iPad = OnboardingProgressStore(userDefaults: iPadDefaults, userIDProvider: { iPadSession.session?.userID })
+        let favorites = ["cinema", "technology", "history_culture", "politics_business"]
+        let backend = ThemePreferencesBackendContentAPI(catalogThemes: (["music"] + favorites).map {
+            BackendThemeDTO(id: $0, name: $0.capitalized, description: "", sfSymbol: "star", emoji: "⭐️",
+                            colorHex: "#FF8252", isFavorite: false)
+        })
+        let phoneRepository = ThemeCatalogRepository(backendContentAPI: backend, preferenceStore: phone, accessTokenProvider: phoneSession)
+        let iPadRepository = ThemeCatalogRepository(backendContentAPI: backend, preferenceStore: iPad, accessTokenProvider: iPadSession)
+        let navigation = RoutingNavigationControllerSpy()
+        let coordinator = QuizFlowCoordinator(
+            window: UIWindow(frame: CGRect(x: 0, y: 0, width: 1194, height: 834)), navigationController: navigation,
+            themeRepository: iPadRepository, aiQuizThemeService: MockAIQuizThemeService(),
+            answerOutbox: NoopQuestionAnswerOutbox(), onboardingProgressStore: iPad
+        )
+        let locale = AppLocalizationStore.shared.resolvedLanguageCode
+        coordinator.start()
+        await coordinator.prepareInitialCatalog()
+        coordinator.presentInitialOnboardingIfNeeded()
+        let onboarding = try XCTUnwrap(navigation.presentedControllers.first as? UIHostingController<QuizOnboardingView>)
+        let selection = onboarding.rootView.selection
+        XCTAssertTrue(selection.selectedIDs.isEmpty)
+
+        phone.complete(preferredThemeIDs: favorites, locale: locale)
+        let uploaded = await phoneRepository.synchronizeThemePreferences(locale: locale)
+        XCTAssertTrue(uploaded)
+        await coordinator.refreshAccountData()
+
+        XCTAssertEqual(selection.selectedIDs, Set(favorites))
+        let home = try XCTUnwrap(navigation.viewControllers.first as? QuizViewController)
+        XCTAssertEqual(home.themesCollectionService.displayedThemes.map(\.stableID), favorites + ["music"])
+        XCTAssertEqual(home.themesCollectionService.displayedThemes.map(\.isFavorite), [true, true, true, true, false])
+        selection.select(["music", "technology", "history_culture", "politics_business"])
+        await coordinator.refreshAccountData()
+        XCTAssertEqual(selection.selectedIDs, ["music", "technology", "history_culture", "politics_business"])
+    }
+
+    func testFallingTopicsStartWithBaseThemesInEveryLocalization() throws {
+        let previousLanguage = AppLocalizationStore.shared.languagePreference
+        defer { AppLocalizationStore.shared.languagePreference = previousLanguage }
+        let baseThemeIDs = ["music", "technology", "history_culture", "politics_business"]
+
+        for language in AppLanguagePreference.allCases where language != .system {
+            AppLocalizationStore.shared.languagePreference = language
+            let localizedThemes = try LocalizedThemeDataLoader().load().themes.map {
+                OnboardingTheme(id: $0.id, title: $0.theme, sfSymbolName: $0.sfSymbolName)
+            }
+            let additionalThemes = [
+                OnboardingTheme(id: "cinema", title: "Cinema \(language.rawValue)"),
+                OnboardingTheme(id: "space", title: "Space \(language.rawValue)")
+            ]
+            // The backend may put additional or favorite themes before the base catalog.
+            let input = additionalThemes + Array(localizedThemes.reversed())
+
+            let descriptors = TopicsPhysicsDescriptor.make(from: input)
+
+            XCTAssertEqual(descriptors.map(\.theme.id), baseThemeIDs + ["cinema", "space"])
+            XCTAssertEqual(descriptors.map(\.theme), baseThemeIDs.compactMap { id in
+                localizedThemes.first { $0.id == id }
+            } + additionalThemes)
+            XCTAssertEqual(input.first?.id, "cinema", "Only the falling stage should reorder themes")
+        }
+    }
+
+    func testFallingTopicsKeepAdditionalOrderWhenBaseThemesAreMissing() {
+        let themes = [
+            OnboardingTheme(id: "space", title: "Space"),
+            OnboardingTheme(id: "technology", title: "Technology"),
+            OnboardingTheme(id: "cinema", title: "Cinema"),
+            OnboardingTheme(id: "music", title: "Music")
+        ]
+
+        XCTAssertEqual(
+            TopicsPhysicsDescriptor.make(from: themes).map(\.theme.id),
+            ["music", "technology", "space", "cinema"]
+        )
+        XCTAssertTrue(TopicsPhysicsDescriptor.make(from: []).isEmpty)
+    }
+
+    func testStaticTopicsAreImmediatelyVisibleAndKeepSelectionWithBaseThemesFirst() {
+        let themes = [
+            OnboardingTheme(id: "space", title: "Space"),
+            OnboardingTheme(id: "technology", title: "Technology"),
+            OnboardingTheme(id: "cinema", title: "Cinema"),
+            OnboardingTheme(id: "music", title: "Music")
+        ]
+        let stage = TopicsPhysicsView(frame: CGRect(x: 0, y: 0, width: 390, height: 500))
+        defer { stage.stop() }
+        stage.configure(
+            appearance: SnapshotSupport.appearance(designStyle: .clean),
+            themes: themes,
+            selectedThemeIDs: ["space"],
+            usesStaticLayout: true
+        )
+        stage.setActive(true)
+
+        let cards = stage.subviews.compactMap { $0 as? PhysicsTopicCardView }
+        XCTAssertEqual(cards.map(\.themeID), ["music", "technology", "space", "cinema"])
+        for card in cards {
+            XCTAssertTrue(stage.bounds.contains(card.frame), "\(card.themeID) should be visible without waiting")
+            XCTAssertEqual(card.accessibilityTraits.contains(.selected), card.themeID == "space")
+        }
+    }
+
     func testFallingTopicCardsSizeToBackendTitlesWithoutWrapping() throws {
         let themes = [
             "Музыка",
