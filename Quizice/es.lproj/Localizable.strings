@@ -291,3 +291,11 @@
 "account_start.deletion_pending.message" = "La eliminación de la cuenta aún no se ha completado. Repite la solicitud para eliminar tu cuenta y sus datos.";
 "account_start.deletion_pending.action" = "Reintentar eliminación";
 "account_start.deletion_pending.sign_in" = "Para completar la eliminación, inicia sesión con la cuenta original de Game Center en Ajustes del iPhone y vuelve a intentarlo.";
+
+"debug_menu.test_account.title" = "Cuenta de prueba del servidor";
+"debug_menu.test_account.key" = "Clave privada de la cuenta de prueba";
+"debug_menu.test_account.connect" = "Conectar / renovar sesión";
+"debug_menu.test_account.help" = "Introduce la clave una vez. Deja el campo vacío para reutilizar la clave guardada. Las sesiones se renuevan automáticamente y conservan las estadísticas.";
+"debug_menu.test_account.no_backend" = "Activa el servidor antes de conectar.";
+"debug_menu.test_account.key_required" = "Introduce la clave privada de la cuenta de prueba.";
+"debug_menu.test_account.failure" = "No se pudo conectar. Revisa la clave y la conexión e inténtalo de nuevo.";

@@ -101,6 +101,60 @@ final class DebugMenuViewModel: ObservableObject {
     }
 }
 
+#if targetEnvironment(simulator)
+private struct DebugTestAccountSection: View {
+    @State private var key = ""
+    @State private var isConnecting = false
+    @State private var status: String?
+
+    var body: some View {
+        Section(L10n.DebugMenu.testAccountTitle) {
+            SecureField(L10n.DebugMenu.testAccountKey, text: $key)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .accessibilityIdentifier("debugTestAccountKey")
+            Button {
+                Task { await connect() }
+            } label: {
+                HStack {
+                    Text(L10n.DebugMenu.testAccountConnect)
+                    if isConnecting { ProgressView() }
+                }
+            }
+            .disabled(isConnecting)
+            .accessibilityIdentifier("debugTestAccountConnect")
+            Text(status ?? L10n.DebugMenu.testAccountHelp)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    @MainActor private func connect() async {
+        guard !isConnecting else { return }
+        guard let configuration = BackendConfiguration.load() else {
+            status = L10n.DebugMenu.testAccountNoBackend
+            return
+        }
+        isConnecting = true
+        defer { isConnecting = false }
+        let provider = DebugTestAccountProvider(configuration: configuration)
+        do {
+            let secret = key.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard let selectedKey = secret.isEmpty ? try provider.loadKey() : secret else {
+                status = L10n.DebugMenu.testAccountKeyRequired
+                return
+            }
+            _ = try await provider.connect(key: selectedKey)
+            key = ""
+            NotificationCenter.default.post(name: DebugTestAccountProvider.didConnect, object: nil)
+        } catch {
+            // Never show decoding payloads or request headers containing credentials.
+            status = L10n.DebugMenu.testAccountFailure
+        }
+    }
+}
+#endif
+
 struct DebugMenuView: View {
     enum AccessibilityID {
         static let root = "debugMenuRoot"
@@ -122,6 +176,9 @@ struct DebugMenuView: View {
             List {
                 interfaceSection
                 backendSection
+#if targetEnvironment(simulator)
+                DebugTestAccountSection()
+#endif
                 toolsSection
                 if viewModel.showsBackgroundStyles {
                     backgroundSection

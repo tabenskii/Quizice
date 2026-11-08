@@ -172,3 +172,22 @@ xcodebuild \
 - [SwiftUI migration assessment](swiftui-migration-assessment.md).
 - [Backend production readiness plan](backend-production-readiness-plan.md) —
   server contract and rollout requirements; a plan is not a live service status.
+
+
+## Renewable simulator test account
+
+Debug Simulator builds support a private backend test account with automatic session renewal. In the debug menu (long-press Settings), use **Connect / renew test account**. Enter the private test-account key once; later, leave the field empty to use the saved key. Successful connection immediately rebuilds the app flow with the backend account. The key and bearer session are stored in device-only Keychain and scoped to the backend URL. Neither belongs in source, build settings, Info.plist, logs, screenshots, or PRs.
+
+The backend's optional `/api/v1/auth/test-account` endpoint binds this key to one server-selected `dev:<UUID>` account; it cannot select or impersonate a Game Center user. Bearer sessions last 30 days by default. On launch, the client renews sessions with less than one day remaining, including expired sessions. A still-valid session remains usable during transient renewal outages. Server rejection clears the cached session; renewal is bounded and does not create an authentication loop. The private key is administratively revocable and does not expire monthly. Account statistics and normal AI quotas are preserved.
+
+For automated setup, supply `QUIZICE_TEST_ACCOUNT_KEY` through the launching process environment for one simulator launch (`SIMCTL_CHILD_QUIZICE_TEST_ACCOUNT_KEY` with simctl). Do not put it in command-line arguments. The backend configuration and key must already be enabled by the administrator. The key is redacted from the Pulse network logger. The menu/import/provider selection are limited to Debug Simulator builds; `QUIZICE_REQUIRE_GAME_CENTER=1` explicitly selects Game Center instead.
+
+The older one-time `QUIZICE_DEBUG_SESSION_BASE64` import remains supported for existing installations. It accepts base64 JSON with this shape (all values are examples):
+
+```json
+{"backendBaseURL":"https://backend.example/api","session":{"userID":"550e8400-e29b-41d4-a716-446655440001","teamPlayerID":"dev:550e8400-e29b-41d4-a716-446655440000","accessToken":"REPLACE_WITH_SERVER_ISSUED_TOKEN","expiresAt":"2099-01-01T00:00:00Z"}}
+```
+
+That legacy session cannot renew without a private test-account key. Existing explicit `DEV_AUTH_ENABLED` / `DEV_AUTH_SECRET` staging authentication is unchanged; production `/auth/dev` stays disabled.
+
+When building from a worktree, privately copy the ignored `Configurations/Secrets.xcconfig` into the worktree. Without `BACKEND_BASE_URL`, the app cannot reach the backend. Use normal ad-hoc Simulator signing; disabling signing prevents Keychain access.
