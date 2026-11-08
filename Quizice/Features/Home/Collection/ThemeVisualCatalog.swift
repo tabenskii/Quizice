@@ -14,10 +14,15 @@ enum AIThemeVisualStyle {
 }
 
 enum ThemeVisualCatalog {
-    static func logoImage(sfSymbolName: String) -> UIImage? {
+    static func resolvedSymbolName(_ sfSymbolName: String) -> String {
         let normalizedName = sfSymbolName.trimmingCharacters(in: .whitespacesAndNewlines)
-        return (UIImage(systemName: normalizedName)
-            ?? UIImage(systemName: QuizTheme.defaultSFSymbolName))?
+        return UIImage(systemName: normalizedName) == nil
+            ? QuizTheme.defaultSFSymbolName
+            : normalizedName
+    }
+
+    static func logoImage(sfSymbolName: String) -> UIImage? {
+        UIImage(systemName: resolvedSymbolName(sfSymbolName))?
             .withRenderingMode(.alwaysTemplate)
     }
 
