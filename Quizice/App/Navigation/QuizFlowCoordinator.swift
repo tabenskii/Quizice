@@ -177,6 +177,7 @@ final class QuizFlowCoordinator: NSObject, QuizRouting, UIViewControllerTransiti
 
     func showOnboarding() {
         presentOnboarding(animated: true)
+        Task { @MainActor [weak self] in await self?.refreshAccountData(requiringNewPass: true) }
     }
 
     func showSubscription() {
