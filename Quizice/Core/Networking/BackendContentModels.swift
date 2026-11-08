@@ -233,6 +233,7 @@ struct BackendQuestionDTO: Decodable, Equatable {
     let answers: [String]
     let correctAnswer: String
     let explanation: String?
+    let themeName: String?
 
     init(
         questionId: String? = nil,
@@ -240,7 +241,8 @@ struct BackendQuestionDTO: Decodable, Equatable {
         question: String,
         answers: [String],
         correctAnswer: String,
-        explanation: String?
+        explanation: String?,
+        themeName: String? = nil
     ) {
         self.questionId = questionId
         self.questionVersion = questionVersion
@@ -248,6 +250,7 @@ struct BackendQuestionDTO: Decodable, Equatable {
         self.answers = answers
         self.correctAnswer = correctAnswer
         self.explanation = explanation
+        self.themeName = themeName
     }
 
     func makeModel(locale: String? = nil) -> QuizQuestion {
@@ -258,7 +261,8 @@ struct BackendQuestionDTO: Decodable, Equatable {
             question: question,
             answers: answers,
             correctAnswer: correctAnswer,
-            explanation: explanation
+            explanation: explanation,
+            sourceThemeName: themeName
         )
     }
 }

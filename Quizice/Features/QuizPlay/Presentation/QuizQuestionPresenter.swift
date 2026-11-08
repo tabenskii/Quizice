@@ -205,7 +205,15 @@ final class QuizQuestionPresenter: QuizQuestionPresenterProtocol {
         currentQuestion = question
         questionPhase = .awaitingAnswer
         
-        let themeName = roundTheme?.themeName ?? L10n.Question.fallbackTheme
+        let sourceThemeName = question.quizQuestion.sourceThemeName?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let themeName: String
+        if roundTheme?.themeID == RandomQuizSelection.themeID,
+           let sourceThemeName, !sourceThemeName.isEmpty {
+            themeName = sourceThemeName
+        } else {
+            themeName = roundTheme?.themeName ?? L10n.Question.fallbackTheme
+        }
         currentAnswerOptions = makeAnswerOptions(for: question)
         let questionNumberText = L10n.Question.number(currentQuestionIndex + 1)
         
