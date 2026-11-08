@@ -147,6 +147,7 @@ extension QuizViewController {
         expandedCardScreenViewTracked = false
         expandedCardLastTrackedFace = nil
         expandedAIKeyboardLift = 0
+        expandedAIKeyboardFrame = nil
     }
 
     func updateExpandedThemeCardParallaxPhase() {

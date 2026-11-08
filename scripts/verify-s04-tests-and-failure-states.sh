@@ -508,7 +508,7 @@ check_split_test_layout_and_markers() {
     'question typography tests must cover the initial frame before selection'
   require_test_method \
     "QuiziceTests/Features/QuizPlay/UIContracts/QuizQuestionTypographyContractTests.swift" \
-    'testLongAnswersFitAccessibilityContentWithoutClippingOrScrolling' \
+    'testLongAnswersPreserveAccessibilityFontsInScrollableContent' \
     'question typography tests must preserve Dynamic Type coverage'
   require_test_method \
     "QuiziceTests/Features/QuizPlay/UIContracts/QuizQuestionTypographyContractTests.swift" \
@@ -516,7 +516,7 @@ check_split_test_layout_and_markers() {
     'question typography tests must bound long-question typography'
   require_test_method \
     "QuiziceTests/Features/QuizPlay/UIContracts/QuizQuestionTypographyContractTests.swift" \
-    'testExtremeQuestionFitsAvailableCardHeightWithoutScrolling' \
+    'testExtremeQuestionRemainsReadableWithScrollableBody' \
     'question typography tests must fit extreme questions without scrolling'
   require_test_method \
     "QuiziceTests/Features/QuizPlay/UIContracts/QuizQuestionTypographyContractTests.swift" \

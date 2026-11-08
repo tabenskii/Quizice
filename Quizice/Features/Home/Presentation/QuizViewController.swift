@@ -231,6 +231,8 @@ final class QuizViewController: BaseQuizViewController, ThemeCollectionDelegate,
     var expandedCardScreenViewTracked = false
     var expandedCardLastTrackedFace: HomeThemeCardFace?
     var expandedAIKeyboardLift: CGFloat = 0
+    var expandedAIKeyboardFrame: CGRect?
+    var lastLayoutSize: CGSize = .zero
     weak var router: HomeRouting?
 
     var cardSlideTransitionSourceView: UIView {
@@ -332,6 +334,15 @@ final class QuizViewController: BaseQuizViewController, ThemeCollectionDelegate,
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
+        let layoutSize = view.safeAreaLayoutGuide.layoutFrame.size
+        if lastLayoutSize != layoutSize {
+            let wasLaidOut = lastLayoutSize != .zero
+            lastLayoutSize = layoutSize
+            if wasLaidOut {
+                themesCollectionService.captureScrollAnchor()
+                settleCardForWindowResize()
+            }
+        }
         if let settingsButtonVisualSurface {
             settingsButton.sendSubviewToBack(settingsButtonVisualSurface)
         }
@@ -339,11 +350,14 @@ final class QuizViewController: BaseQuizViewController, ThemeCollectionDelegate,
             helpButton.sendSubviewToBack(helpButtonVisualSurface)
         }
         updateCollectionTopInset()
+        themesCollectionView.layoutIfNeeded()
+        themesCollectionService.restoreScrollAnchor()
         updateCollectionScrollAvailability()
         expandedCardBackdropView?.frame = view.bounds
         expandedCardBackdropDismissButton?.frame = view.bounds
         if expandedCardAnimator == nil,
-           homeCardState.phase == .expandedFront || homeCardState.phase == .expandedBack {
+           homeCardState.phase == .expandedFront || homeCardState.phase == .expandedBack
+            || homeCardState.phase == .launching {
             expandedThemeCardView?.frame = expandedThemeCardFrame()
             expandedStatisticsCardView?.frame = expandedThemeCardFrame()
             expandedAIThemeCardView?.frame = expandedAIThemeCardFrame()
@@ -351,6 +365,11 @@ final class QuizViewController: BaseQuizViewController, ThemeCollectionDelegate,
         if !session.startup1st {
             updateMotivationHeaderVisibility(for: themesCollectionView)
         }
+    }
+
+    override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
+        themesCollectionService.captureScrollAnchor()
+        super.viewWillTransition(to: size, with: coordinator)
     }
 
     override func viewWillAppear(_ animated: Bool) {

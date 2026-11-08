@@ -49,6 +49,21 @@ final class SwiftUISnapshotTests: XCTestCase {
         super.tearDown()
     }
 
+    func testIPadSettingsSnapshot() {
+        SnapshotSupport.assertScreen(makeHostingController(rootView: QuizSettingsView()),
+            named: "clean-ipad-settings", device: SnapshotSupport.iPadPortrait, afterPrepare: prepareSettingsSnapshot)
+    }
+
+    func testIPadOnboardingSnapshots() {
+        for device in [SnapshotSupport.iPadPortrait, SnapshotSupport.iPadShortWindow] {
+            let controller = makeHostingController(rootView: QuizOnboardingView(
+                appearance: SnapshotSupport.appearance(designStyle: .clean, cleanColorScheme: .light),
+                themes: onboardingThemes, onComplete: { _ in }
+            ))
+            SnapshotSupport.assertScreen(controller, named: "clean-ipad-onboarding-\(Int(device.size!.width))", device: device)
+        }
+    }
+
     func testSettingsViewSnapshot() {
         let viewController = makeHostingController(rootView: QuizSettingsView())
 

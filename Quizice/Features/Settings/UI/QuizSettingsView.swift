@@ -199,6 +199,8 @@ struct QuizSettingsView: View {
         .padding(.horizontal, Layout.contentHorizontalInset)
         .padding(.top, topInset)
         .padding(.bottom, Layout.contentBottomInset)
+        .frame(maxWidth: 560)
+        .frame(maxWidth: .infinity)
     }
 
     private var settingsTitle: some View {

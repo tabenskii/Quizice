@@ -283,7 +283,7 @@ final class HomeAIThemeCardInteractionTests: HomeScreenVisualStateTestCase {
         drainAnimations()
 
         let card = try XCTUnwrap(
-            viewController.view.descendant(withAccessibilityIdentifier: "homeExpandedAIThemeCard")
+            viewController.view.descendant(withAccessibilityIdentifier: "homeExpandedAIThemeCard") as? ExpandedAIThemeCardView
         )
         let promptEditor = try XCTUnwrap(
             card.descendant(withAccessibilityIdentifier: "aiThemePromptEditor") as? UITextView
@@ -300,21 +300,10 @@ final class HomeAIThemeCardInteractionTests: HomeScreenVisualStateTestCase {
             width: window.bounds.width,
             height: window.bounds.maxY - keyboardTop
         )
-        let keyboardFrameInScreen = window.convert(
-            keyboardFrameInWindow,
-            to: window.screen.coordinateSpace
-        )
-        let userInfo: [AnyHashable: Any] = [
-            UIResponder.keyboardFrameEndUserInfoKey: keyboardFrameInScreen,
-            UIResponder.keyboardAnimationDurationUserInfoKey: TimeInterval(0),
-            UIResponder.keyboardAnimationCurveUserInfoKey: UInt(UIView.AnimationCurve.easeInOut.rawValue)
-        ]
-
-        NotificationCenter.default.post(
-            name: UIResponder.keyboardWillChangeFrameNotification,
-            object: nil,
-            userInfo: userInfo
-        )
+        // The fixture intentionally owns a window without a scene. Inject window
+        // coordinates at the notification adapter boundary, because screen-space
+        // conversion is undefined for this detached test window.
+        card.updateKeyboardFrameInWindow(keyboardFrameInWindow, duration: 0, options: [])
         viewController.view.layoutIfNeeded()
 
         XCTAssertLessThan(card.frame.minY, originalFrame.minY)
@@ -326,18 +315,10 @@ final class HomeAIThemeCardInteractionTests: HomeScreenVisualStateTestCase {
         XCTAssertLessThanOrEqual(visiblePromptFrame.maxY, keyboardTop - 11.5)
 
         let firstLiftedFrame = card.frame
-        NotificationCenter.default.post(
-            name: UIResponder.keyboardWillChangeFrameNotification,
-            object: nil,
-            userInfo: userInfo
-        )
+        card.updateKeyboardFrameInWindow(keyboardFrameInWindow, duration: 0, options: [])
         XCTAssertEqual(card.frame.minY, firstLiftedFrame.minY, accuracy: 0.01)
 
-        NotificationCenter.default.post(
-            name: UIResponder.keyboardWillHideNotification,
-            object: nil,
-            userInfo: userInfo
-        )
+        card.updateKeyboardFrameInWindow(nil, duration: 0, options: [])
         XCTAssertEqual(card.frame.minY, originalFrame.minY, accuracy: 0.01)
         _ = promptEditor.resignFirstResponder()
     }

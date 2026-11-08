@@ -21,71 +21,72 @@ struct OnboardingWelcomePage: View {
         GeometryReader { geometry in
             let isCompact = geometry.size.height < Layout.compactHeightThreshold
 
-            VStack(spacing: isCompact ? 12 : 22) {
-                Spacer(minLength: isCompact ? 0 : 8)
+            ScrollView {
+                VStack(spacing: isCompact ? 12 : 22) {
+                    Spacer(minLength: isCompact ? 0 : 8)
 
-                WelcomeArtwork(
-                    themes: themes,
-                    isRevealed: isRevealed || reduceMotion || !UIView.areAnimationsEnabled
-                )
-                .frame(height: Layout.regularArtworkHeight)
-                .scaleEffect(isCompact ? Layout.compactArtworkScale : 1)
-                .frame(
-                    height: isCompact
-                        ? Layout.compactArtworkHeight
-                        : Layout.regularArtworkHeight
-                )
+                    WelcomeArtwork(
+                        themes: themes,
+                        isRevealed: isRevealed || reduceMotion || !UIView.areAnimationsEnabled
+                    )
+                    .frame(height: Layout.regularArtworkHeight)
+                    .scaleEffect(isCompact ? Layout.compactArtworkScale : 1)
+                    .frame(
+                        height: isCompact
+                            ? Layout.compactArtworkHeight
+                            : Layout.regularArtworkHeight
+                    )
 
-                VStack(spacing: isCompact ? 8 : 12) {
-                    Text(L10n.Onboarding.welcomeKicker)
-                        .font(
-                            appearance.typography.swiftUIFont(
-                                size: isCompact ? 11 : 13,
-                                weight: .bold
+                    VStack(spacing: isCompact ? 8 : 12) {
+                        Text(L10n.Onboarding.welcomeKicker)
+                            .font(
+                                appearance.typography.swiftUIFont(
+                                    size: isCompact ? 11 : 13,
+                                    weight: .bold
+                                )
                             )
-                        )
-                        .foregroundStyle(Color(uiColor: appearance.secondaryScreenTextColor))
-                        .textCase(.uppercase)
-                        .tracking(isCompact ? 0.5 : 0.8)
+                            .foregroundStyle(Color(uiColor: appearance.secondaryScreenTextColor))
+                            .textCase(.uppercase)
+                            .tracking(isCompact ? 0.5 : 0.8)
 
-                    Text(L10n.Onboarding.welcomeTitle)
-                        .font(
-                            appearance.typography.swiftUIFont(
-                                size: isCompact ? 30 : 38,
-                                weight: .bold
+                        Text(L10n.Onboarding.welcomeTitle)
+                            .font(
+                                appearance.typography.swiftUIFont(
+                                    size: isCompact ? 30 : 38,
+                                    weight: .bold
+                                )
                             )
-                        )
-                        .foregroundStyle(Color(uiColor: appearance.screenTextColor))
-                        .multilineTextAlignment(.center)
-                        .lineSpacing(isCompact ? -1 : -2)
-                        .minimumScaleFactor(0.76)
-                        .accessibilityAddTraits(.isHeader)
-                        .accessibilityIdentifier("onboardingWelcomeTitle")
-                        .accessibilityFocused(focusedHeaderPage, equals: .welcome)
+                            .foregroundStyle(Color(uiColor: appearance.screenTextColor))
+                            .multilineTextAlignment(.center)
+                            .lineSpacing(isCompact ? -1 : -2)
+                            .minimumScaleFactor(0.76)
+                            .accessibilityAddTraits(.isHeader)
+                            .accessibilityIdentifier("onboardingWelcomeTitle")
+                            .accessibilityFocused(focusedHeaderPage, equals: .welcome)
 
-                    Text(L10n.Onboarding.welcomeSubtitle)
-                        .font(
-                            appearance.typography.swiftUIFont(
-                                size: isCompact ? 15 : 18,
-                                weight: .regular
+                        Text(L10n.Onboarding.welcomeSubtitle)
+                            .font(
+                                appearance.typography.swiftUIFont(
+                                    size: isCompact ? 15 : 18,
+                                    weight: .regular
+                                )
                             )
-                        )
-                        .foregroundStyle(Color(uiColor: appearance.secondaryScreenTextColor))
-                        .multilineTextAlignment(.center)
-                        .lineSpacing(isCompact ? 1 : 3)
-                        .fixedSize(horizontal: false, vertical: true)
+                            .foregroundStyle(Color(uiColor: appearance.secondaryScreenTextColor))
+                            .multilineTextAlignment(.center)
+                            .lineSpacing(isCompact ? 1 : 3)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding(.horizontal, isCompact ? 0 : 4)
+
+                    Spacer(minLength: isCompact ? 0 : 18)
                 }
-                .padding(.horizontal, isCompact ? 0 : 4)
-
-                Spacer(minLength: isCompact ? 0 : 18)
+                .frame(maxWidth: 520)
+                .padding(.horizontal, isCompact ? 20 : 24)
+                .frame(
+                    maxWidth: .infinity,
+                    minHeight: geometry.size.height
+                )
             }
-            .frame(maxWidth: 520)
-            .padding(.horizontal, isCompact ? 20 : 24)
-            .frame(
-                maxWidth: .infinity,
-                minHeight: geometry.size.height,
-                maxHeight: geometry.size.height
-            )
         }
         .accessibilityIdentifier("onboardingWelcomePage")
         .onAppear(perform: updateReveal)

@@ -254,7 +254,8 @@ final class ExitConfirmationPresenterSpy: QuizQuestionPresenterProtocol {
     private(set) var resetGameProgressCallCount = 0
 
     func viewDidLoad() {}
-    func startTimer() {}
+    private(set) var startTimerCallCount = 0
+    func startTimer() { startTimerCallCount += 1 }
     func pauseTimer() { pauseTimerCallCount += 1 }
     func resumeTimer() { resumeTimerCallCount += 1 }
     func stopTimer() {}

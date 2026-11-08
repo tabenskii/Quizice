@@ -4,7 +4,7 @@
 
 # Quizice
 
-A native iPhone quiz app for a quick round or a topic you want to explore.
+A native iPhone and iPad quiz app for a quick round or a topic you want to explore.
 Choose a theme, set the difficulty, answer against the clock, and track your
 progress. Create a quiz from your own topic with AI, or let **Feeling lucky**
 pick a mix of questions for you.
@@ -55,7 +55,7 @@ There is no public App Store or TestFlight download yet. You can run Quizice
 locally from this repository.
 
 **Requirements:** a Mac with Xcode **26.2** (the version used in CI), and an
-iPhone or Simulator running **iOS 18.0 or later**. Dependencies are managed by
+iPhone, iPad, or Simulator running **iOS 18.0 or later**. Dependencies are managed by
 Swift Package Manager; Xcode downloads them on first open.
 
 ```sh
@@ -65,7 +65,7 @@ open Quizice.xcodeproj
 ```
 
 1. Let Xcode resolve the packages and enable `SwiftLintBuildToolPlugin` if prompted.
-2. Select the **Quizice** scheme and an iPhone Simulator.
+2. Select the **Quizice** scheme and an iPhone or iPad Simulator.
 3. Run with **⌘R** using the default **Debug** configuration.
 
 A fresh Debug installation works with the bundled quiz catalog and analytics
@@ -136,7 +136,7 @@ Run XCTest categories with the iOS **26.2** Simulator runtime installed:
 ```
 
 [GitHub Actions](.github/workflows/ios-tests.yml) runs these categories on pull
-requests, adds UI checks on iPhone 17 Pro Max, combines coverage, and compiles
+requests, adds UI checks on iPhone 17 Pro Max and iPad Pro, combines coverage, and compiles
 Release with a reserved example backend URL. Live backend tests are opt-in.
 See [test configuration](docs/development.md#running-tests) for result bundles,
 snapshot recording, and reruns.

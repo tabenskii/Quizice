@@ -294,3 +294,17 @@ final class ThemesViewportCollectionViewCell: UICollectionViewCell {
         themesCollectionView.reloadData()
     }
 }
+
+// Keep the row full-width so the outer flow layout never places actions side by side.
+extension UIView {
+    func constrainHomeActionWidth(in container: UIView) {
+        let preferredWidth = widthAnchor.constraint(equalTo: container.widthAnchor)
+        preferredWidth.priority = .defaultHigh
+        NSLayoutConstraint.activate([
+            centerXAnchor.constraint(equalTo: container.centerXAnchor),
+            widthAnchor.constraint(lessThanOrEqualTo: container.widthAnchor),
+            widthAnchor.constraint(lessThanOrEqualToConstant: 640),
+            preferredWidth
+        ])
+    }
+}

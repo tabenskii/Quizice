@@ -27,6 +27,7 @@ jobs:
         run: |
           python3 scripts/tests/test-release-configuration.py
           python3 scripts/tests/test-static-verifier.py
+          python3 scripts/tests/test-ios-test-category.py
 
       - name: Compile Release without analytics credentials
         # Reserved example address validates build configuration only; no live requests.
@@ -48,7 +49,7 @@ jobs:
   ios-tests:
     name: Build and test
     runs-on: macos-26
-    # One build and four sequential simulator runs share this budget.
+    # One build and five sequential simulator runs share this budget.
     # Hosted runners can need over 45 minutes before snapshots and coverage finish.
     timeout-minutes: 90
     env:
@@ -105,6 +106,13 @@ jobs:
           QUIZICE_RESULT_BUNDLE_PATH: DerivedData/CI/TestResults/ui-17-pro-max.xcresult
         run: ./scripts/run-ios-test-category.sh ui "iPhone 17 Pro Max" 26.2
 
+      - name: UI contract tests — iPad Pro
+        id: ui_tests_ipad
+        continue-on-error: true
+        env:
+          QUIZICE_RESULT_BUNDLE_PATH: DerivedData/CI/TestResults/ui-ipad.xcresult
+        run: ./scripts/run-ios-test-category.sh ui "iPad Pro 11-inch (M4)" 26.2
+
       - name: Snapshot tests — iPhone 16e
         id: snapshot_tests
         continue-on-error: true
@@ -121,6 +129,7 @@ jobs:
             DerivedData/CI/TestResults/unit.xcresult \
             DerivedData/CI/TestResults/ui-se.xcresult \
             DerivedData/CI/TestResults/ui-17-pro-max.xcresult \
+            DerivedData/CI/TestResults/ui-ipad.xcresult \
             DerivedData/CI/TestResults/snapshots.xcresult
 
       - name: Upload failed test results
@@ -129,6 +138,7 @@ jobs:
           (steps.unit_tests.outcome != 'success' ||
           steps.ui_tests_se.outcome != 'success' ||
           steps.ui_tests_pro_max.outcome != 'success' ||
+          steps.ui_tests_ipad.outcome != 'success' ||
           steps.snapshot_tests.outcome != 'success' ||
           steps.combined_coverage.outcome != 'success')
         uses: actions/upload-artifact@v7
@@ -145,6 +155,7 @@ jobs:
           UNIT_OUTCOME: ${{ steps.unit_tests.outcome }}
           UI_SE_OUTCOME: ${{ steps.ui_tests_se.outcome }}
           UI_PRO_MAX_OUTCOME: ${{ steps.ui_tests_pro_max.outcome }}
+          UI_IPAD_OUTCOME: ${{ steps.ui_tests_ipad.outcome }}
           SNAPSHOT_OUTCOME: ${{ steps.snapshot_tests.outcome }}
           COVERAGE_OUTCOME: ${{ steps.combined_coverage.outcome }}
         run: |
@@ -153,6 +164,7 @@ jobs:
             "Unit:$UNIT_OUTCOME" \
             "UI iPhone SE:$UI_SE_OUTCOME" \
             "UI iPhone 17 Pro Max:$UI_PRO_MAX_OUTCOME" \
+            "UI iPad:$UI_IPAD_OUTCOME" \
             "Snapshots:$SNAPSHOT_OUTCOME" \
             "Coverage:$COVERAGE_OUTCOME"; do
             name="${result%%:*}"

@@ -188,17 +188,18 @@ extension QuizViewController {
 
     func expandedThemeCardFrame() -> CGRect {
         let safeFrame = view.safeAreaLayoutGuide.layoutFrame
+        let policy = AppAdaptiveLayout(width: safeFrame.width)
         let width = min(
             max(safeFrame.width - ExpandedCardLayout.horizontalInset * 2, 0),
-            ExpandedCardLayout.maximumWidth
+            policy.expandedCardMaximumWidth
         )
-        let top = safeFrame.minY + ExpandedCardLayout.topInset
-        let maximumBottom = safeFrame.maxY - ExpandedCardLayout.bottomInset
+        let top = safeFrame.minY + (policy.isCompact ? ExpandedCardLayout.topInset : 24)
+        let maximumBottom = safeFrame.maxY - (policy.isCompact ? ExpandedCardLayout.bottomInset : 24)
         let availableHeight = max(maximumBottom - top, 0)
-        let preferredHeight = max(
+        let preferredHeight = policy.isCompact ? max(
             width * ExpandedCardLayout.heightToWidthRatio,
             ExpandedCardLayout.minimumHeight
-        )
+        ) : 672
         let height = min(preferredHeight, availableHeight)
         let centeredY = safeFrame.midY - height / 2
         let originY = max(top, min(centeredY, maximumBottom - height))
@@ -227,16 +228,19 @@ extension QuizViewController {
             homeCardState.phase != .collapsing
         else { return }
 
+        expandedAIKeyboardFrame = keyboardFrameInWindow
         freezeExpandedAIKeyboardAnimation(on: cardView)
         let baseFrame = expandedThemeCardFrame()
         let requestedLift: CGFloat
         if let keyboardFrameInWindow, let window = cardView.window {
             let keyboardFrame = view.convert(keyboardFrameInWindow, from: window)
             let desiredPromptBottom = keyboardFrame.minY - ExpandedCardLayout.keyboardSpacing
-            requestedLift = max(
+            let overlapsHorizontally = keyboardFrame.maxX > baseFrame.minX
+                && keyboardFrame.minX < baseFrame.maxX
+            requestedLift = overlapsHorizontally ? max(
                 baseFrame.minY + cardView.promptContainerMaxYAtRest - desiredPromptBottom,
                 0
-            )
+            ) : 0
         } else {
             requestedLift = 0
         }

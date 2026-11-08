@@ -236,9 +236,8 @@ final class SubscriptionPromoBannerCollectionViewCell: UICollectionViewCell {
         chevronImageView.translatesAutoresizingMaskIntoConstraints = false
         chevronContainerView.addSubview(chevronImageView)
 
+        actionButton.constrainHomeActionWidth(in: contentView)
         NSLayoutConstraint.activate([
-            actionButton.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
-            actionButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
             actionButton.topAnchor.constraint(equalTo: contentView.topAnchor),
             actionButton.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
 

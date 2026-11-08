@@ -342,6 +342,10 @@ final class ExpandedThemeCardView: UIView, UIGestureRecognizerDelegate {
         faceTransitionDriver.setFace(targetFace, animated: animated, completion: completion)
     }
 
+    func finishFlipForResize() {
+        faceTransitionDriver.finishAtRequestedFace()
+    }
+
     func setTransitionShadowHidden(_ isHidden: Bool) {
         isTransitionShadowHidden = isHidden
         let shadow = isHidden ? AppShadowStyle.none : configuredShadowStyle

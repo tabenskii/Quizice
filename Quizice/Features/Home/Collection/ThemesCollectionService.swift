@@ -108,13 +108,30 @@ final class ThemesCollectionService: NSObject, UICollectionViewDelegate, UIColle
     private let statisticsStore: StatisticsStore
     private let subscriptionEntitlementProvider: SubscriptionEntitlementProviding
     private let preferredThemeIDsProvider: () -> [String]?
-    private let appearanceStore = AppAppearanceStore.shared
+    let appearanceStore = AppAppearanceStore.shared
     var hasActivePlusSubscription: Bool
     private var subscriptionEntitlementObserver: NSObjectProtocol?
     weak var observedCollectionView: UICollectionView?
-    private weak var themeItemsCollectionView: UICollectionView?
+    weak var themeItemsCollectionView: UICollectionView?
     private weak var moreThemesButton: MoreThemesFadeButton?
     private weak var moreThemesTapGestureRecognizer: UITapGestureRecognizer?
+
+    var pendingScrollAnchor: HomeThemeScrollAnchor?
+
+    var usesOuterScrolling = false {
+        didSet {
+            guard oldValue != usesOuterScrolling else { return }
+            updateThemeCatalogScrollAvailability()
+            configureMoreThemesButton()
+            observedCollectionView?.isScrollEnabled = usesOuterScrolling
+            observedCollectionView?.bounces = usesOuterScrolling
+            if !usesOuterScrolling, let collectionView = observedCollectionView {
+                collectionView.setContentOffset(
+                    CGPoint(x: 0, y: -collectionView.adjustedContentInset.top), animated: false
+                )
+            }
+        }
+    }
 
     var catalogCollectionView: UICollectionView? {
         themeItemsCollectionView
@@ -134,30 +151,30 @@ final class ThemesCollectionService: NSObject, UICollectionViewDelegate, UIColle
         return (collectionView.cellForItem(at: IndexPath(item: index, section: 0)) as? ThemeCardCollectionViewCell)?.actionButton
     }
 
-    private var displayedThemes: [QuizTheme] {
+    var displayedThemes: [QuizTheme] {
         let themes = themeRepository.themes ?? []
         let preferredThemeIDs = preferredThemeIDsProvider()
             ?? themes.filter(\.isFavorite).map(\.stableID)
         return Self.orderedThemes(themes, preferredThemeIDs: preferredThemeIDs)
     }
 
-    private var visibleThemeLimit: Int {
+    var visibleThemeLimit: Int {
         activeViewportRowCount * activeThemeColumnCount
     }
 
     private var showsMoreThemesButton: Bool {
-        displayedThemes.count > visibleThemeLimit
+        !usesOuterScrolling && displayedThemes.count > visibleThemeLimit
     }
 
-    private var themeCount: Int { displayedThemes.count }
-    private var activeThemeColumnCount = 2 {
+    var themeCount: Int { displayedThemes.count }
+    var activeThemeColumnCount = 2 {
         didSet {
             guard oldValue != activeThemeColumnCount else { return }
             updateThemeCatalogScrollAvailability()
             configureMoreThemesButton()
         }
     }
-    private var activeViewportRowCount = Layout.visibleThemeRowCount {
+    var activeViewportRowCount = Layout.visibleThemeRowCount {
         didSet {
             guard oldValue != activeViewportRowCount else { return }
             updateThemeCatalogScrollAvailability()
@@ -174,15 +191,15 @@ final class ThemesCollectionService: NSObject, UICollectionViewDelegate, UIColle
         }
     }
 #else
-    private let showsSubscriptionPromo = false
+    let showsSubscriptionPromo = false
 #endif
 
-    private let themesViewportIndex = 0
-    private var subscriptionPromoIndex: Int? { showsSubscriptionPromo ? 1 : nil }
-    private var aiThemeIndex: Int { showsSubscriptionPromo ? 2 : 1 }
-    private var feelingLuckyIndex: Int { showsSubscriptionPromo ? 3 : 2 }
-    private var statisticsIndex: Int { showsSubscriptionPromo ? 4 : 3 }
-    private var outerItemCount: Int { showsSubscriptionPromo ? 5 : 4 }
+    let themesViewportIndex = 0
+    var subscriptionPromoIndex: Int? { showsSubscriptionPromo ? 1 : nil }
+    var aiThemeIndex: Int { showsSubscriptionPromo ? 2 : 1 }
+    var feelingLuckyIndex: Int { showsSubscriptionPromo ? 3 : 2 }
+    var statisticsIndex: Int { showsSubscriptionPromo ? 4 : 3 }
+    var outerItemCount: Int { showsSubscriptionPromo ? 5 : 4 }
 
     init(
         themeRepository: ThemeRepository = QuizFactory.shared,
@@ -279,7 +296,7 @@ final class ThemesCollectionService: NSObject, UICollectionViewDelegate, UIColle
             cell.configure(
                 dataSource: self,
                 delegate: self,
-                canScroll: displayedThemes.count > visibleThemeLimit
+                canScroll: !usesOuterScrolling && displayedThemes.count > visibleThemeLimit
             )
             installMoreThemesButtonIfNeeded(in: cell)
             configureMoreThemesButton()
@@ -349,193 +366,6 @@ final class ThemesCollectionService: NSObject, UICollectionViewDelegate, UIColle
         }
 
         return cell
-    }
-
-    func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, sizeForItemAt indexPath: IndexPath) -> CGSize {
-        if isThemeItemsCollectionView(collectionView) {
-            let grid = themeGrid(width: collectionView.bounds.width, traits: collectionView.traitCollection)
-            return CGSize(
-                width: grid.cardWidth,
-                height: themeRowHeight(containing: indexPath.item, grid: grid)
-            )
-        }
-
-        let availableWidth = max(
-            collectionView.bounds.width - Layout.sectionInsets.left - Layout.sectionInsets.right,
-            0
-        )
-        if indexPath.item == themesViewportIndex {
-            return CGSize(
-                width: availableWidth,
-                height: themesViewportHeight(
-                    width: availableWidth,
-                    traitCollection: collectionView.traitCollection,
-                    availableOuterHeight: availableContentHeight(in: collectionView)
-                )
-            )
-        }
-
-        if indexPath.item == statisticsIndex {
-            return CGSize(
-                width: availableWidth,
-                height: Layout.statisticsCardHeight
-                    + lastItemBottomInset(availableHeight: availableContentHeight(in: collectionView))
-            )
-        }
-
-        if let subscriptionPromoIndex, indexPath.item == subscriptionPromoIndex {
-            let height = collectionView.traitCollection.preferredContentSizeCategory
-                .isAccessibilityCategory
-                ? Layout.accessibilitySubscriptionPromoHeight
-                : Layout.subscriptionPromoHeight
-            return CGSize(width: availableWidth, height: height)
-        }
-
-        if indexPath.item == aiThemeIndex {
-            return CGSize(width: availableWidth, height: aiThemeCardHeight(
-                width: availableWidth, traits: collectionView.traitCollection
-            ))
-        }
-
-        if indexPath.item == feelingLuckyIndex {
-            return CGSize(width: availableWidth, height: Layout.secondaryActionButtonHeight)
-        }
-
-        return CGSize(width: availableWidth, height: Layout.secondaryActionButtonHeight)
-    }
-
-    func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, minimumLineSpacingForSectionAt section: Int) -> CGFloat {
-        isThemeItemsCollectionView(collectionView)
-            ? Layout.itemSpacing
-            : outerItemSpacing(availableHeight: availableContentHeight(in: collectionView))
-    }
-
-    func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, minimumInteritemSpacingForSectionAt section: Int) -> CGFloat {
-        isThemeItemsCollectionView(collectionView)
-            ? Layout.itemSpacing
-            : outerItemSpacing(availableHeight: availableContentHeight(in: collectionView))
-    }
-
-    func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, insetForSectionAt section: Int) -> UIEdgeInsets {
-        isThemeItemsCollectionView(collectionView) ? .zero : Layout.sectionInsets
-    }
-
-    func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        if let collectionView = scrollView as? UICollectionView,
-           isThemeItemsCollectionView(collectionView) {
-            updateMoreThemesButtonVisibility(animated: true)
-            return
-        }
-        delegate?.themesCollectionDidScroll(scrollView)
-    }
-
-    private func themeGrid(width: CGFloat, traits: UITraitCollection) -> ThemeCardLayoutMetrics.Grid {
-        let font = appearanceStore.appearance(compatibleWith: traits).typography.font(
-            size: ThemeCardLayoutMetrics.titleFontSize, weight: .semibold, compatibleWith: traits
-        )
-        return ThemeCardLayoutMetrics.grid(
-            titles: displayedThemes.map(\.theme), width: width, spacing: Layout.itemSpacing,
-            font: font, traitCollection: traits
-        )
-    }
-
-    private func themeRowHeight(containing itemIndex: Int, grid: ThemeCardLayoutMetrics.Grid) -> CGFloat {
-        let rowStartIndex = (itemIndex / grid.columnCount) * grid.columnCount
-        guard rowStartIndex < themeCount else {
-            return ThemeCardLayoutMetrics.singleLineHeight
-        }
-        let rowTitles = displayedThemes[
-            rowStartIndex..<min(rowStartIndex + grid.columnCount, themeCount)
-        ].map(\.theme)
-        return grid.rowHeight(titles: rowTitles)
-    }
-
-    private func isThemeItemsCollectionView(_ collectionView: UICollectionView) -> Bool {
-        collectionView === themeItemsCollectionView
-            || collectionView.accessibilityIdentifier == Content.themeCatalogAccessibilityID
-    }
-
-    private func themesViewportHeight(
-        width: CGFloat,
-        traitCollection: UITraitCollection,
-        availableOuterHeight: CGFloat
-    ) -> CGFloat {
-        let grid = themeGrid(width: width, traits: traitCollection)
-        activeThemeColumnCount = grid.columnCount
-        let maximumViewportRowCount = min(Layout.visibleThemeRowCount, max(
-            Int(ceil(Double(themeCount) / Double(grid.columnCount))), 1
-        ))
-        let allRowHeights = (0..<maximumViewportRowCount).map { row in
-            themeRowHeight(containing: row * grid.columnCount, grid: grid)
-        }
-        let usesAccessibilityLayout = traitCollection
-            .preferredContentSizeCategory
-            .isAccessibilityCategory
-        let fixedOuterContentHeight =
-            (showsSubscriptionPromo
-                ? (usesAccessibilityLayout
-                    ? Layout.accessibilitySubscriptionPromoHeight
-                    : Layout.subscriptionPromoHeight)
-                : 0)
-            + aiThemeCardHeight(width: width, traits: traitCollection)
-            + Layout.secondaryActionButtonHeight
-            + Layout.statisticsCardHeight
-            + lastItemBottomInset(availableHeight: availableOuterHeight)
-            + outerItemSpacing(availableHeight: availableOuterHeight)
-                * CGFloat(outerItemCount - 1)
-        let viewportBudget = max(
-            availableOuterHeight - fixedOuterContentHeight,
-            ThemeCardLayoutMetrics.singleLineHeight
-        )
-        var fittedRowCount = 0
-        var fittedHeight: CGFloat = 0
-        for rowHeight in allRowHeights {
-            let candidateHeight = fittedHeight
-                + (fittedRowCount > 0 ? Layout.itemSpacing : 0)
-                + rowHeight
-            guard fittedRowCount == 0 || candidateHeight <= viewportBudget else { break }
-            fittedRowCount += 1
-            fittedHeight = candidateHeight
-        }
-
-        activeViewportRowCount = max(fittedRowCount, 1)
-        let maximumViewportHeight = allRowHeights.reduce(0, +)
-            + Layout.itemSpacing * CGFloat(max(allRowHeights.count - 1, 0))
-        let minimumViewportHeight = allRowHeights.first
-            ?? ThemeCardLayoutMetrics.singleLineHeight
-        return min(
-            maximumViewportHeight,
-            max(viewportBudget, minimumViewportHeight)
-        )
-    }
-
-    private func availableContentHeight(in collectionView: UICollectionView) -> CGFloat {
-        max(
-            collectionView.bounds.height
-                - collectionView.adjustedContentInset.top
-                - collectionView.adjustedContentInset.bottom,
-            0
-        )
-    }
-
-    private func outerItemSpacing(availableHeight: CGFloat) -> CGFloat {
-        availableHeight < Layout.compactAvailableHeightThreshold
-            ? Layout.compactOuterItemSpacing
-            : Layout.itemSpacing
-    }
-
-    private func lastItemBottomInset(availableHeight: CGFloat) -> CGFloat {
-        availableHeight < Layout.compactAvailableHeightThreshold
-            ? Layout.compactLastItemBottomInset
-            : Layout.lastItemBottomInset
-    }
-
-    private func updateThemeCatalogScrollAvailability() {
-        guard let themeItemsCollectionView else { return }
-        let canScroll = displayedThemes.count > visibleThemeLimit
-        themeItemsCollectionView.isScrollEnabled = canScroll
-        themeItemsCollectionView.alwaysBounceVertical = canScroll
-        themeItemsCollectionView.bounces = canScroll
     }
 
     private func prepare(_ cell: UICollectionViewCell, appearance: AppAppearance) {
@@ -625,7 +455,7 @@ final class ThemesCollectionService: NSObject, UICollectionViewDelegate, UIColle
         moreThemesTapGestureRecognizer = tapGesture
     }
 
-    private func configureMoreThemesButton() {
+    func configureMoreThemesButton() {
         guard let button = moreThemesButton else { return }
         guard showsMoreThemesButton else {
             button.setVisible(false, animated: false)
@@ -640,7 +470,7 @@ final class ThemesCollectionService: NSObject, UICollectionViewDelegate, UIColle
         updateMoreThemesButtonVisibility(animated: false)
     }
 
-    private func updateMoreThemesButtonVisibility(animated: Bool) {
+    func updateMoreThemesButtonVisibility(animated: Bool) {
         guard
             showsMoreThemesButton,
             let collectionView = themeItemsCollectionView,

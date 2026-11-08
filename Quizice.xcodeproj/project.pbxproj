@@ -7,6 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		EA1100020000000000000004 /* HomeIPadLayoutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA1100010000000000000004 /* HomeIPadLayoutTests.swift */; };
+		EA1100020000000000000003 /* ThemesCollectionService+Layout.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA1100010000000000000003 /* ThemesCollectionService+Layout.swift */; };
+		EA1100020000000000000001 /* AppAdaptiveLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA1100010000000000000001 /* AppAdaptiveLayout.swift */; };
+		EA1100020000000000000002 /* AppAdaptiveLayoutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA1100010000000000000002 /* AppAdaptiveLayoutTests.swift */; };
 		5A2094584CAC44A6958C4625 /* ThemesCollectionService+Ordering.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63391CFDA407414A9006C148 /* ThemesCollectionService+Ordering.swift */; };
 		5079EEED26914A8A9282A036 /* BackendContentResponseValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBB882E2FE414E0CB6B16876 /* BackendContentResponseValidator.swift */; };
 		55AF62AF27204B888E377FAB /* QuestionAnswerOutbox.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7BB544353014B47B422AFE9 /* QuestionAnswerOutbox.swift */; };
@@ -221,6 +225,10 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		EA1100010000000000000004 /* HomeIPadLayoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeIPadLayoutTests.swift; sourceTree = "<group>"; };
+		EA1100010000000000000003 /* ThemesCollectionService+Layout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ThemesCollectionService+Layout.swift"; sourceTree = "<group>"; };
+		EA1100010000000000000001 /* AppAdaptiveLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppAdaptiveLayout.swift; sourceTree = "<group>"; };
+		EA1100010000000000000002 /* AppAdaptiveLayoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppAdaptiveLayoutTests.swift; sourceTree = "<group>"; };
 		63391CFDA407414A9006C148 /* ThemesCollectionService+Ordering.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ThemesCollectionService+Ordering.swift"; sourceTree = "<group>"; };
 		BBB882E2FE414E0CB6B16876 /* BackendContentResponseValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BackendContentResponseValidator.swift"; sourceTree = "<group>"; };
 		F7BB544353014B47B422AFE9 /* QuestionAnswerOutbox.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = QuestionAnswerOutbox.swift; sourceTree = "<group>"; };
@@ -653,6 +661,7 @@
 		4E8FAAF492BFADE68107EB49 /* DesignSystem */ = {
 			isa = PBXGroup;
 			children = (
+				EA1100010000000000000001 /* AppAdaptiveLayout.swift */,
 				D9D8382518160C6EAC329C4E /* Appearance */,
 				448C1EB07280F0425D451FDC /* Interactions */,
 			);
@@ -1122,6 +1131,7 @@
 				E82336079EA413DAC55F5098 /* ThemeVisualCatalog.swift */,
 				C10000000000000000000002 /* ThemesCollectionService+ActionCards.swift */,
 				D49927F6947B94B34C9F29BA /* ThemesCollectionService.swift */,
+				EA1100010000000000000003 /* ThemesCollectionService+Layout.swift */,
 				63391CFDA407414A9006C148 /* ThemesCollectionService+Ordering.swift */,
 			);
 			path = Collection;
@@ -1130,6 +1140,7 @@
 		CD179204ADA6EC814E9254A0 /* Unit */ = {
 			isa = PBXGroup;
 			children = (
+				EA1100010000000000000002 /* AppAdaptiveLayoutTests.swift */,
 				2C045F0F1F8FF8CCB7196E1B /* AnalyticsServiceTests.swift */,
 				6A7E73CC187A089F6D5215B1 /* AppAppearanceTests.swift */,
 				6A7E73CD187A089F6D5215B2 /* AppAppearanceStorePersistenceTests.swift */,
@@ -1216,6 +1227,7 @@
 				E40F29E2BD99A6317287D442 /* HomeExpandedThemeCardMotionTests.swift */,
 				66FB84EEF6A4EB07DF89DC96 /* HomeFeelingLuckyTests.swift */,
 				F5FAE3E57EBF5A8A9109C383 /* HomeScreenLayoutTests.swift */,
+				EA1100010000000000000004 /* HomeIPadLayoutTests.swift */,
 				76E4EC4EB0C8E98033CD562A /* HomeScreenVisualStateTestSupport.swift */,
 				A897406DD3D518BF6C8DC11B /* HomeSettingsVisualStateTests.swift */,
 				38278C854C1061B8B92E05AE /* HomeThemeCardStateTests.swift */,
@@ -1415,6 +1427,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				EA1100020000000000000001 /* AppAdaptiveLayout.swift in Sources */,
 				C99FA7539E9C46C596939D54 /* AccountDeletionRecovery.swift in Sources */,
 				1BFA5659D1CC4EF78D3F44C7 /* GameCenterAuthenticationService+AccountAccess.swift in Sources */,
 				DB744EF6DD9C43ACB5E16436 /* QuizRouting.swift in Sources */,
@@ -1495,6 +1508,7 @@
 				B2CD30CAC15215296B9D9BBE /* ThemeVisualCatalog.swift in Sources */,
 				C10000000000000000000001 /* ThemesCollectionService+ActionCards.swift in Sources */,
 				AE72B30D9E74A63EAA3592D0 /* ThemesCollectionService.swift in Sources */,
+				EA1100020000000000000003 /* ThemesCollectionService+Layout.swift in Sources */,
 				5A2094584CAC44A6958C4625 /* ThemesCollectionService+Ordering.swift in Sources */,
 				F8EF7182B7B25C43203DD912 /* ThemeCollectionDelegate.swift in Sources */,
 				7B6E2427F4083AC5C9CF0078 /* CoreMotionHomeThemeCardMotionProvider.swift in Sources */,
@@ -1538,6 +1552,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				EA1100020000000000000002 /* AppAdaptiveLayoutTests.swift in Sources */,
 				65393731F0DD40D695C96B26 /* AppAccountAccessPresenterTests.swift in Sources */,
 				A400000B2FA0000100A4000B /* OnboardingProgressStoreTests.swift in Sources */,
 				A400000C2FA0000100A4000C /* QuizFlowCoordinatorOnboardingTests.swift in Sources */,
@@ -1561,6 +1576,7 @@
 				69C84844289D05221CEB4A0C /* HomeExpandedThemeCardMotionTests.swift in Sources */,
 				1F44B009AAF5DD1072270E7F /* HomeFeelingLuckyTests.swift in Sources */,
 				5ED9935BDCAC75C5033BA293 /* HomeScreenLayoutTests.swift in Sources */,
+				EA1100020000000000000004 /* HomeIPadLayoutTests.swift in Sources */,
 				854AA5FE065B61BAF9F1ACD8 /* HomeScreenVisualStateTestSupport.swift in Sources */,
 				6DB56F4BB29B3A755A90FB36 /* HomeSettingsVisualStateTests.swift in Sources */,
 				04420B51F08A23ECE3A2F82E /* HomeThemeCardStateTests.swift in Sources */,
@@ -1691,7 +1707,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Quizice/Info.plist;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
-				INFOPLIST_KEY_NSMotionUsageDescription = "Quizice uses device motion to make theme cards respond to how you hold your iPhone.";
+				INFOPLIST_KEY_NSMotionUsageDescription = "Quizice uses device motion to make theme cards respond to how you hold your device.";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
@@ -1710,7 +1726,7 @@
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = 1;
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
 		};
@@ -1727,7 +1743,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Quizice/Info.plist;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
-				INFOPLIST_KEY_NSMotionUsageDescription = "Quizice uses device motion to make theme cards respond to how you hold your iPhone.";
+				INFOPLIST_KEY_NSMotionUsageDescription = "Quizice uses device motion to make theme cards respond to how you hold your device.";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
@@ -1746,7 +1762,7 @@
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = 1;
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
 		};
@@ -1893,7 +1909,7 @@
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = 1;
+				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Quizice.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Quizice";
 			};
 			name = Debug;
@@ -1920,7 +1936,7 @@
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = 1;
+				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Quizice.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Quizice";
 			};
 			name = Release;

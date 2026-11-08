@@ -185,6 +185,10 @@ final class QuizQuestionViewController: BaseQuizViewController, QuizQuestionView
     var questionCardView: UIView!
     var questionCardShadowView: UIView!
     var questionCardContentView: UIView!
+    var questionBodyScrollView: UIScrollView!
+    var questionBodyView: UIView!
+    var questionMaximumWidthConstraint: NSLayoutConstraint!
+    var previousLayoutSize: CGSize = .zero
     var questionInfoButton: UIButton!
     var questionExplanationBackButton: UIButton!
     var questionExplanationScrollView: UIScrollView!
@@ -278,6 +282,12 @@ final class QuizQuestionViewController: BaseQuizViewController, QuizQuestionView
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
+        let availableWidth = view.safeAreaLayoutGuide.layoutFrame.width
+        questionMaximumWidthConstraint.constant = AppAdaptiveLayout(width: availableWidth).questionMaximumWidth
+        if previousLayoutSize != .zero, previousLayoutSize != view.bounds.size {
+            finishQuestionAnimationForResize()
+        }
+        previousLayoutSize = view.bounds.size
         fitContentFonts()
     }
 

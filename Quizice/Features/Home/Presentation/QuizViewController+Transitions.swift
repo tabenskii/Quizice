@@ -1,6 +1,29 @@
 import UIKit
 
 extension QuizViewController {
+    func settleCardForWindowResize() {
+        if let animator = expandedCardAnimator, animator.state == .active {
+            let position: UIViewAnimatingPosition = animator.isReversed ? .start : .end
+            animator.stopAnimation(false)
+            animator.finishAnimation(at: position)
+        }
+        expandedThemeCardView?.finishFlipForResize()
+        expandedAIThemeCardView?.finishFlipForResize()
+        if let card = expandedAIThemeCardView {
+            updateExpandedAIThemeCardFrame(
+                card, keyboardFrameInWindow: expandedAIKeyboardFrame,
+                duration: 0, options: []
+            )
+            let overlap: CGFloat
+            if let keyboard = expandedAIKeyboardFrame, let window = card.window {
+                overlap = card.bounds.intersection(card.convert(keyboard, from: window)).height
+            } else {
+                overlap = 0
+            }
+            card.updateKeyboardInsets(overlap: overlap, duration: 0, options: [])
+        }
+    }
+
     func reverseExpandedCardTransition() {
         guard
             let animator = expandedCardAnimator,

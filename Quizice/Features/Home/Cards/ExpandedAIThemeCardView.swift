@@ -316,6 +316,10 @@ final class ExpandedAIThemeCardView: UIView, UITextViewDelegate {
         faceTransitionDriver.setFace(targetFace, animated: animated, completion: completion)
     }
 
+    func finishFlipForResize() {
+        faceTransitionDriver.finishAtRequestedFace()
+    }
+
     func setTransitionShadowHidden(_ isHidden: Bool) {
         isTransitionShadowHidden = isHidden
         applyConfiguredShadow()

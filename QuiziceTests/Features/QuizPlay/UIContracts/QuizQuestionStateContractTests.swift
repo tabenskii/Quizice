@@ -294,6 +294,7 @@ final class QuizQuestionStateContractTests: CrossScreenVisualTestCase {
 
         let viewController = QuizQuestionViewController()
         viewController.loadViewIfNeeded()
+        viewController.view.frame = CGRect(x: 0, y: 0, width: 390, height: 844)
         viewController.view.layoutIfNeeded()
 
         let timerContainer = try XCTUnwrap(
