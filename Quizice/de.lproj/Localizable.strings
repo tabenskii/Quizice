@@ -291,3 +291,11 @@
 "account_start.deletion_pending.message" = "Die Kontolöschung ist noch nicht abgeschlossen. Wiederhole die Anfrage, um dein Konto und seine Daten zu löschen.";
 "account_start.deletion_pending.action" = "Löschung erneut versuchen";
 "account_start.deletion_pending.sign_in" = "Melde dich zum Abschließen der Löschung in den iPhone-Einstellungen beim ursprünglichen Game Center-Account an und versuche es erneut.";
+
+"debug_menu.test_account.title" = "Backend-Testkonto";
+"debug_menu.test_account.key" = "Privater Testkontoschlüssel";
+"debug_menu.test_account.connect" = "Testkonto verbinden / erneuern";
+"debug_menu.test_account.help" = "Gib den Schlüssel einmal ein. Lass das Feld leer, um den gespeicherten Schlüssel zu verwenden. Sitzungen werden automatisch erneuert; die Statistik bleibt im selben Konto.";
+"debug_menu.test_account.no_backend" = "Aktiviere zuerst das Backend.";
+"debug_menu.test_account.key_required" = "Gib den privaten Testkontoschlüssel ein.";
+"debug_menu.test_account.failure" = "Verbindung fehlgeschlagen. Prüfe Schlüssel und Internetverbindung und versuche es erneut.";

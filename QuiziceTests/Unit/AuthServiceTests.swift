@@ -561,6 +561,24 @@ final class HTTPAuthAPITests: XCTestCase {
     }
 
 #if DEBUG
+    func testTestAccountAuthenticationUsesPrivateHeaderAndServerSelectedIdentity() async throws {
+        AuthURLProtocol.requestHandler = { request in
+            XCTAssertEqual(request.url?.path, "/api/v1/auth/test-account")
+            XCTAssertEqual(request.value(forHTTPHeaderField: "X-Test-Account-Key"), "private-test-key")
+            XCTAssertNil(request.value(forHTTPHeaderField: BackendConfiguration.authorizationHeader))
+            let body = try XCTUnwrap(Self.bodyData(from: request))
+            let json = try XCTUnwrap(JSONSerialization.jsonObject(with: body) as? [String: String])
+            XCTAssertTrue(json.isEmpty)
+            return (
+                HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!,
+                Data(#"{"userId":"018f4f5e-7b6a-7c8d-9e0f-123456789abc","developerUserId":"550e8400-e29b-41d4-a716-446655440000","accessToken":"test-token","expiresAt":"2030-01-01T00:00:00Z"}"#.utf8)
+            )
+        }
+        let session = try await makeAPI().authenticateTestAccount(secret: "private-test-key")
+        XCTAssertEqual(session.teamPlayerID, "dev:550e8400-e29b-41d4-a716-446655440000")
+        XCTAssertEqual(session.accessToken, "test-token")
+    }
+
     func testDeveloperAuthenticationUsesDevEndpointUUIDBodyAndSecretHeader() async throws {
         let developerUserID = UUID(uuidString: "550e8400-e29b-41d4-a716-446655440000")!
         let api = makeAPI()

@@ -168,6 +168,14 @@ final class DebugBackendSessionStore {
         return stored.session
     }
 
+    func save(_ session: AuthSession, configuration: BackendConfiguration) throws {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let value = ProvisionedSession(backendBaseURL: configuration.baseURL.absoluteString, session: session)
+        try validate(value, configuration: configuration, now: Date())
+        try client.saveData(encoder.encode(value), service: service, account: configuration.baseURL.absoluteString)
+    }
+
     func clear(configuration: BackendConfiguration) throws {
         try client.deleteData(service: service, account: configuration.baseURL.absoluteString)
     }
@@ -180,6 +188,89 @@ final class DebugBackendSessionStore {
               !value.session.accessToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
               value.session.expiresAt > now else {
             throw BackendAPIError.configurationMissing
+        }
+    }
+}
+
+/// A private, revocable key can only renew the server-selected test account.
+struct DebugTestAccountProvider: AuthenticationProvider {
+    static let didConnect = Notification.Name("Quizice.debugTestAccountDidConnect")
+    private let keyService = "ru.avtabenskiy.Quizice.debug-test-account-key"
+    let configuration: BackendConfiguration
+    let client: KeychainClient
+    let request: (String) async throws -> AuthSession
+    let now: () -> Date
+
+    init(configuration: BackendConfiguration, client: KeychainClient = SecurityKeychainClient(),
+         now: @escaping () -> Date = Date.init,
+         request: ((String) async throws -> AuthSession)? = nil) {
+        self.configuration = configuration
+        self.client = client
+        self.now = now
+        self.request = request ?? { secret in
+            try await HTTPAuthAPI(configuration: configuration).authenticateTestAccount(secret: secret)
+        }
+    }
+
+    static func configured(configuration: BackendConfiguration,
+                           environment: [String: String]) throws -> DebugTestAccountProvider? {
+        let provider = DebugTestAccountProvider(configuration: configuration)
+        if let key = environment["QUIZICE_TEST_ACCOUNT_KEY"] { try provider.saveKey(key) }
+        return try provider.loadKey() == nil ? nil : provider
+    }
+
+    func loadKey() throws -> String? {
+        guard let data = try client.loadData(service: keyService, account: configuration.baseURL.absoluteString),
+              let key = String(data: data, encoding: .utf8) else { return nil }
+        return key
+    }
+
+    func saveKey(_ key: String) throws {
+        guard (32...256).contains(key.count),
+              key.unicodeScalars.allSatisfy({ CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "_-" )).contains($0) }) else {
+            throw BackendAPIError.configurationMissing
+        }
+        if try loadKey() != key {
+            try invalidate()
+            try client.saveData(Data(key.utf8), service: keyService, account: configuration.baseURL.absoluteString)
+        }
+    }
+
+    func authenticate() async throws -> AuthSession {
+        guard let key = try loadKey() else { throw BackendAPIError.configurationMissing }
+        let store = DebugBackendSessionStore(client: client)
+        let cached = try? store.load(configuration: configuration, now: now())
+        if let cached, cached.expiresAt.timeIntervalSince(now()) > 86_400 { return cached }
+        do {
+            let session = try await request(key)
+            try Task.checkCancellation()
+            try store.save(session, configuration: configuration)
+            return session
+        } catch {
+            // Keep a still-valid session during a transient outage; never accept rejection.
+            if let cached, Self.isTemporary(error) { return cached }
+            throw error
+        }
+    }
+
+    func connect(key: String) async throws -> AuthSession {
+        // Validate remotely before replacing the existing account/key.
+        let session = try await request(key)
+        try Task.checkCancellation()
+        try saveKey(key)
+        try DebugBackendSessionStore(client: client).save(session, configuration: configuration)
+        return session
+    }
+
+    func invalidate() throws {
+        try DebugBackendSessionStore(client: client).clear(configuration: configuration)
+    }
+
+    private static func isTemporary(_ error: Error) -> Bool {
+        switch error {
+        case BackendAPIError.transport: return true
+        case BackendAPIError.httpStatus(let status, _): return status >= 500
+        default: return false
         }
     }
 }
@@ -200,6 +291,9 @@ struct DebugBackendSessionProvider: AuthenticationProvider {
             )
         }
 #if targetEnvironment(simulator)
+        if let provider = try? DebugTestAccountProvider.configured(configuration: configuration, environment: environment) {
+            return provider
+        }
         let store = DebugBackendSessionStore()
         do {
             if try store.load(configuration: configuration, environment: environment) != nil {

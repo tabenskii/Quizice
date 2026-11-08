@@ -291,3 +291,11 @@
 "account_start.deletion_pending.message" = "La suppression du compte n’est pas encore terminée. Réessayez pour supprimer votre compte et ses données.";
 "account_start.deletion_pending.action" = "Réessayer la suppression";
 "account_start.deletion_pending.sign_in" = "Pour terminer la suppression, connectez-vous au compte Game Center d’origine dans les Réglages de l’iPhone, puis réessayez.";
+
+"debug_menu.test_account.title" = "Compte de test du serveur";
+"debug_menu.test_account.key" = "Clé privée du compte de test";
+"debug_menu.test_account.connect" = "Connecter / renouveler la session";
+"debug_menu.test_account.help" = "Saisissez la clé une seule fois. Laissez ce champ vide pour réutiliser la clé enregistrée. Les sessions se renouvellent automatiquement en conservant vos statistiques.";
+"debug_menu.test_account.no_backend" = "Activez le serveur avant de vous connecter.";
+"debug_menu.test_account.key_required" = "Saisissez la clé privée du compte de test.";
+"debug_menu.test_account.failure" = "Connexion impossible. Vérifiez la clé et votre connexion, puis réessayez.";

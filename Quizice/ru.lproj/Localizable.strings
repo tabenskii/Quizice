@@ -291,3 +291,11 @@
 "account_start.deletion_pending.message" = "Удаление аккаунта ещё не завершено. Повторите запрос, чтобы удалить аккаунт и его данные.";
 "account_start.deletion_pending.action" = "Повторить удаление";
 "account_start.deletion_pending.sign_in" = "Чтобы завершить удаление, войдите в исходный аккаунт Game Center в настройках iPhone и повторите попытку.";
+
+"debug_menu.test_account.title" = "Тестовый аккаунт бэкенда";
+"debug_menu.test_account.key" = "Секретный ключ тестового аккаунта";
+"debug_menu.test_account.connect" = "Подключить / обновить сессию";
+"debug_menu.test_account.help" = "Введите ключ один раз. Оставьте поле пустым, чтобы использовать сохранённый. Сессия продлевается автоматически, статистика остаётся в том же аккаунте.";
+"debug_menu.test_account.no_backend" = "Сначала включите работу с бэкендом.";
+"debug_menu.test_account.key_required" = "Введите секретный ключ тестового аккаунта.";
+"debug_menu.test_account.failure" = "Не удалось подключиться. Проверьте ключ и интернет, затем повторите.";

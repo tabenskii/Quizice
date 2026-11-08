@@ -20,6 +20,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
                 "Set-Cookie",
                 "X-API-Key",
                 "X-Dev-Auth-Secret",
+                "X-Test-Account-Key",
                 "X-Yandex-API-Key"
             ]
             $0.sensitiveQueryItems = ["api_key", "access_token", "token"]
