@@ -7,6 +7,7 @@ struct AIQuizRuntimeDependencies {
     static func live(
         backendConfiguration: BackendConfiguration? = BackendConfiguration.load(),
         backendAccessProvider: AIQuizAccessProviding = AIQuizAccessStore.shared,
+        usesDebugBackendAuthentication: Bool = false,
         metrics: BackendRequestMetricRecording = AppMetricaAnalyticsTracker.shared
     ) -> AIQuizRuntimeDependencies {
 #if DEBUG
@@ -17,7 +18,8 @@ struct AIQuizRuntimeDependencies {
         let isDebugSimulator = false
 #endif
         return resolve(
-            usesDirectAI: isDebugSimulator || DebugAIRuntimeSettings.isDirectAIEnabled,
+            usesDirectAI: !usesDebugBackendAuthentication
+                && (isDebugSimulator || DebugAIRuntimeSettings.isDirectAIEnabled),
             backendConfiguration: backendConfiguration,
             backendAccessProvider: backendAccessProvider,
             directAPIKeyProvider: DebugYandexAIAPIKeyStore.resolveAPIKey,

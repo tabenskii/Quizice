@@ -23,20 +23,27 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         if isRunningTests {
             window.rootViewController = UIViewController()
         } else {
+            let authenticationService = GameCenterAuthenticationService.live()
 #if DEBUG && targetEnvironment(simulator)
             // Local UI development must not require a real Game Center account.
             // Opt in explicitly when testing the production authentication flow.
-            if ProcessInfo.processInfo.environment["QUIZICE_REQUIRE_GAME_CENTER"] != "1" {
+            if !authenticationService.usesDebugBackendAuthentication,
+               ProcessInfo.processInfo.environment["QUIZICE_REQUIRE_GAME_CENTER"] != "1" {
                 startSimulatorContent(in: window)
                 window.makeKeyAndVisible()
                 self.window = window
                 return
             }
 #endif
-            let authenticationService = GameCenterAuthenticationService.live()
             self.authenticationService = authenticationService
+#if DEBUG
+            let usesDebugBackendAuthentication = authenticationService.usesDebugBackendAuthentication
+#else
+            let usesDebugBackendAuthentication = false
+#endif
             let aiRuntimeDependencies = AIQuizRuntimeDependencies.live(
-                backendAccessProvider: AIQuizAccessStore.shared
+                backendAccessProvider: AIQuizAccessStore.shared,
+                usesDebugBackendAuthentication: usesDebugBackendAuthentication
             )
             let coordinator = QuizFlowCoordinator(
                 window: window,
@@ -68,7 +75,14 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             launchOverlayPresenter.present(
                 in: window,
                 appearance: appearance,
-                preparation: { [weak coordinator] in await coordinator?.prepareInitialCatalog() },
+                preparation: { [weak coordinator, weak authenticationService] in
+#if DEBUG
+                    if authenticationService?.usesDebugBackendAuthentication == true {
+                        await authenticationService?.waitForDebugAuthentication()
+                    }
+#endif
+                    await coordinator?.prepareInitialCatalog()
+                },
                 prepareContentForReveal: { [weak accountAccessPresenter] completion in
                     guard let accountAccessPresenter else { completion(); return }
                     accountAccessPresenter.prepareInitialContent(completion: completion)

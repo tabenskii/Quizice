@@ -5,6 +5,18 @@ import XCTest
 
 @MainActor
 final class QuizFlowCoordinatorLaunchTests: QuizFlowCoordinatorTestCase {
+    func testProvisionedDebugAccountUsesServerAIAndItsAccessState() {
+        let backendAccess = BackendAIQuizAccessStub(isAvailable: false)
+        let dependencies = AIQuizRuntimeDependencies.live(
+            backendConfiguration: .init(baseURL: URL(string: "https://example.com/api")!),
+            backendAccessProvider: backendAccess,
+            usesDebugBackendAuthentication: true
+        )
+        XCTAssertTrue(dependencies.themeService is BackendAIQuizThemeService)
+        XCTAssertTrue(dependencies.accessProvider === backendAccess)
+        XCTAssertFalse(dependencies.accessProvider.isAIQuizAvailable)
+    }
+
     func testDebugSimulatorAIRuntimeUsesDirectServiceWithoutBackendAccess() {
         let backendAccess = BackendAIQuizAccessStub(isAvailable: false)
 

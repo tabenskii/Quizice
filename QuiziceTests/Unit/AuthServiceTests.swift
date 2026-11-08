@@ -2,6 +2,50 @@ import XCTest
 @testable import Quizice
 @MainActor
 final class GameCenterAuthenticationServiceTests: XCTestCase {
+#if DEBUG
+    func testProvisionedBackendSessionAuthenticatesWithoutGameCenterAndRejectsRevocation() async throws {
+        let configuration = BackendConfiguration(baseURL: URL(string: "https://example.com/api")!)
+        let store = DebugBackendSessionStore(client: InMemoryKeychainClient())
+        let payload = try JSONSerialization.data(withJSONObject: [
+            "backendBaseURL": configuration.baseURL.absoluteString,
+            "session": ["userID": "550e8400-e29b-41d4-a716-446655440001",
+                        "teamPlayerID": "dev:550e8400-e29b-41d4-a716-446655440000",
+                        "accessToken": "provisioned-test-token", "expiresAt": "2099-01-01T00:00:00Z"]
+        ])
+        _ = try store.load(configuration: configuration,
+                           environment: ["QUIZICE_DEBUG_SESSION_BASE64": payload.base64EncodedString()])
+        let oldSession = AuthSession(userID: "other-user", accessToken: "other-token",
+                                     expiresAt: .distantFuture, teamPlayerID: "dev:other-account")
+        let h = makeHarness(storedSession: oldSession)
+        h.service.configureDebugAuthentication(DebugBackendSessionProvider(store: store, configuration: configuration))
+        h.service.start { _ in XCTFail("No Game Center UI expected") }
+        await h.service.waitForDebugAuthentication()
+        XCTAssertEqual(h.service.accountAccessState, .authenticated)
+        await waitUntil { h.api.syncRequests.count == 1 }
+        XCTAssertEqual(h.gameCenter.startCount, 0)
+        XCTAssertEqual(h.api.syncAccessTokens, ["provisioned-test-token"])
+        XCTAssertEqual(h.service.authenticatedAccountID, "550e8400-e29b-41d4-a716-446655440001")
+        XCTAssertTrue(h.aiAccess.isAIQuizAvailable)
+
+        h.notificationCenter.post(name: .backendAuthenticationInvalidated, object: nil)
+        await waitUntil { h.service.accountAccessState == .signInRequired }
+        XCTAssertNil(try store.load(configuration: configuration))
+        XCTAssertNil(h.sessionStore.session)
+        XCTAssertEqual(h.gameCenter.startCount, 0)
+        XCTAssertFalse(h.service.usesDebugBackendAuthentication)
+
+        _ = try store.load(configuration: configuration,
+                           environment: ["QUIZICE_DEBUG_SESSION_BASE64": payload.base64EncodedString()])
+        let rejected = makeHarness()
+        rejected.api.syncErrors = [.unauthorized(nil)]
+        rejected.service.configureDebugAuthentication(DebugBackendSessionProvider(store: store, configuration: configuration))
+        rejected.service.start { _ in XCTFail("No Game Center UI expected") }
+        await waitUntil { rejected.service.accountAccessState == .signInRequired }
+        XCTAssertNil(try store.load(configuration: configuration))
+        XCTAssertEqual(rejected.api.syncRequests.count, 1)
+        XCTAssertEqual(rejected.gameCenter.startCount, 0)
+    }
+#endif
     func testAccountAccessObserverReplaysStateAndRequiresSignInAfterGameCenterCancellation() async {
         let h = makeHarness()
         var accessStates: [AppAccountAccessState] = []

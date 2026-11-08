@@ -131,6 +131,100 @@ enum KeychainSessionStoreError: Error, Equatable {
 }
 
 #if DEBUG
+/// A provisioned test session is scoped to one backend and never embedded in the app.
+final class DebugBackendSessionStore {
+    private struct ProvisionedSession: Codable {
+        let backendBaseURL: String
+        let session: AuthSession
+    }
+
+    private let client: KeychainClient
+    private let service = "ru.avtabenskiy.Quizice.debug-backend"
+
+    init(client: KeychainClient = SecurityKeychainClient()) {
+        self.client = client
+    }
+
+    func load(
+        configuration: BackendConfiguration,
+        environment: [String: String] = [:],
+        now: Date = Date()
+    ) throws -> AuthSession? {
+        let account = configuration.baseURL.absoluteString
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        if let encoded = environment["QUIZICE_DEBUG_SESSION_BASE64"] {
+            guard let data = Data(base64Encoded: encoded) else {
+                throw BackendAPIError.configurationMissing
+            }
+            let imported = try decoder.decode(ProvisionedSession.self, from: data)
+            try validate(imported, configuration: configuration, now: now)
+            try client.saveData(data, service: service, account: account)
+            return imported.session
+        }
+        guard let data = try client.loadData(service: service, account: account) else { return nil }
+        let stored = try decoder.decode(ProvisionedSession.self, from: data)
+        try validate(stored, configuration: configuration, now: now)
+        return stored.session
+    }
+
+    func clear(configuration: BackendConfiguration) throws {
+        try client.deleteData(service: service, account: configuration.baseURL.absoluteString)
+    }
+
+    private func validate(_ value: ProvisionedSession, configuration: BackendConfiguration, now: Date) throws {
+        guard BackendConfiguration.configuration(from: value.backendBaseURL) == configuration,
+              value.session.teamPlayerID.hasPrefix("dev:"),
+              UUID(uuidString: String(value.session.teamPlayerID.dropFirst(4))) != nil,
+              UUID(uuidString: value.session.userID) != nil,
+              !value.session.accessToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              value.session.expiresAt > now else {
+            throw BackendAPIError.configurationMissing
+        }
+    }
+}
+
+struct DebugBackendSessionProvider: AuthenticationProvider {
+    let store: DebugBackendSessionStore
+    let configuration: BackendConfiguration
+
+    static func configured(bundle: Bundle) -> AuthenticationProvider? {
+        guard let configuration = BackendConfiguration.load(bundle: bundle) else { return nil }
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["QUIZICE_REQUIRE_GAME_CENTER"] != "1" else { return nil }
+        if ["1", "true", "yes"].contains(environment["DEV_AUTH_ENABLED"]?.lowercased() ?? ""),
+           let secret = environment["DEV_AUTH_SECRET"] {
+            return DevAuthenticationProvider(
+                api: HTTPAuthAPI(configuration: configuration, metrics: AppMetricaAnalyticsTracker.shared),
+                developerUserIDStore: KeychainDeveloperUserIDStore(), secret: secret
+            )
+        }
+#if targetEnvironment(simulator)
+        let store = DebugBackendSessionStore()
+        do {
+            if try store.load(configuration: configuration, environment: environment) != nil {
+                return DebugBackendSessionProvider(store: store, configuration: configuration)
+            }
+        } catch let KeychainClientError.status(status) {
+            AppLog.auth.error("Debug backend Keychain access failed: status=\(status, privacy: .public)")
+        } catch {
+            // Decoding errors can include credentials: log only a fixed diagnostic.
+            AppLog.auth.error("Debug backend session is missing, expired, or invalid")
+        }
+#endif
+        return nil
+    }
+
+    func authenticate() async throws -> AuthSession {
+        guard let session = try store.load(configuration: configuration) else {
+            throw BackendAPIError.configurationMissing
+        }
+        return session
+    }
+
+    func invalidate() throws { try store.clear(configuration: configuration) }
+}
+
 protocol DeveloperUserIDStoring {
     func loadOrCreate() throws -> UUID
     func replace() throws -> UUID

@@ -172,3 +172,22 @@ xcodebuild \
 - [SwiftUI migration assessment](swiftui-migration-assessment.md).
 - [Backend production readiness plan](backend-production-readiness-plan.md) —
   server contract and rollout requirements; a plan is not a live service status.
+
+
+## Provisioned simulator backend session
+
+Debug simulator builds can use a separately provisioned backend test account without Game Center. The account must have a `dev:<UUID>` identity and a normal, expiring server-issued bearer token. This does not enable `/auth/dev` in production or change Game Center verification.
+
+An administrator provisions the account/session through the backend's existing `AuthService` in a trusted maintenance environment. Transfer the resulting session privately; never commit it or include it in xcconfig, Info.plist, screenshots, logs, or a PR. A session has this JSON shape (all values below are examples):
+
+```json
+{"backendBaseURL":"https://backend.example/api","session":{"userID":"550e8400-e29b-41d4-a716-446655440001","teamPlayerID":"dev:550e8400-e29b-41d4-a716-446655440000","accessToken":"REPLACE_WITH_SERVER_ISSUED_TOKEN","expiresAt":"2099-01-01T00:00:00Z"}}
+```
+
+For one simulator launch, supply the base64-encoded JSON in `QUIZICE_DEBUG_SESSION_BASE64` (via `SIMCTL_CHILD_QUIZICE_DEBUG_SESSION_BASE64` when using simctl). Pass it through the launching process environment, not command-line arguments. The app validates the backend URL, test identity, user UUID, token presence, and expiration, then saves the credential in device-only Keychain storage. Subsequent launches load it without the environment variable. Server AI, favorites, answer progress, and statistics use the normal authenticated APIs. A server rejection invalidates the provisioned credential instead of attempting Game Center or endlessly retrying the revoked token.
+
+Renew expired/revoked sessions through the administrator; the simulator cannot mint or refresh its own production credentials. Import is limited to Debug simulator builds. Existing explicit `DEV_AUTH_ENABLED`/`DEV_AUTH_SECRET` configuration remains available for staging development.
+
+When building from a worktree, privately copy the existing ignored `Configurations/Secrets.xcconfig` into that worktree before building. Without `BACKEND_BASE_URL`, the app cannot reach the backend even with a valid session.
+
+Use the normal ad-hoc simulator signing configuration when installing the app for manual testing; do not disable signing for a build that must access Keychain. `QUIZICE_REQUIRE_GAME_CENTER=1` explicitly bypasses the Debug session provider when testing real Game Center authentication.
