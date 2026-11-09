@@ -14,6 +14,8 @@
 		F01300000000000000000001 /* BackendServiceFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = F01300000000000000000002 /* BackendServiceFactory.swift */; };
 		F01200000000000000000001 /* AccountDataSynchronizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F01200000000000000000002 /* AccountDataSynchronizer.swift */; };
 		F01100000000000000000001 /* GlobalFavoritesStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F01100000000000000000002 /* GlobalFavoritesStore.swift */; };
+		D168A91F4C624DCEAFE02413 /* HomeThemeMasonryLayoutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D168A91F4C624DCEAFE02412 /* HomeThemeMasonryLayoutTests.swift */; };
+		D168A91F4C624DCEAFE02411 /* HomeThemeMasonryLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = D168A91F4C624DCEAFE02410 /* HomeThemeMasonryLayout.swift */; };
 		5A2094584CAC44A6958C4625 /* ThemesCollectionService+Ordering.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63391CFDA407414A9006C148 /* ThemesCollectionService+Ordering.swift */; };
 		5079EEED26914A8A9282A036 /* BackendContentResponseValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBB882E2FE414E0CB6B16876 /* BackendContentResponseValidator.swift */; };
 		55AF62AF27204B888E377FAB /* QuestionAnswerOutbox.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7BB544353014B47B422AFE9 /* QuestionAnswerOutbox.swift */; };
@@ -235,6 +237,8 @@
 		F01300000000000000000002 /* BackendServiceFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackendServiceFactory.swift; sourceTree = "<group>"; };
 		F01200000000000000000002 /* AccountDataSynchronizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountDataSynchronizer.swift; sourceTree = "<group>"; };
 		F01100000000000000000002 /* GlobalFavoritesStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobalFavoritesStore.swift; sourceTree = "<group>"; };
+		D168A91F4C624DCEAFE02412 /* HomeThemeMasonryLayoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeThemeMasonryLayoutTests.swift; sourceTree = "<group>"; };
+		D168A91F4C624DCEAFE02410 /* HomeThemeMasonryLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeThemeMasonryLayout.swift; sourceTree = "<group>"; };
 		63391CFDA407414A9006C148 /* ThemesCollectionService+Ordering.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ThemesCollectionService+Ordering.swift"; sourceTree = "<group>"; };
 		BBB882E2FE414E0CB6B16876 /* BackendContentResponseValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BackendContentResponseValidator.swift"; sourceTree = "<group>"; };
 		F7BB544353014B47B422AFE9 /* QuestionAnswerOutbox.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = QuestionAnswerOutbox.swift; sourceTree = "<group>"; };
@@ -1136,6 +1140,7 @@
 			isa = PBXGroup;
 			children = (
 				F29F81FE1C80FF38DC74DC61 /* ThemeCollectionUIKitSupport.swift */,
+				D168A91F4C624DCEAFE02410 /* HomeThemeMasonryLayout.swift */,
 				E82336079EA413DAC55F5098 /* ThemeVisualCatalog.swift */,
 				C10000000000000000000002 /* ThemesCollectionService+ActionCards.swift */,
 				D49927F6947B94B34C9F29BA /* ThemesCollectionService.swift */,
@@ -1230,6 +1235,7 @@
 				A3E9F06229E7078F35E6031C /* HomeAIThemeCardTransitionTests.swift */,
 				C10000000000000000000006 /* HomeCollectionServicePresentationTests.swift */,
 				8262BBDADFD39A2E1117F76C /* HomeCollectionServiceTests.swift */,
+				D168A91F4C624DCEAFE02412 /* HomeThemeMasonryLayoutTests.swift */,
 				D323DE3BDBE734B792B55FCD /* HomeExpandedCardTransitionTests.swift */,
 				2FE8053B70386C642A9C71F9 /* HomeExpandedThemeCardInteractionTests.swift */,
 				E40F29E2BD99A6317287D442 /* HomeExpandedThemeCardMotionTests.swift */,
@@ -1517,6 +1523,7 @@
 				FCE7854FE40453908C7EF297 /* ThemeCardCollectionViewCell.swift in Sources */,
 				D98BF6E8CE1AD22E159DCDF1 /* TwoSidedCardTransitionDriver.swift in Sources */,
 				8ED0DEC6730254A0617F88A6 /* ThemeCollectionUIKitSupport.swift in Sources */,
+				D168A91F4C624DCEAFE02411 /* HomeThemeMasonryLayout.swift in Sources */,
 				B2CD30CAC15215296B9D9BBE /* ThemeVisualCatalog.swift in Sources */,
 				C10000000000000000000001 /* ThemesCollectionService+ActionCards.swift in Sources */,
 				AE72B30D9E74A63EAA3592D0 /* ThemesCollectionService.swift in Sources */,
@@ -1583,6 +1590,7 @@
 				7777C3FC8A38413E317FF32C /* HomeAIThemeCardTransitionTests.swift in Sources */,
 				C10000000000000000000005 /* HomeCollectionServicePresentationTests.swift in Sources */,
 				EE029172AB34E91DFEF01EBA /* HomeCollectionServiceTests.swift in Sources */,
+				D168A91F4C624DCEAFE02413 /* HomeThemeMasonryLayoutTests.swift in Sources */,
 				67393A843E92E982AC3A4AC4 /* HomeExpandedCardTransitionTests.swift in Sources */,
 				FE84BE6C879CCF7923FA8842 /* HomeExpandedThemeCardInteractionTests.swift in Sources */,
 				69C84844289D05221CEB4A0C /* HomeExpandedThemeCardMotionTests.swift in Sources */,

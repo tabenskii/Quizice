@@ -282,7 +282,7 @@ final class HomeCollectionServiceTests: HomeScreenVisualStateTestCase {
         XCTAssertEqual(interitemSpacing, 16)
     }
 
-    func testCollectionServiceUsesOneSharedDynamicHeightPerThemeRow() {
+    func testCollectionServiceSizesEachThemeIndependentlyOfItsNeighbors() {
         QuizFactory.shared.themes = [
             makeTheme(name: "Музыка"),
             makeTheme(name: "История Древнего Рима"),
@@ -314,9 +314,9 @@ final class HomeCollectionServiceTests: HomeScreenVisualStateTestCase {
             sizeForItemAt: IndexPath(item: 3, section: 0)
         )
 
-        XCTAssertEqual(firstRowLeft.height, firstRowRight.height)
+        XCTAssertGreaterThan(firstRowRight.height, firstRowLeft.height)
         XCTAssertEqual(secondRowLeft.height, secondRowRight.height)
-        XCTAssertGreaterThan(firstRowLeft.height, secondRowLeft.height)
+        XCTAssertEqual(firstRowLeft.height, secondRowLeft.height)
         XCTAssertEqual(secondRowLeft.height, ThemeCardLayoutMetrics.singleLineHeight)
     }
 

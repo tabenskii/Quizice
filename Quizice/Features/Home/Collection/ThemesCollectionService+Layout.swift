@@ -46,7 +46,8 @@ extension ThemesCollectionService {
             let grid = themeGrid(width: collectionView.bounds.width, traits: collectionView.traitCollection)
             return CGSize(
                 width: grid.cardWidth,
-                height: themeRowHeight(containing: indexPath.item, grid: grid)
+                height: displayedThemes[safe: indexPath.item].map { grid.cardHeight(title: $0.theme) }
+                    ?? ThemeCardLayoutMetrics.singleLineHeight
             )
         }
 
@@ -132,15 +133,17 @@ extension ThemesCollectionService {
         )
     }
 
-    func themeRowHeight(containing itemIndex: Int, grid: ThemeCardLayoutMetrics.Grid) -> CGFloat {
-        let rowStartIndex = (itemIndex / grid.columnCount) * grid.columnCount
-        guard rowStartIndex < themeCount else {
-            return ThemeCardLayoutMetrics.singleLineHeight
-        }
-        let rowTitles = displayedThemes[
-            rowStartIndex..<min(rowStartIndex + grid.columnCount, themeCount)
-        ].map(\.theme)
-        return grid.rowHeight(titles: rowTitles)
+    func themeMasonryGeometry(in collectionView: UICollectionView) -> HomeThemeMasonryGeometry {
+        let grid = themeGrid(width: collectionView.bounds.width, traits: collectionView.traitCollection)
+        return themeMasonryGeometry(width: collectionView.bounds.width, grid: grid)
+    }
+
+    private func themeMasonryGeometry(width: CGFloat, grid: ThemeCardLayoutMetrics.Grid) -> HomeThemeMasonryGeometry {
+        HomeThemeMasonryGeometry(
+            itemHeights: displayedThemes.map { grid.cardHeight(title: $0.theme) },
+            columnCount: grid.columnCount, cardWidth: grid.cardWidth,
+            spacing: Layout.itemSpacing, width: width
+        )
     }
 
     func isThemeItemsCollectionView(_ collectionView: UICollectionView) -> Bool {
@@ -154,13 +157,7 @@ extension ThemesCollectionService {
         availableOuterHeight: CGFloat
     ) -> CGFloat {
         let grid = themeGrid(width: width, traits: traitCollection)
-        activeThemeColumnCount = grid.columnCount
-        let maximumViewportRowCount = min(Layout.visibleThemeRowCount, max(
-            Int(ceil(Double(themeCount) / Double(grid.columnCount))), 1
-        ))
-        let allRowHeights = (0..<maximumViewportRowCount).map { row in
-            themeRowHeight(containing: row * grid.columnCount, grid: grid)
-        }
+        let geometry = themeMasonryGeometry(width: width, grid: grid)
         let usesAccessibilityLayout = traitCollection
             .preferredContentSizeCategory
             .isAccessibilityCategory
@@ -176,41 +173,22 @@ extension ThemesCollectionService {
             + lastItemBottomInset(availableHeight: availableOuterHeight)
             + outerItemSpacing(availableHeight: availableOuterHeight)
                 * CGFloat(outerItemCount - 1)
-        let minimumRowHeight = allRowHeights.first ?? ThemeCardLayoutMetrics.singleLineHeight
+        let minimumViewportHeight = geometry.frames.prefix(grid.columnCount).map(\.maxY).max()
+            ?? ThemeCardLayoutMetrics.singleLineHeight
         usesOuterScrolling = usesAccessibilityLayout
-            || fixedOuterContentHeight + minimumRowHeight > availableOuterHeight
+            || fixedOuterContentHeight + minimumViewportHeight > availableOuterHeight
         if usesOuterScrolling {
-            let rowCount = Int(ceil(Double(themeCount) / Double(grid.columnCount)))
-            activeViewportRowCount = max(rowCount, 1)
-            return (0..<rowCount).reduce(CGFloat.zero) { height, row in
-                height + themeRowHeight(containing: row * grid.columnCount, grid: grid)
-                    + (row > 0 ? Layout.itemSpacing : 0)
-            }
-        }
-        let viewportBudget = max(
-            availableOuterHeight - fixedOuterContentHeight,
-            ThemeCardLayoutMetrics.singleLineHeight
-        )
-        var fittedRowCount = 0
-        var fittedHeight: CGFloat = 0
-        for rowHeight in allRowHeights {
-            let candidateHeight = fittedHeight
-                + (fittedRowCount > 0 ? Layout.itemSpacing : 0)
-                + rowHeight
-            guard fittedRowCount == 0 || candidateHeight <= viewportBudget else { break }
-            fittedRowCount += 1
-            fittedHeight = candidateHeight
+            catalogCanScroll = false
+            return geometry.contentSize.height
         }
 
-        activeViewportRowCount = max(fittedRowCount, 1)
-        let maximumViewportHeight = allRowHeights.reduce(0, +)
-            + Layout.itemSpacing * CGFloat(max(allRowHeights.count - 1, 0))
-        let minimumViewportHeight = allRowHeights.first
-            ?? ThemeCardLayoutMetrics.singleLineHeight
-        return min(
-            maximumViewportHeight,
-            max(viewportBudget, minimumViewportHeight)
-        )
+        let maximumViewportHeight = geometry.frames
+            .prefix(Layout.viewportCardsPerColumn * grid.columnCount)
+            .map(\.maxY).max() ?? minimumViewportHeight
+        let viewportBudget = availableOuterHeight - fixedOuterContentHeight
+        let viewportHeight = min(maximumViewportHeight, max(viewportBudget, minimumViewportHeight))
+        catalogCanScroll = geometry.contentSize.height > viewportHeight + 0.5
+        return viewportHeight
     }
 
     private func availableContentHeight(in collectionView: UICollectionView) -> CGFloat {
@@ -236,7 +214,7 @@ extension ThemesCollectionService {
 
     func updateThemeCatalogScrollAvailability() {
         guard let themeItemsCollectionView else { return }
-        let canScroll = !usesOuterScrolling && displayedThemes.count > visibleThemeLimit
+        let canScroll = !usesOuterScrolling && catalogCanScroll
         themeItemsCollectionView.isScrollEnabled = canScroll
         themeItemsCollectionView.alwaysBounceVertical = canScroll
         themeItemsCollectionView.bounces = canScroll

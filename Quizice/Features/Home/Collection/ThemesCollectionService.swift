@@ -1,6 +1,6 @@
 import UIKit
 
-final class ThemesCollectionService: NSObject, UICollectionViewDelegate, UICollectionViewDataSource, UICollectionViewDelegateFlowLayout, UIGestureRecognizerDelegate {
+final class ThemesCollectionService: NSObject, UICollectionViewDelegate, UICollectionViewDataSource, UICollectionViewDelegateFlowLayout, HomeThemeMasonryLayoutDelegate, UIGestureRecognizerDelegate {
     enum Content {
         static let themeCellReuseIdentifier = "themeCell"
         static let themeImageAccessibilityIDPrefix = "homeThemeImageView"
@@ -28,7 +28,7 @@ final class ThemesCollectionService: NSObject, UICollectionViewDelegate, UIColle
         static let sectionInsets = UIEdgeInsets(top: 0, left: 24, bottom: 0, right: 24)
         static let itemSpacing: CGFloat = 16
         static let compactOuterItemSpacing: CGFloat = 12
-        static let visibleThemeRowCount = 4
+        static let viewportCardsPerColumn = 4
         static let prominentActionCardHeight: CGFloat = 72
         static let accessibilityProminentActionCardHeight: CGFloat = 272
         static let aiThemeButtonHeight = prominentActionCardHeight
@@ -158,25 +158,14 @@ final class ThemesCollectionService: NSObject, UICollectionViewDelegate, UIColle
         return Self.orderedThemes(themes, preferredThemeIDs: preferredThemeIDs)
     }
 
-    var visibleThemeLimit: Int {
-        activeViewportRowCount * activeThemeColumnCount
-    }
-
     private var showsMoreThemesButton: Bool {
-        !usesOuterScrolling && displayedThemes.count > visibleThemeLimit
+        !usesOuterScrolling && catalogCanScroll
     }
 
-    var themeCount: Int { displayedThemes.count }
-    var activeThemeColumnCount = 2 {
+    private var themeCount: Int { displayedThemes.count }
+    var catalogCanScroll = false {
         didSet {
-            guard oldValue != activeThemeColumnCount else { return }
-            updateThemeCatalogScrollAvailability()
-            configureMoreThemesButton()
-        }
-    }
-    var activeViewportRowCount = Layout.visibleThemeRowCount {
-        didSet {
-            guard oldValue != activeViewportRowCount else { return }
+            guard oldValue != catalogCanScroll else { return }
             updateThemeCatalogScrollAvailability()
             configureMoreThemesButton()
         }
@@ -296,7 +285,7 @@ final class ThemesCollectionService: NSObject, UICollectionViewDelegate, UIColle
             cell.configure(
                 dataSource: self,
                 delegate: self,
-                canScroll: !usesOuterScrolling && displayedThemes.count > visibleThemeLimit
+                canScroll: showsMoreThemesButton
             )
             installMoreThemesButtonIfNeeded(in: cell)
             configureMoreThemesButton()
@@ -479,7 +468,11 @@ final class ThemesCollectionService: NSObject, UICollectionViewDelegate, UIColle
 
         let distanceFromTop = collectionView.contentOffset.y
             + collectionView.adjustedContentInset.top
+        let distanceToBottom = collectionView.contentSize.height
+            + collectionView.adjustedContentInset.bottom
+            - collectionView.bounds.maxY
         let isVisible = distanceFromTop < Layout.moreThemesVisibilityThreshold
+            && (distanceFromTop <= 0 || distanceToBottom > 0.5)
         button.setVisible(isVisible, animated: animated)
         (collectionView as? HomeThemesCollectionView)?.updateBottomFade(
             visibility: isVisible ? 1 : 0,
@@ -494,15 +487,18 @@ final class ThemesCollectionService: NSObject, UICollectionViewDelegate, UIColle
     @objc private func moreThemesButtonTapped() {
         guard
             showsMoreThemesButton,
-            let collectionView = themeItemsCollectionView,
-            collectionView.numberOfItems(inSection: 0) > visibleThemeLimit
+            let collectionView = themeItemsCollectionView
         else { return }
 
-        collectionView.scrollToItem(
-            at: IndexPath(item: visibleThemeLimit, section: 0),
-            at: .top,
-            animated: true
+        let maximumOffset = max(collectionView.contentSize.height - collectionView.bounds.height, 0)
+        let pageHeight = max(
+            collectionView.bounds.height - Layout.moreThemesButtonHeight,
+            ThemeCardLayoutMetrics.singleLineHeight
         )
+        collectionView.setContentOffset(CGPoint(
+            x: collectionView.contentOffset.x,
+            y: min(collectionView.contentOffset.y + pageHeight, maximumOffset)
+        ), animated: true)
     }
 
     @objc private func moreThemesOverlayTapped(_ gestureRecognizer: UITapGestureRecognizer) {

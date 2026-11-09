@@ -22,18 +22,16 @@ enum ThemeCardLayoutMetrics {
             return max(cardWidth - leadingInset - horizontalInset - (stacksContent ? 0 : iconSize + iconTitleSpacing), 1)
         }
 
-        func rowHeight(titles: [String]) -> CGFloat {
+        func cardHeight(title: String) -> CGFloat {
             let measuringLabel = UILabel()
             measuringLabel.font = font
             measuringLabel.numberOfLines = maximumTitleLines
             measuringLabel.lineBreakMode = .byWordWrapping
             measuringLabel.allowsDefaultTighteningForTruncation = false
-            let textHeight = titles.map {
-                measuringLabel.text = $0
-                return ceil(measuringLabel.sizeThatFits(
-                    CGSize(width: textWidth, height: .greatestFiniteMagnitude)
-                ).height)
-            }.max() ?? font.lineHeight
+            measuringLabel.text = title
+            let textHeight = ceil(measuringLabel.sizeThatFits(
+                CGSize(width: textWidth, height: .greatestFiniteMagnitude)
+            ).height)
             let contentHeight = stacksContent
                 ? iconSize + iconTitleSpacing + textHeight
                 : max(iconSize, textHeight)
