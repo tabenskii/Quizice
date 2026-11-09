@@ -34,6 +34,11 @@ struct QuizSettingsView: View {
         static let createAccount = "settingsCreateAccount"
         static let accountUnavailable = "settingsAccountUnavailable"
         static let privacyPolicy = "settingsPrivacyPolicy"
+        static let scrollView = "settingsScrollView"
+        static let questionStrategyMenu = "settingsQuestionStrategyMenu"
+        static let designMenu = "settingsDesignMenu"
+        static let languageMenu = "settingsLanguageMenu"
+        static let themeMenu = "settingsThemeMenu"
     }
 
     private enum AppIcon: String, CaseIterable, Identifiable {
@@ -137,6 +142,7 @@ struct QuizSettingsView: View {
                 ScrollView {
                     content(topInset: max(Layout.contentMinimumTopInset, geometry.safeAreaInsets.top + Layout.contentTopInset))
                 }
+                .accessibilityIdentifier(AccessibilityID.scrollView)
 
                 if showsQuestionStrategyHelp {
                     questionStrategyHelpOverlay
@@ -250,20 +256,19 @@ struct QuizSettingsView: View {
             },
             content: {
                 if allowsPersonalizedRepeats {
-                    Menu {
+                    SettingsSelectionMenu(
+                        systemImage: "arrow.triangle.2.circlepath",
+                        title: L10n.Settings.QuestionStrategy.title,
+                        subtitle: "",
+                        value: L10n.Settings.QuestionStrategy.title(for: QuestionRepeatStrategy(rawValue: repeatStrategyID) ?? .showAll),
+                        accessibilityIdentifier: AccessibilityID.questionStrategyMenu
+                    ) {
                         ForEach(QuestionRepeatStrategy.allCases, id: \.rawValue) { strategy in
                             Button(L10n.Settings.QuestionStrategy.title(for: strategy)) {
                                 repeatStrategyID = strategy.rawValue
                             }
                         }
-                    } label: {
-                        SettingsValueRow(
-                            systemImage: "arrow.triangle.2.circlepath",
-                            title: L10n.Settings.QuestionStrategy.title, subtitle: "",
-                            value: L10n.Settings.QuestionStrategy.title(for: QuestionRepeatStrategy(rawValue: repeatStrategyID) ?? .showAll)
-                        )
                     }
-                    .buttonStyle(.plain)
                 } else {
                     VStack(alignment: .leading, spacing: Layout.rowSpacing) {
                         SettingsRowHeader(systemImage: "arrow.triangle.2.circlepath",
@@ -328,7 +333,13 @@ struct QuizSettingsView: View {
 
     private var appearanceSection: some View {
         SettingsSection(title: L10n.Settings.appearanceSectionTitle) {
-            Menu {
+            SettingsSelectionMenu(
+                systemImage: "paintpalette.fill",
+                title: L10n.Settings.design,
+                subtitle: L10n.Settings.designSubtitle,
+                value: selectedDesignStyle.title,
+                accessibilityIdentifier: AccessibilityID.designMenu
+            ) {
                 ForEach(AppDesignStyle.settingsOrder) { designStyle in
                     Button(designStyle.title) {
                         let oldValue = selectedDesignStyleID
@@ -338,20 +349,18 @@ struct QuizSettingsView: View {
                     }
                     .disabled(!designStyle.isSelectable)
                 }
-            } label: {
-                SettingsValueRow(
-                    systemImage: "paintpalette.fill",
-                    title: L10n.Settings.design,
-                    subtitle: L10n.Settings.designSubtitle,
-                    value: selectedDesignStyle.title
-                )
             }
-            .buttonStyle(.plain)
 
             Divider()
                 .background(Color(uiColor: appearance.card.borderColor))
 
-            Menu {
+            SettingsSelectionMenu(
+                systemImage: "globe",
+                title: L10n.Settings.language,
+                subtitle: L10n.Settings.languageSubtitle,
+                value: selectedLanguage.title,
+                accessibilityIdentifier: AccessibilityID.languageMenu
+            ) {
                 ForEach(AppLanguagePreference.allCases) { language in
                     Button(language.title) {
                         let oldValue = selectedLanguageID
@@ -359,21 +368,19 @@ struct QuizSettingsView: View {
                         trackSettingChange(setting: .language, oldValue: oldValue, newValue: language.rawValue)
                     }
                 }
-            } label: {
-                SettingsValueRow(
-                    systemImage: "globe",
-                    title: L10n.Settings.language,
-                    subtitle: L10n.Settings.languageSubtitle,
-                    value: selectedLanguage.title
-                )
             }
-            .buttonStyle(.plain)
 
             if selectedDesignStyle == .clean {
                 Divider()
                     .background(Color(uiColor: appearance.card.borderColor))
 
-                Menu {
+                SettingsSelectionMenu(
+                    systemImage: "circle.lefthalf.filled",
+                    title: L10n.Settings.cleanThemeMode,
+                    subtitle: L10n.Settings.cleanThemeModeSubtitle,
+                    value: selectedTheme.title,
+                    accessibilityIdentifier: AccessibilityID.themeMenu
+                ) {
                     ForEach(CleanColorSchemePreference.allCases) { theme in
                         Button(theme.title) {
                             let oldValue = selectedThemeID
@@ -382,15 +389,7 @@ struct QuizSettingsView: View {
                             trackSettingChange(setting: .theme, oldValue: oldValue, newValue: theme.rawValue)
                         }
                     }
-                } label: {
-                    SettingsValueRow(
-                        systemImage: "circle.lefthalf.filled",
-                        title: L10n.Settings.cleanThemeMode,
-                        subtitle: L10n.Settings.cleanThemeModeSubtitle,
-                        value: selectedTheme.title
-                    )
                 }
-                .buttonStyle(.plain)
             }
 
             Divider()
@@ -517,6 +516,34 @@ struct SettingsActionRow: View {
         .buttonStyle(QuizPressButtonStyle())
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isButton)
+    }
+}
+
+private struct SettingsSelectionMenu<Content: View>: View {
+    let systemImage: String
+    let title: String
+    let subtitle: String
+    let value: String
+    let accessibilityIdentifier: String
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        // Keep the visible row in the scroll content. iOS 26 can restore a Menu's
+        // animated label at a stale scroll position after the menu is dismissed.
+        SettingsValueRow(systemImage: systemImage, title: title, subtitle: subtitle, value: value)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+            .overlay {
+                Menu(content: content) {
+                    Color.clear
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel([title, subtitle].filter { !$0.isEmpty }.joined(separator: ", "))
+                .accessibilityValue(value)
+                .accessibilityIdentifier(accessibilityIdentifier)
+            }
     }
 }
 
