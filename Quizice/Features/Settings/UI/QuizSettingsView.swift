@@ -69,7 +69,7 @@ struct QuizSettingsView: View {
     @AppStorage(AppAppearanceStore.Keys.backgroundStyle) private var selectedBackgroundStyleID = AppBackgroundStyle.defaultStyle.rawValue
     @AppStorage(AppLocalizationStore.Keys.language) private var selectedLanguageID = AppLanguagePreference.system.rawValue
     @AppStorage("quizice.settings.icon") private var selectedIconID = AppIcon.classic.rawValue
-    @AppStorage(QuestionRepeatStrategyStore.defaultsKey) private var repeatStrategyID = QuestionRepeatStrategy.showAll.rawValue
+    @AppStorage(QuestionRepeatStrategyStore.defaultsKey) private var repeatStrategyID = QuestionRepeatStrategy.defaultStrategy.rawValue
     @State var activeAlert: SettingsAlert?
     @State private var showsQuestionStrategyHelp = false
     @State private var didTrackScreen = false
@@ -260,7 +260,7 @@ struct QuizSettingsView: View {
                         SettingsValueRow(
                             systemImage: "arrow.triangle.2.circlepath",
                             title: L10n.Settings.QuestionStrategy.title, subtitle: "",
-                            value: L10n.Settings.QuestionStrategy.title(for: QuestionRepeatStrategy(rawValue: repeatStrategyID) ?? .showAll)
+                            value: L10n.Settings.QuestionStrategy.title(for: QuestionRepeatStrategy(rawValue: repeatStrategyID) ?? .defaultStrategy)
                         )
                     }
                     .buttonStyle(.plain)

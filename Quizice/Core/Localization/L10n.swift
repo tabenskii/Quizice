@@ -54,6 +54,17 @@ enum L10n {
         static var tutorialStatisticsTitle: String { L10n.localized("onboarding.tutorial.statistics.title", comment: "Onboarding tutorial statistics feature title") }
         static var tutorialStatisticsDetail: String { L10n.localized("onboarding.tutorial.statistics.detail", comment: "Onboarding tutorial statistics feature detail") }
 
+        enum QuestionStrategy {
+            static var title: String { L10n.localized("onboarding.question_strategy.title", comment: "Onboarding question repetition choice heading") }
+            static var subtitle: String { L10n.localized("onboarding.question_strategy.subtitle", comment: "Onboarding question repetition choice introduction") }
+            static var settingsHint: String { L10n.localized("onboarding.question_strategy.settings_hint", comment: "Question repetition can be changed in Settings later") }
+            static var availabilityHint: String { L10n.localized("onboarding.question_strategy.availability_hint", comment: "Repeat preferences apply to online catalog themes after Game Center sign-in; guests see all questions") }
+
+            static func detail(for strategy: QuestionRepeatStrategy) -> String {
+                L10n.localized("onboarding.question_strategy.\(strategy.rawValue).detail", comment: "Brief explanation of a question repetition strategy")
+            }
+        }
+
         static func progress(current: Int, total: Int) -> String {
             L10n.formatted(
                 "onboarding.progress_format",
@@ -241,11 +252,13 @@ enum L10n {
         static var timeRemaining: String { L10n.localized("question.time_remaining", comment: "Quiz timer accessibility label") }
         static var unavailableAnswer: String { L10n.localized("question.unavailable_answer", comment: "Unavailable answer placeholder") }
         static var unavailableMessage: String { L10n.localized("question.unavailable.message", comment: "Message when selected theme has no usable questions") }
+        static var progressCompleteTitle: String { L10n.localized("question.progress_complete.title", comment: "All available theme questions completed alert title") }
+        static var progressCompleteMessage: String { L10n.localized("question.progress_complete.message", comment: "Explain reset applies to the entire theme and keeps game statistics") }
+        static var resetProgressAndStart: String { L10n.localized("question.progress_complete.restart", comment: "Reset question progress and start again action") }
         static var loadingFailedTitle: String { L10n.localized("question.loading_failed.title", comment: "Question loading failure alert title") }
         static var loadingFailedMessage: String { L10n.localized("question.loading_failed.message", comment: "Question loading failure retry guidance") }
         static var networkFailureMessage: String { L10n.localized("question.network_failure.message", comment: "Question loading failure when internet access is unavailable") }
         static var insufficientQuestionsMessage: String { L10n.localized("question.insufficient.message", comment: "Fewer than five questions remain") }
-        static var progressCompleteMessage: String { L10n.localized("question.progress_complete.message", comment: "Message when repeat filtering leaves no questions") }
         static var unavailableNumber: String { L10n.localized("question.unavailable_number", comment: "Unavailable question number label") }
 
         static func number(_ number: Int) -> String {

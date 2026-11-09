@@ -31,6 +31,7 @@ final class HTTPBackendContentAPI: BackendContentAPI {
         self.accessTokenProvider = accessTokenProvider
         self.authenticationRecoverer = authenticationRecoverer
         encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
         decoder = JSONDecoder()
     }
 
@@ -69,16 +70,12 @@ final class HTTPBackendContentAPI: BackendContentAPI {
               BackendContentResponseValidator.normalizedThemeIDs(mutation.addThemeIds) == mutation.addThemeIds,
               BackendContentResponseValidator.normalizedThemeIDs(mutation.removeThemeIds) == mutation.removeThemeIds,
               Set(mutation.addThemeIds).isDisjoint(with: mutation.removeThemeIds) else { throw BackendContentError.invalidRequest }
-        var request = URLRequest(url: try makeURL(pathComponents: ["v2", "me", "favorites"], queryItems: []), timeoutInterval: requestTimeout)
-        request.httpMethod = "PATCH"
-        request.cachePolicy = .reloadIgnoringLocalCacheData
-        request.httpBody = try encoder.encode(mutation)
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("Bearer \(session.accessToken)", forHTTPHeaderField: BackendConfiguration.authorizationHeader)
-        return try await perform(request: request, operation: .themePreferences,
-                                 validate: { Self.validFavorites($0) && $0.mutationId == mutation.mutationId },
-                                 expectedUserID: session.userID)
+        return try await sendJSON(
+            method: "PATCH", url: makeURL(pathComponents: ["v2", "me", "favorites"], queryItems: []),
+            operation: .themePreferences, accessToken: session.accessToken, body: mutation,
+            expectedUserID: session.userID,
+            validate: { Self.validFavorites($0) && $0.mutationId == mutation.mutationId }
+        )
     }
 
     private static func validFavorites(_ response: BackendFavoritesSnapshot) -> Bool {
@@ -122,16 +119,47 @@ final class HTTPBackendContentAPI: BackendContentAPI {
             pathComponents: ["v1", "me", "theme-preferences"],
             queryItems: []
         )
-        return try await put(
-            url: url,
+        return try await sendJSON(
+            method: "PUT", url: url,
             operation: .themePreferences,
             accessToken: accessToken,
             body: BackendThemePreferencesUpdate(
                 locale: locale,
                 favoriteThemeIds: normalizedIDs
             ),
+            expectedUserID: accessTokenProvider.currentSession()?.userID,
             validate: { BackendContentResponseValidator.isValid($0, requestedLocale: locale) }
         )
+    }
+
+    func resetQuestionProgress(
+        themeID: String, resetID: UUID, session: AuthSession
+    ) async throws -> BackendQuestionProgressResetResponse {
+        guard themeID == themeID.trimmingCharacters(in: .whitespacesAndNewlines),
+              themeID.range(of: "^[A-Za-z0-9_-]+$", options: .regularExpression) != nil,
+              resetID != UUID(uuidString: "00000000-0000-0000-0000-000000000000") else {
+            throw BackendContentError.invalidRequest
+        }
+        guard accessTokenProvider.currentSession()?.userID == session.userID else {
+            throw BackendContentError.unauthenticated
+        }
+        try Task.checkCancellation()
+        let url = try makeURL(
+            pathComponents: ["v1", "me", "themes", themeID, "question-progress", "reset"], queryItems: []
+        )
+        let response: BackendQuestionProgressResetResponse = try await sendJSON(
+            method: "POST", url: url, operation: .questionProgressReset, accessToken: session.accessToken,
+            body: BackendQuestionProgressResetRequest(resetId: resetID),
+            expectedUserID: session.userID,
+            validate: {
+                BackendContentResponseValidator.isValid($0, requestedThemeID: themeID, requestedResetID: resetID)
+            }
+        )
+        try Task.checkCancellation()
+        guard accessTokenProvider.currentSession()?.userID == session.userID else {
+            throw BackendContentError.unauthenticated
+        }
+        return response
     }
 
     func submitQuestionAnswers(_ events: [QuestionAnswerEvent], session: AuthSession) async throws -> QuestionAnswerBatchResponse {
@@ -140,8 +168,8 @@ final class HTTPBackendContentAPI: BackendContentAPI {
             throw BackendContentError.unauthenticated
         }
         let url = try makeURL(pathComponents: ["v1", "me", "question-answers"], queryItems: [])
-        return try await post(
-            url: url, operation: .questionAnswers, accessToken: session.accessToken,
+        return try await sendJSON(
+            method: "POST", url: url, operation: .questionAnswers, accessToken: session.accessToken,
             body: QuestionAnswerBatchRequest(events: events),
             expectedUserID: session.userID,
             validate: { Set($0.processedEventIds).isSubset(of: Set(events.map(\.eventId))) }
@@ -157,8 +185,8 @@ final class HTTPBackendContentAPI: BackendContentAPI {
             pathComponents: ["v1", "me", "question-answers"],
             queryItems: []
         )
-        return try await post(
-            url: url,
+        return try await sendJSON(
+            method: "POST", url: url,
             operation: .questionAnswers,
             accessToken: accessToken,
             body: QuestionAnswerBatchRequest(events: events),
@@ -289,7 +317,7 @@ final class HTTPBackendContentAPI: BackendContentAPI {
                     requestedLocale: locale,
                     requestedSeed: normalizedSeed,
                     requestedCountry: country
-                )
+                ) && (!$0.isExhausted || $0.progressMode == strategy.progressMode)
             }
         )
     }
@@ -412,7 +440,7 @@ final class HTTPBackendContentAPI: BackendContentAPI {
                     requestedLocale: locale,
                     requestedSeed: normalizedSeed,
                     requestedCountry: country
-                )
+                ) && (!$0.isExhausted || $0.progressMode == strategy.progressMode)
             }
         )
     }
@@ -438,36 +466,8 @@ final class HTTPBackendContentAPI: BackendContentAPI {
         )
     }
 
-    private func put<Response: Decodable, Body: Encodable>(
-        url: URL,
-        operation: BackendOperation,
-        accessToken: String,
-        body: Body,
-        validate: @escaping (Response) -> Bool
-    ) async throws -> Response {
-        let bodyData: Data
-        do {
-            bodyData = try encoder.encode(body)
-        } catch {
-            throw BackendContentError.encoding
-        }
-
-        var request = URLRequest(url: url, timeoutInterval: requestTimeout)
-        request.cachePolicy = .reloadIgnoringLocalCacheData
-        request.httpMethod = "PUT"
-        request.httpBody = bodyData
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: BackendConfiguration.authorizationHeader)
-        return try await perform(
-            request: request,
-            operation: operation,
-            validate: validate,
-            expectedUserID: accessTokenProvider.currentSession()?.userID
-        )
-    }
-
-    private func post<Response: Decodable, Body: Encodable>(
+    private func sendJSON<Response: Decodable, Body: Encodable>(
+        method: String,
         url: URL,
         operation: BackendOperation,
         accessToken: String,
@@ -475,16 +475,14 @@ final class HTTPBackendContentAPI: BackendContentAPI {
         expectedUserID: String? = nil,
         validate: @escaping (Response) -> Bool
     ) async throws -> Response {
-        let bodyData: Data
+        var request = URLRequest(url: url, timeoutInterval: requestTimeout)
+        request.httpMethod = method
+        if method != "POST" { request.cachePolicy = .reloadIgnoringLocalCacheData }
         do {
-            encoder.dateEncodingStrategy = .iso8601
-            bodyData = try encoder.encode(body)
+            request.httpBody = try encoder.encode(body)
         } catch {
             throw BackendContentError.encoding
         }
-        var request = URLRequest(url: url, timeoutInterval: requestTimeout)
-        request.httpMethod = "POST"
-        request.httpBody = bodyData
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(accessToken)", forHTTPHeaderField: BackendConfiguration.authorizationHeader)

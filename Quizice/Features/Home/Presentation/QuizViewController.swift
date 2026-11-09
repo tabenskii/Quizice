@@ -216,12 +216,14 @@ final class QuizViewController: BaseQuizViewController, ThemeCollectionDelegate,
     let aiAlertPresenter = QuizAlertPresenter()
     let quizPreparationAlertPresenter = QuizAlertPresenter()
     var activeQuizPreparationAlert: QuizAlertOverlay?
+    var activeQuizPreparationAlertID: UUID?
     var feelingLuckyTask: Task<Void, Never>?
     var feelingLuckyRequestID: UUID?
     var backendCatalogRefreshTask: Task<Void, Never>?
     var backendCatalogRefreshRequestID: UUID?
     var showRoundConfigurationAfterExpansion = false
     var quizPreparationTask: Task<Void, Never>?
+    var quizPreparationRequestID: UUID?
     weak var quizTransitionSourceView: UIView?
     var isQuizLaunchPending = false
     var hasQuizLaunchStarted = false

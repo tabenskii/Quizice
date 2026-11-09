@@ -117,7 +117,9 @@
 "question.show_question" = "Afficher la question";
 "question.tap_to_answer.accessibility_hint" = "Appuyez deux fois pour sélectionner cette réponse.";
 "question.unavailable.message" = "Ce thème n’a pas encore de questions disponibles. Revenez en arrière et choisissez un autre thème.";
-"question.progress_complete.message" = "Vous avez terminé toutes les questions disponibles pour ce réglage de répétition. Choisissez un autre réglage ou thème.";
+"question.progress_complete.title" = "Toutes les questions terminées";
+"question.progress_complete.message" = "Vous avez terminé toutes les questions disponibles avec ces réglages. Réinitialiser la progression des réponses pour tout le thème et recommencer ? Vos statistiques de jeu seront conservées.";
+"question.progress_complete.restart" = "Réinitialiser et recommencer";
 "question.loading_failed.title" = "Impossible de charger les questions";
 "question.loading_failed.message" = "Les questions n'ont pas pu être récupérées. Réessaie un peu plus tard.";
 "question.network_failure.message" = "Vérifie ta connexion Internet et réessaie.";
@@ -299,3 +301,11 @@
 "debug_menu.test_account.no_backend" = "Activez le serveur avant de vous connecter.";
 "debug_menu.test_account.key_required" = "Saisissez la clé privée du compte de test.";
 "debug_menu.test_account.failure" = "Connexion impossible. Vérifiez la clé et votre connexion, puis réessayez.";
+
+"onboarding.question_strategy.title" = "Quelles questions répéter ?";
+"onboarding.question_strategy.subtitle" = "Choisissez les questions que vous reverrez.";
+"onboarding.question_strategy.settings_hint" = "Vous pourrez modifier ce choix dans les réglages.";
+"onboarding.question_strategy.availability_hint" = "S’applique aux thèmes prêts à jouer du catalogue en ligne après connexion à Game Center. Les invités voient toutes les questions.";
+"onboarding.question_strategy.hideAnswered.detail" = "Les questions déjà répondues ne réapparaîtront pas.";
+"onboarding.question_strategy.retryIncorrect.detail" = "Masquer les questions réussies et garder celles avec une erreur.";
+"onboarding.question_strategy.showAll.detail" = "Toute question peut réapparaître.";

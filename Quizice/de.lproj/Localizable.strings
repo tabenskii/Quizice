@@ -117,7 +117,9 @@
 "question.show_question" = "Frage anzeigen";
 "question.tap_to_answer.accessibility_hint" = "Doppelt tippen, um diese Antwort auszuwählen.";
 "question.unavailable.message" = "Für dieses Thema gibt es noch keine verfügbaren Fragen. Gehe zurück und wähle ein anderes Thema.";
-"question.progress_complete.message" = "Du hast alle Fragen für diese Wiederholungseinstellung abgeschlossen. Wähle eine andere Einstellung oder ein anderes Thema.";
+"question.progress_complete.title" = "Alle Fragen abgeschlossen";
+"question.progress_complete.message" = "Du hast alle verfügbaren Fragen mit diesen Einstellungen beantwortet. Antwortfortschritt für das gesamte Thema zurücksetzen und neu starten? Deine Spielstatistik bleibt erhalten.";
+"question.progress_complete.restart" = "Zurücksetzen und neu starten";
 "question.loading_failed.title" = "Fragen konnten nicht geladen werden";
 "question.loading_failed.message" = "Die Fragen konnten nicht abgerufen werden. Versuche es etwas später erneut.";
 "question.network_failure.message" = "Prüfe deine Internetverbindung und versuche es erneut.";
@@ -299,3 +301,11 @@
 "debug_menu.test_account.no_backend" = "Aktiviere zuerst das Backend.";
 "debug_menu.test_account.key_required" = "Gib den privaten Testkontoschlüssel ein.";
 "debug_menu.test_account.failure" = "Verbindung fehlgeschlagen. Prüfe Schlüssel und Internetverbindung und versuche es erneut.";
+
+"onboarding.question_strategy.title" = "Welche Fragen wiederholen?";
+"onboarding.question_strategy.subtitle" = "Wähle, welche Fragen du erneut sehen möchtest.";
+"onboarding.question_strategy.settings_hint" = "Du kannst dies später in den Einstellungen ändern.";
+"onboarding.question_strategy.availability_hint" = "Gilt für fertige Themen aus dem Online-Katalog nach der Anmeldung bei Game Center. Gäste sehen alle Fragen.";
+"onboarding.question_strategy.hideAnswered.detail" = "Bereits beantwortete Fragen erscheinen nicht erneut.";
+"onboarding.question_strategy.retryIncorrect.detail" = "Richtig beantwortete Fragen ausblenden, falsch beantwortete behalten.";
+"onboarding.question_strategy.showAll.detail" = "Jede Frage kann erneut erscheinen.";

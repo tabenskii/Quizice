@@ -3,6 +3,7 @@ import Foundation
 enum QuizPreparationError: Error, Equatable {
     case unavailable
     case insufficientQuestions
+    case progressComplete(userID: String)
 
     static func isCancellation(_ error: Error) -> Bool {
         switch error {
@@ -23,6 +24,8 @@ enum QuizPreparationError: Error, Equatable {
             return L10n.Question.unavailableMessage
         case QuizPreparationError.insufficientQuestions:
             return L10n.Question.insufficientQuestionsMessage
+        case QuizPreparationError.progressComplete:
+            return L10n.Question.unavailableMessage
         case let error as URLError:
             return message(for: error.code)
         case BackendContentError.transport(let code), BackendAPIError.transport(let code):
@@ -55,6 +58,8 @@ enum CrossThemeQuestionSelectionMode: String, CaseIterable, Equatable {
 protocol ThemeRepository: AnyObject {
     var themes: [QuizTheme]? { get }
     var catalogOrigin: QuizCatalogOrigin { get }
+    func validateQuestionProgressUser(expectedUserID: String) throws
+    func resetQuestionProgress(themeID: String, resetID: UUID, expectedUserID: String) async throws
     func loadData(forceReload: Bool)
     func fetchQuizThemes() -> [QuizTheme]
     @discardableResult
@@ -88,6 +93,14 @@ protocol ThemeRepository: AnyObject {
 }
 
 extension ThemeRepository {
+    func validateQuestionProgressUser(expectedUserID: String) throws {
+        throw QuestionAnswerSyncError.accountChanged
+    }
+
+    func resetQuestionProgress(themeID: String, resetID: UUID, expectedUserID: String) async throws {
+        throw QuizPreparationError.unavailable
+    }
+
     var catalogOrigin: QuizCatalogOrigin { .bundled }
 
     @discardableResult

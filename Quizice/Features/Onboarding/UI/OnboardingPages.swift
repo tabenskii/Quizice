@@ -334,6 +334,7 @@ private struct OnboardingCatalogSourceBadge: View {
 
 struct OnboardingTutorialPage: View {
     let themePreview: OnboardingTheme?
+    @Binding var repeatStrategy: QuestionRepeatStrategy
     let isActive: Bool
     var focusedHeaderPage: AccessibilityFocusState<OnboardingPage?>.Binding
 
@@ -348,17 +349,17 @@ struct OnboardingTutorialPage: View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 18) {
                 VStack(spacing: 10) {
-                    Text(L10n.Onboarding.tutorialTitle)
-                        .font(appearance.typography.swiftUIFont(size: 32, weight: .bold))
+                    Text(L10n.Onboarding.QuestionStrategy.title)
+                        .font(appearance.typography.swiftUIFont(size: 28, weight: .bold))
                         .foregroundStyle(Color(uiColor: appearance.screenTextColor))
                         .multilineTextAlignment(.center)
-                        .minimumScaleFactor(0.8)
+                        .fixedSize(horizontal: false, vertical: true)
                         .accessibilityAddTraits(.isHeader)
                         .accessibilityIdentifier("onboardingTutorialTitle")
                         .accessibilityFocused(focusedHeaderPage, equals: .tutorial)
 
-                    Text(L10n.Onboarding.tutorialSubtitle)
-                        .font(appearance.typography.swiftUIFont(size: 17, weight: .regular))
+                    Text(L10n.Onboarding.QuestionStrategy.subtitle)
+                        .font(appearance.typography.swiftUIFont(size: 16, weight: .regular))
                         .foregroundStyle(Color(uiColor: appearance.secondaryScreenTextColor))
                         .multilineTextAlignment(.center)
                         .lineSpacing(2)
@@ -366,7 +367,27 @@ struct OnboardingTutorialPage: View {
                 }
                 .padding(.horizontal, 4)
 
-                VStack(spacing: 12) {
+                OnboardingQuestionStrategyPicker(selection: $repeatStrategy)
+
+                VStack(spacing: 6) {
+                    Text(L10n.Onboarding.QuestionStrategy.settingsHint)
+                        .font(appearance.typography.swiftUIFont(size: 14, weight: .medium))
+                    Text(L10n.Onboarding.QuestionStrategy.availabilityHint)
+                        .font(appearance.typography.swiftUIFont(size: 13, weight: .regular))
+                }
+                .foregroundStyle(Color(uiColor: appearance.secondaryScreenTextColor))
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("onboardingQuestionStrategyHint")
+
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(L10n.Onboarding.tutorialTitle)
+                        .font(appearance.typography.swiftUIFont(size: 22, weight: .semibold))
+                        .foregroundStyle(Color(uiColor: appearance.screenTextColor))
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityAddTraits(.isHeader)
+                        .padding(.top, 10)
+
                     ForEach(Array(features.enumerated()), id: \.element.id) { index, feature in
                         TutorialFeatureRow(feature: feature, themePreview: themePreview)
                             // Keep the content readable even if the page is captured or

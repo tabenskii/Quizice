@@ -624,3 +624,145 @@ private final class OnboardingAnalyticsSpy: AnalyticsTracking {
 
     func reportOperationalError(_ error: Error, context: AnalyticsErrorContext) {}
 }
+
+extension QuizFlowCoordinatorOnboardingTests {
+    func testQuestionStrategyBindingDefaultsToHideAnsweredWithoutWritingAChoice() {
+        withStrategyOnboarding { harness in
+            XCTAssertEqual(harness.controller.rootView.questionRepeatStrategy.wrappedValue, .hideAnswered)
+            XCTAssertEqual(QuestionRepeatStrategyStore(defaults: harness.defaults).strategy, .hideAnswered)
+            XCTAssertNil(harness.defaults.object(forKey: QuestionRepeatStrategyStore.defaultsKey))
+            XCTAssertTrue(harness.completion.selections.isEmpty)
+        }
+    }
+
+    func testQuestionStrategyBindingRespectsEverySavedChoiceDuringCompletedOnboardingReplay() {
+        for strategy in QuestionRepeatStrategy.allCases {
+            withStrategyOnboarding(savedStrategy: strategy, alreadyCompleted: true) { harness in
+                XCTAssertEqual(harness.controller.rootView.questionRepeatStrategy.wrappedValue, strategy)
+                XCTAssertEqual(harness.defaults.string(forKey: QuestionRepeatStrategyStore.defaultsKey), strategy.rawValue)
+                XCTAssertFalse(OnboardingProgressStore(userDefaults: harness.defaults).needsOnboarding)
+                XCTAssertTrue(harness.completion.selections.isEmpty)
+            }
+        }
+    }
+
+    func testQuestionStrategyBindingImmediatelyUpdatesSettingsWithoutCompletingOnboarding() {
+        withStrategyOnboarding { harness in
+            for strategy in [QuestionRepeatStrategy.showAll, .retryIncorrect, .hideAnswered] {
+                harness.controller.rootView.questionRepeatStrategy.wrappedValue = strategy
+
+                XCTAssertEqual(QuestionRepeatStrategyStore(defaults: harness.defaults).strategy, strategy)
+                XCTAssertEqual(harness.defaults.string(forKey: QuestionRepeatStrategyStore.defaultsKey), strategy.rawValue)
+                XCTAssertEqual(harness.controller.rootView.questionRepeatStrategy.wrappedValue, strategy)
+                XCTAssertTrue(harness.completion.selections.isEmpty)
+                XCTAssertTrue(OnboardingProgressStore(userDefaults: harness.defaults).needsOnboarding)
+            }
+        }
+    }
+
+    func testQuestionStrategyBindingSurvivesCompletionAndWelcomePageReopen() {
+        withStrategyOnboarding { harness in
+            harness.controller.rootView.questionRepeatStrategy.wrappedValue = .showAll
+            harness.controller.rootView.onComplete(["music"])
+            XCTAssertEqual(harness.completion.selections, [Set(["music"])])
+
+            let replay = makeStrategyOnboardingController(
+                defaults: harness.defaults, completion: harness.completion, initialPage: .welcome
+            )
+            harness.window.rootViewController = replay
+            replay.view.frame = harness.window.bounds
+            replay.view.layoutIfNeeded()
+            RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+
+            XCTAssertEqual(replay.rootView.questionRepeatStrategy.wrappedValue, .showAll)
+            XCTAssertEqual(QuestionRepeatStrategyStore(defaults: harness.defaults).strategy, .showAll)
+            XCTAssertEqual(harness.defaults.string(forKey: QuestionRepeatStrategyStore.defaultsKey), "showAll")
+            XCTAssertEqual(harness.completion.selections.count, 1)
+        }
+    }
+
+    func testQuestionStrategyBindingFallsBackWithoutOverwritingUnknownSavedValue() {
+        withStrategyOnboarding(rawStrategy: "unknown-future-strategy") { harness in
+            XCTAssertEqual(harness.controller.rootView.questionRepeatStrategy.wrappedValue, .hideAnswered)
+            XCTAssertEqual(harness.defaults.string(forKey: QuestionRepeatStrategyStore.defaultsKey), "unknown-future-strategy")
+
+            harness.controller.rootView.questionRepeatStrategy.wrappedValue = .retryIncorrect
+
+            XCTAssertEqual(QuestionRepeatStrategyStore(defaults: harness.defaults).strategy, .retryIncorrect)
+            XCTAssertEqual(harness.defaults.string(forKey: QuestionRepeatStrategyStore.defaultsKey), "retryIncorrect")
+            XCTAssertTrue(harness.completion.selections.isEmpty)
+        }
+    }
+
+    func testQuestionStrategyBindingObservesChangesMadeThroughSharedSettingsStore() {
+        withStrategyOnboarding(savedStrategy: .hideAnswered) { harness in
+            QuestionRepeatStrategyStore(defaults: harness.defaults).strategy = .retryIncorrect
+            RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+
+            XCTAssertEqual(harness.controller.rootView.questionRepeatStrategy.wrappedValue, .retryIncorrect)
+            XCTAssertTrue(harness.completion.selections.isEmpty)
+        }
+    }
+
+    private func withStrategyOnboarding(
+        savedStrategy: QuestionRepeatStrategy? = nil,
+        rawStrategy: String? = nil,
+        alreadyCompleted: Bool = false,
+        _ operation: (OnboardingStrategyHarness) -> Void
+    ) {
+        let animationsWereEnabled = UIView.areAnimationsEnabled
+        UIView.setAnimationsEnabled(false)
+        let suiteName = "QuizFlowCoordinatorOnboardingTests.Strategy.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        if let savedStrategy { QuestionRepeatStrategyStore(defaults: defaults).strategy = savedStrategy }
+        if let rawStrategy { defaults.set(rawStrategy, forKey: QuestionRepeatStrategyStore.defaultsKey) }
+        if alreadyCompleted {
+            OnboardingProgressStore(userDefaults: defaults).complete(preferredThemeIDs: ["music"])
+        }
+        let completion = OnboardingStrategyCompletionSpy()
+        let controller = makeStrategyOnboardingController(defaults: defaults, completion: completion)
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
+        window.rootViewController = controller
+        window.makeKeyAndVisible()
+        controller.view.frame = window.bounds
+        controller.view.layoutIfNeeded()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+        defer {
+            window.isHidden = true
+            window.rootViewController = nil
+            defaults.removePersistentDomain(forName: suiteName)
+            UIView.setAnimationsEnabled(animationsWereEnabled)
+        }
+        operation(OnboardingStrategyHarness(
+            defaults: defaults, controller: controller, window: window, completion: completion
+        ))
+    }
+
+    private func makeStrategyOnboardingController(
+        defaults: UserDefaults,
+        completion: OnboardingStrategyCompletionSpy,
+        initialPage: OnboardingPage = .tutorial
+    ) -> UIHostingController<QuizOnboardingView> {
+        UIHostingController(rootView: QuizOnboardingView(
+            appearance: SnapshotSupport.appearance(designStyle: .clean),
+            themes: [OnboardingTheme(id: "music", title: L10n.Onboarding.topicMusic)],
+            initialPage: initialPage,
+            preferredThemeIDs: ["music"],
+            strategyDefaults: defaults,
+            onComplete: { completion.selections.append($0) }
+        ))
+    }
+}
+
+@MainActor
+private struct OnboardingStrategyHarness {
+    let defaults: UserDefaults
+    let controller: UIHostingController<QuizOnboardingView>
+    let window: UIWindow
+    let completion: OnboardingStrategyCompletionSpy
+}
+
+private final class OnboardingStrategyCompletionSpy {
+    var selections: [Set<String>] = []
+}

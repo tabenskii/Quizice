@@ -117,7 +117,9 @@
 "question.show_question" = "Show question";
 "question.tap_to_answer.accessibility_hint" = "Double tap to select this answer.";
 "question.unavailable.message" = "This theme has no available questions yet. Go back and choose another theme.";
-"question.progress_complete.message" = "You’ve completed all questions available for this repeat setting. Choose another setting or theme to keep playing.";
+"question.progress_complete.title" = "All questions completed";
+"question.progress_complete.message" = "You’ve completed all available questions with these settings. Reset answer progress for the entire topic and start again? Your game statistics will be kept.";
+"question.progress_complete.restart" = "Reset and start again";
 "question.loading_failed.title" = "Could not load questions";
 "question.loading_failed.message" = "We couldn't retrieve the questions. Please try again a little later.";
 "question.network_failure.message" = "Check your internet connection and try again.";
@@ -299,3 +301,11 @@
 "debug_menu.test_account.no_backend" = "Enable the backend before connecting.";
 "debug_menu.test_account.key_required" = "Enter the private test account key.";
 "debug_menu.test_account.failure" = "Could not connect. Check the key and your connection, then retry.";
+
+"onboarding.question_strategy.title" = "How should questions repeat?";
+"onboarding.question_strategy.subtitle" = "Choose which questions you’ll see again.";
+"onboarding.question_strategy.settings_hint" = "You can change this later in Settings.";
+"onboarding.question_strategy.availability_hint" = "Applies to ready-made topics from the online catalog after Game Center sign-in. Guests see all questions.";
+"onboarding.question_strategy.hideAnswered.detail" = "Questions you’ve answered won’t appear again.";
+"onboarding.question_strategy.retryIncorrect.detail" = "Hide questions answered correctly and keep the ones you missed.";
+"onboarding.question_strategy.showAll.detail" = "Any question may appear again.";
