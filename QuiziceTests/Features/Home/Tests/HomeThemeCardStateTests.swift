@@ -375,8 +375,16 @@ final class HomeThemeCardStateTests: HomeScreenVisualStateTestCase {
 
     func testDebugCompletedThemeWaitsForConfirmationThenUsesNormalResetAndLaunch() async throws {
         let (controller, repository, router, _) = try await makeBackendLaunchHarness()
-        controller.presentDebugCompletedTheme(userID: "account-a")
+        controller.resetExpandedThemeCard()
+        XCTAssertEqual(controller.homeCardState.phase, .grid)
+        XCTAssertEqual(controller.debugProgressResetThemes(userID: "account-a").map(\.stableID), ["space"])
+        XCTAssertTrue(controller.debugProgressResetThemes(userID: nil).isEmpty)
+        controller.openDebugCompletedTheme(themeID: "unknown", userID: "account-a")
+        XCTAssertNil(controller.debugCompletedThemeRequest)
+        controller.openDebugCompletedTheme(themeID: "space", userID: "account-a")
         try await waitUntil { controller.activeQuizPreparationAlert != nil }
+        XCTAssertEqual(controller.homeCardState.phase, .expandedBack)
+        XCTAssertNil(controller.debugCompletedThemeRequest)
         let alert = try XCTUnwrap(controller.activeQuizPreparationAlert)
         XCTAssertEqual(alert.title, L10n.Question.progressCompleteTitle)
         XCTAssertTrue(repository.resetIDs.isEmpty)

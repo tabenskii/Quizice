@@ -311,4 +311,4 @@
 "onboarding.question_strategy.showAll.detail" = "Cualquier pregunta puede volver a aparecer.";
 
 "debug_menu.completed_theme" = "Mostrar tema completado";
-"debug_menu.completed_theme.hint" = "Abre la configuración de un tema del servidor con la sesión iniciada. Confirmar restablece realmente el progreso de todo el tema.";
+"debug_menu.completed_theme.hint" = "Elige aquí un tema del servidor desde la pantalla principal. Confirmar restablece realmente el progreso de todo el tema.";

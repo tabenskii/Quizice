@@ -311,4 +311,4 @@
 "onboarding.question_strategy.showAll.detail" = "Toute question peut réapparaître.";
 
 "debug_menu.completed_theme" = "Afficher le thème terminé";
-"debug_menu.completed_theme.hint" = "Connectez-vous et ouvrez les réglages d’un thème du serveur. La confirmation réinitialise réellement la progression de tout le thème.";
+"debug_menu.completed_theme.hint" = "Choisissez ici un thème du serveur depuis l’accueil. La confirmation réinitialise réellement la progression de tout le thème.";

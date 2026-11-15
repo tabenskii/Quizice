@@ -140,6 +140,38 @@ extension QuizViewController {
     }
 
 #if DEBUG
+    func debugProgressResetThemes(
+        userID: String? = StoredBackendAccessTokenProvider().currentSession()?.userID
+    ) -> [QuizTheme] {
+        guard homeCardState.phase == .grid, !isQuizLaunchPending,
+              themeRepository.catalogOrigin == .backend,
+              !UserDefaults.standard.bool(forKey: DebugBackendSettings.useLocalContentOnlyKey),
+              let userID,
+              (try? themeRepository.validateQuestionProgressUser(expectedUserID: userID)) != nil
+        else { return [] }
+        return themeRepository.themes ?? []
+    }
+
+    func openDebugCompletedTheme(
+        themeID: String,
+        userID: String? = StoredBackendAccessTokenProvider().currentSession()?.userID
+    ) {
+        guard presentedViewController == nil, let userID,
+              debugProgressResetThemes(userID: userID).contains(where: { $0.stableID == themeID })
+        else { return }
+        debugCompletedThemeRequest = (themeID, userID)
+        configureNextRound(themeID: themeID)
+        if homeCardState.themeID != themeID { debugCompletedThemeRequest = nil }
+    }
+
+    func completeDebugCompletedThemePresentation() {
+        guard homeCardState.phase == .expandedBack,
+              let request = debugCompletedThemeRequest else { return }
+        debugCompletedThemeRequest = nil
+        guard homeCardState.themeID == request.themeID else { return }
+        presentDebugCompletedTheme(userID: request.userID)
+    }
+
     func debugQuestionProgressContext(
         userID: String? = StoredBackendAccessTokenProvider().currentSession()?.userID
     ) -> (configuration: QuizLaunchConfiguration, userID: String)? {

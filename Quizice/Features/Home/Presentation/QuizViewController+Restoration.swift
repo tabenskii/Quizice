@@ -76,6 +76,9 @@ extension QuizViewController {
     }
 
     func resetExpandedThemeCard() {
+#if DEBUG
+        debugCompletedThemeRequest = nil
+#endif
         expandedCardAnimator?.stopAnimation(true)
         expandedCardAnimator = nil
         if let effect = homeStore.sendAI(.reset) {
@@ -244,10 +247,10 @@ extension QuizViewController {
         let controller = UIHostingController(
             rootView: DebugMenuView(
                 viewModel: makeDebugMenuViewModel(),
-                canShowCompletedTheme: debugQuestionProgressContext() != nil,
-                showCompletedTheme: { [weak self] in
+                completedThemes: debugProgressResetThemes(),
+                showCompletedTheme: { [weak self] themeID in
                     self?.dismiss(animated: true) { [weak self] in
-                        self?.presentDebugCompletedTheme()
+                        self?.openDebugCompletedTheme(themeID: themeID)
                     }
                 }
             )

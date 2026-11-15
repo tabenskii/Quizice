@@ -311,4 +311,4 @@
 "onboarding.question_strategy.showAll.detail" = "Any question may appear again.";
 
 "debug_menu.completed_theme" = "Show completed theme";
-"debug_menu.completed_theme.hint" = "Open a server theme’s setup while signed in. Confirming the alert really resets progress for the entire theme.";
+"debug_menu.completed_theme.hint" = "Choose a server theme here from the home screen. Confirming the alert really resets progress for the entire theme.";

@@ -311,4 +311,4 @@
 "onboarding.question_strategy.showAll.detail" = "Jede Frage kann erneut erscheinen.";
 
 "debug_menu.completed_theme" = "Abgeschlossenes Thema anzeigen";
-"debug_menu.completed_theme.hint" = "Öffne angemeldet die Einstellungen eines Server-Themas. Die Bestätigung setzt den Fortschritt des gesamten Themas tatsächlich zurück.";
+"debug_menu.completed_theme.hint" = "Wähle hier auf dem Startbildschirm ein Server-Thema. Die Bestätigung setzt den Fortschritt des gesamten Themas tatsächlich zurück.";
