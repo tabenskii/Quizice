@@ -447,6 +447,155 @@ final class QuizQuestionStateContractTests: CrossScreenVisualTestCase {
         XCTAssertTrue(infoButton.isHidden)
     }
 
+    func testLongExplanationIndicatorIsVisibleAtRestAndTracksScrollingAcrossStyles() throws {
+        for style in [AppDesignStyle.classic, .radar, .clean] {
+            UserDefaults.standard.set(style.rawValue, forKey: AppAppearanceStore.Keys.designStyle)
+            let controller = makeExplanationIndicatorController(
+                explanation: String(repeating: "Длинное пояснение помогает понять правильный ответ. ", count: 24),
+                size: CGSize(width: 320, height: 568)
+            )
+            let answerFrames = controller.answerButtons.map(\.frame)
+            controller.setQuestionExplanationVisible(true, animated: false)
+            controller.view.layoutIfNeeded()
+
+            let scrollView = try XCTUnwrap(controller.questionExplanationScrollView)
+            let indicator = try XCTUnwrap(
+                scrollView.descendant(withAccessibilityIdentifier: "persistentScrollIndicator")
+            )
+            XCTAssertGreaterThan(scrollView.contentSize.height, scrollView.bounds.height)
+            XCTAssertFalse(scrollView.isTracking)
+            XCTAssertFalse(scrollView.isDecelerating)
+            XCTAssertFalse(indicator.isHidden)
+            XCTAssertGreaterThan(indicator.alpha, 0)
+            XCTAssertFalse(indicator.isUserInteractionEnabled)
+            XCTAssertFalse(indicator.isAccessibilityElement)
+            XCTAssertFalse(scrollView.showsVerticalScrollIndicator)
+            XCTAssertEqual(controller.answerButtons.map(\.frame), answerFrames)
+            XCTAssertEqual(controller.questionExplanationLabel.bounds.width, controller.questionLabel.bounds.width, accuracy: 0.5)
+            XCTAssertGreaterThanOrEqual(indicator.frame.minX, controller.questionExplanationLabel.frame.maxX)
+
+            let topFrame = indicator.convert(indicator.bounds, to: controller.questionCardContentView)
+            XCTAssertTrue(scrollView.bounds.contains(indicator.frame))
+            let rendered = UIGraphicsImageRenderer(size: controller.view.bounds.size).image { context in
+                controller.view.layer.render(in: context.cgContext)
+            }
+            let attachment = XCTAttachment(image: rendered)
+            attachment.name = "Long-explanation-indicator-\(style.rawValue)-320x568"
+            attachment.lifetime = .keepAlways
+            add(attachment)
+
+            let maximumOffset = scrollView.contentSize.height - scrollView.bounds.height
+            scrollView.setContentOffset(CGPoint(x: 0, y: maximumOffset / 2), animated: false)
+            scrollView.layoutIfNeeded()
+            let middleFrame = indicator.convert(indicator.bounds, to: controller.questionCardContentView)
+            scrollView.setContentOffset(CGPoint(x: 0, y: maximumOffset), animated: false)
+            scrollView.layoutIfNeeded()
+            let bottomFrame = indicator.convert(indicator.bounds, to: controller.questionCardContentView)
+
+            XCTAssertGreaterThan(middleFrame.minY, topFrame.minY)
+            XCTAssertGreaterThan(bottomFrame.minY, middleFrame.minY)
+            XCTAssertEqual(middleFrame.minY, (topFrame.minY + bottomFrame.minY) / 2, accuracy: 0.5)
+            XCTAssertEqual(bottomFrame.height, topFrame.height, accuracy: 0.5)
+            XCTAssertTrue(scrollView.bounds.contains(indicator.frame))
+            XCTAssertFalse(indicator.isHidden)
+
+            scrollView.setContentOffset(CGPoint(x: 0, y: maximumOffset + 40), animated: false)
+            scrollView.layoutIfNeeded()
+            XCTAssertEqual(indicator.convert(indicator.bounds, to: controller.questionCardContentView).minY, bottomFrame.minY, accuracy: 0.5)
+            scrollView.setContentOffset(CGPoint(x: 0, y: -40), animated: false)
+            scrollView.layoutIfNeeded()
+            XCTAssertEqual(indicator.convert(indicator.bounds, to: controller.questionCardContentView).minY, topFrame.minY, accuracy: 0.5)
+        }
+    }
+
+    func testExplanationIndicatorHidesForShortContentAndResetsForNextQuestion() throws {
+        let controller = makeExplanationIndicatorController(explanation: "Короткое пояснение.")
+        controller.setQuestionExplanationVisible(true, animated: false)
+        controller.view.layoutIfNeeded()
+        let scrollView = try XCTUnwrap(controller.questionExplanationScrollView)
+        let indicator = try XCTUnwrap(
+            scrollView.descendant(withAccessibilityIdentifier: "persistentScrollIndicator")
+        )
+        XCTAssertLessThanOrEqual(scrollView.contentSize.height, scrollView.bounds.height + 0.5)
+        XCTAssertTrue(indicator.isHidden)
+
+        let longExplanation = String(repeating: "Подробное пояснение правильного ответа. ", count: 24)
+        controller.loadQuestionToView(makeExplanationIndicatorViewModel(explanation: longExplanation))
+        controller.setQuestionExplanationVisible(true, animated: false)
+        controller.view.layoutIfNeeded()
+        XCTAssertFalse(indicator.isHidden)
+        let initialThumbY = indicator.frame.minY
+        scrollView.setContentOffset(CGPoint(x: 0, y: scrollView.contentSize.height - scrollView.bounds.height), animated: false)
+        scrollView.layoutIfNeeded()
+        XCTAssertGreaterThan(scrollView.contentOffset.y, 0)
+
+        controller.loadQuestionToView(makeExplanationIndicatorViewModel(explanation: longExplanation))
+        controller.view.layoutIfNeeded()
+        XCTAssertTrue(scrollView.isHidden)
+        XCTAssertEqual(scrollView.contentOffset, .zero)
+        controller.setQuestionExplanationVisible(true, animated: false)
+        controller.view.layoutIfNeeded()
+        XCTAssertFalse(indicator.isHidden)
+        XCTAssertEqual(indicator.frame.minY, initialThumbY, accuracy: 0.5)
+
+        controller.loadQuestionToView(makeExplanationIndicatorViewModel(explanation: "Снова короткое пояснение."))
+        controller.setQuestionExplanationVisible(true, animated: false)
+        controller.view.layoutIfNeeded()
+        XCTAssertTrue(indicator.isHidden)
+        XCTAssertEqual(scrollView.contentOffset, .zero)
+    }
+
+    func testExplanationIndicatorUpdatesAfterViewportResize() throws {
+        let controller = makeExplanationIndicatorController(
+            explanation: String(repeating: "Пояснение с несколькими строками текста.\n", count: 8),
+            size: CGSize(width: 320, height: 568)
+        )
+        controller.setQuestionExplanationVisible(true, animated: false)
+        controller.view.layoutIfNeeded()
+        let scrollView = try XCTUnwrap(controller.questionExplanationScrollView)
+        let indicator = try XCTUnwrap(
+            scrollView.descendant(withAccessibilityIdentifier: "persistentScrollIndicator")
+        )
+        XCTAssertFalse(indicator.isHidden)
+        let compactThumbHeight = indicator.bounds.height
+
+        controller.view.frame.size = CGSize(width: 402, height: 874)
+        controller.view.setNeedsLayout()
+        controller.view.layoutIfNeeded()
+        XCTAssertFalse(indicator.isHidden)
+        XCTAssertGreaterThan(indicator.bounds.height, compactThumbHeight)
+        XCTAssertTrue(scrollView.bounds.contains(indicator.frame))
+
+        controller.view.frame.size = CGSize(width: 402, height: 1500)
+        controller.view.setNeedsLayout()
+        controller.view.layoutIfNeeded()
+        XCTAssertLessThanOrEqual(scrollView.contentSize.height, scrollView.bounds.height + 0.5)
+        XCTAssertTrue(indicator.isHidden)
+    }
+
+    private func makeExplanationIndicatorController(
+        explanation: String,
+        size: CGSize = CGSize(width: 390, height: 844)
+    ) -> QuizQuestionViewController {
+        let controller = QuizQuestionViewController()
+        controller.configurePresenter(ExitConfirmationPresenterSpy())
+        controller.loadViewIfNeeded()
+        controller.view.frame = CGRect(origin: .zero, size: size)
+        controller.loadQuestionToView(makeExplanationIndicatorViewModel(explanation: explanation))
+        controller.view.layoutIfNeeded()
+        return controller
+    }
+
+    private func makeExplanationIndicatorViewModel(explanation: String) -> QuizQuestionViewModel {
+        QuizQuestionViewModel(
+            themeName: "Проверка пояснения",
+            questionText: "Какой ответ правильный?",
+            questionNumberText: "Вопрос №1",
+            answers: (0..<4).map { QuizAnswerOption(id: "indicator-\($0)", title: "Ответ \($0 + 1)") },
+            explanation: explanation
+        )
+    }
+
     func testAutomaticExplanationCrossFadesWithoutFlashingInfoButton() async throws {
         try XCTSkipIf(UIAccessibility.isReduceMotionEnabled, "Cross-fade requires motion enabled")
         let (controller, _, _, _, window) = makeExitConfirmationHarness()
