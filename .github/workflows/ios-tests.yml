@@ -2,6 +2,7 @@ name: iOS Tests
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
 
 permissions:
   contents: read
@@ -13,6 +14,7 @@ concurrency:
 jobs:
   release-build:
     name: Release configuration and build
+    if: github.event.pull_request.draft == false
     runs-on: macos-26
     timeout-minutes: 30
     env:
@@ -48,6 +50,7 @@ jobs:
 
   ios-tests:
     name: Build and test
+    if: github.event.pull_request.draft == false
     runs-on: macos-26
     # One build and five sequential simulator runs share this budget.
     # Hosted runners can need over 45 minutes before snapshots and coverage finish.
