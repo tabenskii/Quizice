@@ -10,12 +10,7 @@ final class HTTPBackendContentAPI: BackendContentAPI {
     private let accessTokenProvider: BackendAccessTokenProviding
     private let authenticationRecoverer: BackendAuthenticationRecovering?
     private let clock = ContinuousClock()
-
-    // Content responses (themes, preferences, question batches) are a few
-    // kilobytes at most. Anything larger indicates a misbehaving upstream or
-    // an active attack; refuse the body before JSON decoding balloons memory.
     private static let maxResponseBytes = 10 * 1024 * 1024
-
     init(
         configuration: BackendConfiguration,
         session: URLSession = .shared,
@@ -35,8 +30,7 @@ final class HTTPBackendContentAPI: BackendContentAPI {
         decoder = JSONDecoder()
     }
 
-    // An expired session still identifies the player. Send its token through
-    // the existing 401 recovery path instead of silently fetching as a guest.
+    // Recover expired sessions rather than silently requesting guest content.
     private var requestAccessToken: String? {
         accessTokenProvider.validAccessToken() ?? accessTokenProvider.currentSession()?.accessToken
     }
@@ -445,6 +439,15 @@ final class HTTPBackendContentAPI: BackendContentAPI {
         )
     }
 
+    func fetchOfflineQuestions(locale: String, userID: String) async throws -> OfflineQuestionPack {
+        guard let token = requestAccessToken, accessTokenProvider.currentSession()?.userID == userID
+        else { throw BackendContentError.unauthenticated }
+        let url = try makeURL(pathComponents: ["v1", "themes", "offline"],
+                              queryItems: [URLQueryItem(name: "locale", value: locale)])
+        return try await get(url: url, operation: .questions, accessToken: token) { (pack: OfflineQuestionPack) in
+            pack.isValid(locale: locale, userID: userID)
+        }
+    }
     private func get<Response: Decodable>(
         url: URL,
         operation: BackendOperation,

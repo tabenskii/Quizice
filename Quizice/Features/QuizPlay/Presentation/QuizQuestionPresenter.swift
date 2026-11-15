@@ -357,7 +357,8 @@ final class QuizQuestionPresenter: QuizQuestionPresenterProtocol {
                 answeredAt: Date(),
                 progressGeneration: question.progressGeneration
             ),
-            for: answerUserID
+            for: answerUserID,
+            isCorrect: answer == question.correctAnswer
         )
     }
     

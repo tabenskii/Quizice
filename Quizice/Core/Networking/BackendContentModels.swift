@@ -229,7 +229,7 @@ struct StoredBackendAccessTokenProvider: BackendAccessTokenProviding {
     }
 }
 
-struct BackendQuestionDTO: Decodable, Equatable {
+struct BackendQuestionDTO: Codable, Equatable {
     let questionId: String?
     let questionVersion: Int?
     let progressGeneration: UUID?

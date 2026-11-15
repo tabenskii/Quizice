@@ -2,6 +2,7 @@ import Foundation
 
 enum QuizPreparationError: Error, Equatable {
     case unavailable
+    case offlineQuestionsUnavailable
     case insufficientQuestions
     case progressComplete(userID: String)
 
@@ -22,6 +23,8 @@ enum QuizPreparationError: Error, Equatable {
         switch error {
         case QuizPreparationError.unavailable:
             return L10n.Question.unavailableMessage
+        case QuizPreparationError.offlineQuestionsUnavailable:
+            return L10n.Question.offlineUnavailableMessage
         case QuizPreparationError.insufficientQuestions:
             return L10n.Question.insufficientQuestionsMessage
         case QuizPreparationError.progressComplete:

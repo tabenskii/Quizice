@@ -1,6 +1,7 @@
 import Foundation
 
 protocol BackendContentAPI {
+    func fetchOfflineQuestions(locale: String, userID: String) async throws -> OfflineQuestionPack
     func fetchFavorites() async throws -> BackendFavoritesSnapshot
     func patchFavorites(_ mutation: FavoriteMutation, session: AuthSession) async throws -> BackendFavoritesSnapshot
     func resetQuestionProgress(
@@ -72,6 +73,10 @@ protocol BackendContentAPI {
 }
 
 extension BackendContentAPI {
+    func fetchOfflineQuestions(locale: String, userID: String) async throws -> OfflineQuestionPack {
+        throw BackendContentError.invalidRequest
+    }
+
     func fetchFavorites() async throws -> BackendFavoritesSnapshot { throw BackendContentError.unauthenticated }
     func patchFavorites(_ mutation: FavoriteMutation, session: AuthSession) async throws -> BackendFavoritesSnapshot {
         throw BackendContentError.unauthenticated

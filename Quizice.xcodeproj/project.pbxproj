@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		5E8914924F484E739B3DAD8B /* OfflineQuestionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60E8BDAE88764B94B8ADA1DF /* OfflineQuestionTests.swift */; };
+		F8F2F75AC24C4544BF3373AC /* OfflineQuestionDownloader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03ED626076F54145A4401E86 /* OfflineQuestionDownloader.swift */; };
+		57B27480896448F8B84DE3DF /* OfflineQuestionCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 959ADD3ACE1E4870AA697A7E /* OfflineQuestionCache.swift */; };
 		EA1100020000000000000004 /* HomeIPadLayoutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA1100010000000000000004 /* HomeIPadLayoutTests.swift */; };
 		EA1100020000000000000003 /* ThemesCollectionService+Layout.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA1100010000000000000003 /* ThemesCollectionService+Layout.swift */; };
 		EA1100020000000000000001 /* AppAdaptiveLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA1100010000000000000001 /* AppAdaptiveLayout.swift */; };
@@ -236,6 +239,9 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		60E8BDAE88764B94B8ADA1DF /* OfflineQuestionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineQuestionTests.swift; sourceTree = "<group>"; };
+		03ED626076F54145A4401E86 /* OfflineQuestionDownloader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineQuestionDownloader.swift; sourceTree = "<group>"; };
+		959ADD3ACE1E4870AA697A7E /* OfflineQuestionCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineQuestionCache.swift; sourceTree = "<group>"; };
 		EA1100010000000000000004 /* HomeIPadLayoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeIPadLayoutTests.swift; sourceTree = "<group>"; };
 		EA1100010000000000000003 /* ThemesCollectionService+Layout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ThemesCollectionService+Layout.swift"; sourceTree = "<group>"; };
 		EA1100010000000000000001 /* AppAdaptiveLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppAdaptiveLayout.swift; sourceTree = "<group>"; };
@@ -1181,6 +1187,7 @@
 				B10000000000000000000006 /* BackendClientTests.swift */,
 				E9A200000000000000000101 /* QuestionProgressResetTests.swift */,
 				D20000000000000000000003 /* BackendClientTestHelpers.swift */,
+				60E8BDAE88764B94B8ADA1DF /* OfflineQuestionTests.swift */,
 				B20000000000000000000001 /* BackendClientTestSupport.swift */,
 				43967E761EE3C2C1360397EA /* HomeThemeCardFlipTransitionTests.swift */,
 				B20000000000000000000005 /* KeychainSessionStoreTests.swift */,
@@ -1293,6 +1300,8 @@
 				F01100000000000000000002 /* GlobalFavoritesStore.swift */,
 				F7F56DA885D3B6FAAC9A7C58 /* QuizFactoryCompatibility.swift */,
 				16F873EE286CA20A0A821D9A /* StatisticsStore.swift */,
+				959ADD3ACE1E4870AA697A7E /* OfflineQuestionCache.swift */,
+				03ED626076F54145A4401E86 /* OfflineQuestionDownloader.swift */,
 				F7BB544353014B47B422AFE9 /* QuestionAnswerOutbox.swift */,
 				C7F0E643BE8C1EA92DE20246 /* SwiftDataThemeStore.swift */,
 				F92000000000000000000002 /* ResultMessagesRepository.swift */,
@@ -1486,6 +1495,8 @@
 				F93000000000000000000001 /* HTTPResultMessagesAPI.swift in Sources */,
 				A154B1000000000000000001 /* HTTPAIServiceStatusAPI.swift in Sources */,
 				B10000000000000000000002 /* BackendContentAPI.swift in Sources */,
+				57B27480896448F8B84DE3DF /* OfflineQuestionCache.swift in Sources */,
+				F8F2F75AC24C4544BF3373AC /* OfflineQuestionDownloader.swift in Sources */,
 				55AF62AF27204B888E377FAB /* QuestionAnswerOutbox.swift in Sources */,
 				61BFEB8637BF4683B80003B4 /* HTTPBackendContentAPI.swift in Sources */,
 				5079EEED26914A8A9282A036 /* BackendContentResponseValidator.swift in Sources */,
@@ -1654,6 +1665,7 @@
 				B10000000000000000000007 /* BackendClientTests.swift in Sources */,
 				E9A200000000000000000102 /* QuestionProgressResetTests.swift in Sources */,
 				D20000000000000000000004 /* BackendClientTestHelpers.swift in Sources */,
+				5E8914924F484E739B3DAD8B /* OfflineQuestionTests.swift in Sources */,
 				B20000000000000000000002 /* BackendClientTestSupport.swift in Sources */,
 				5D190DABB9C20596EF4666E9 /* HomeThemeCardFlipTransitionTests.swift in Sources */,
 				B20000000000000000000006 /* KeychainSessionStoreTests.swift in Sources */,

@@ -3,14 +3,18 @@ import Network
 
 protocol QuestionAnswerOutboxing {
     var currentUserID: String? { get }
+    var isNetworkUnavailable: Bool { get }
     func enqueue(_ event: QuestionAnswerEvent)
     func enqueue(_ event: QuestionAnswerEvent, for userID: String?)
+    func enqueue(_ event: QuestionAnswerEvent, for userID: String?, isCorrect: Bool)
     func synchronize() async
     func synchronizeBeforeFetchingQuestions(for userID: String) async throws
 }
 
 extension QuestionAnswerOutboxing {
+    func enqueue(_ event: QuestionAnswerEvent, for userID: String?, isCorrect: Bool) { enqueue(event, for: userID) }
     var currentUserID: String? { nil }
+    var isNetworkUnavailable: Bool { false }
     func enqueue(_ event: QuestionAnswerEvent, for userID: String?) { enqueue(event) }
     func synchronizeBeforeFetchingQuestions(for userID: String) async throws { await synchronize() }
 }
@@ -50,6 +54,7 @@ final class PersistentQuestionAnswerOutbox: QuestionAnswerOutboxing, @unchecked 
         let task: Task<Void, Error>
     }
 
+    private let offlineCache: OfflineQuestionCache
     private let api: BackendContentAPI?
     private let fileURL: URL
     private let lock = NSLock()
@@ -59,6 +64,8 @@ final class PersistentQuestionAnswerOutbox: QuestionAnswerOutboxing, @unchecked 
     private let retryDelay: UInt64
     private var flight: Flight?
     private var networkMonitor: NWPathMonitor?
+    private var networkUnavailable = false
+    var isNetworkUnavailable: Bool { lock.withLock { networkUnavailable } }
     private var authenticationObserver: NSObjectProtocol?
     private let automaticallySynchronizesOnEnqueue: Bool
     private var erasedUserIDs: Set<String> = []
@@ -70,11 +77,13 @@ final class PersistentQuestionAnswerOutbox: QuestionAnswerOutboxing, @unchecked 
 
     init(
         api: BackendContentAPI?,
+        offlineCache: OfflineQuestionCache = OfflineQuestionCache(),
         fileURL: URL,
         automaticallySynchronizesOnEnqueue: Bool = true,
         sessionProvider: @escaping () -> AuthSession? = { StoredBackendAccessTokenProvider().currentSession() },
         retryDelay: UInt64 = BackendRetry.defaultBaseDelay
     ) {
+        self.offlineCache = offlineCache
         self.api = api
         self.fileURL = fileURL
         self.automaticallySynchronizesOnEnqueue = automaticallySynchronizesOnEnqueue
@@ -117,9 +126,14 @@ final class PersistentQuestionAnswerOutbox: QuestionAnswerOutboxing, @unchecked 
                 authenticationRecoverer: NotificationBackendAuthenticationRecoverer()
             )
         }
-        let outbox = PersistentQuestionAnswerOutbox(api: api, fileURL: fileURL)
+        let outbox = PersistentQuestionAnswerOutbox(api: api, offlineCache: .shared, fileURL: fileURL)
         if api != nil { outbox.startMonitoring() }
         return outbox
+    }
+
+    func enqueue(_ event: QuestionAnswerEvent, for userID: String?, isCorrect: Bool) {
+        enqueue(event, for: userID)
+        if let userID { offlineCache.record(event, userID: userID, isCorrect: isCorrect) }
     }
 
     func enqueue(_ event: QuestionAnswerEvent) { enqueue(event, for: currentUserID) }
@@ -145,6 +159,7 @@ final class PersistentQuestionAnswerOutbox: QuestionAnswerOutboxing, @unchecked 
     /// deletion state and prevents automatic recreation after an app restart.
     func eraseData(for userID: String) throws {
         try lock.withLock {
+            try offlineCache.eraseData(for: userID)
             erasedUserIDs.insert(userID)
             if flight?.userID == userID {
                 flight?.task.cancel()
@@ -306,6 +321,7 @@ final class PersistentQuestionAnswerOutbox: QuestionAnswerOutboxing, @unchecked 
         let monitor = NWPathMonitor()
         networkMonitor = monitor
         monitor.pathUpdateHandler = { [weak self] path in
+            self?.lock.withLock { self?.networkUnavailable = path.status != .satisfied }
             guard path.status == .satisfied else { return }
             Task { await self?.synchronize() }
         }

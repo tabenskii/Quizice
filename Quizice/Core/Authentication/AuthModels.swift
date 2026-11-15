@@ -202,6 +202,11 @@ struct AuthSession: Codable, Equatable {
     let expiresAt: Date
     let teamPlayerID: String
 
+    func permitsOfflinePlay(now: Date) -> Bool {
+        expiresAt > now && !userID.isEmpty && !teamPlayerID.isEmpty
+            && !accessToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     func isValid(for teamPlayerID: String, now: Date) -> Bool {
         self.teamPlayerID == teamPlayerID && expiresAt > now
     }
@@ -307,6 +312,7 @@ extension SessionStoring {
 
 enum GameCenterPlayerState: Equatable {
     case authenticated(teamPlayerID: String)
+    case networkUnavailable
     case unavailable
 }
 

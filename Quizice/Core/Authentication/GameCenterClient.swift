@@ -27,6 +27,7 @@ extension GKAccessPoint: GameCenterAccessPointPresenting {}
 final class GameCenterClient: GameCenterAuthenticating {
     private let player: GameCenterLocalPlayer
     private let notificationCenter: NotificationCenter
+    private let isNetworkUnavailable: () -> Bool
     private let accessPoint: GameCenterAccessPointPresenting
     private var presentAuthenticationController: ((UIViewController) -> Void)?
     private var authenticationObserver: NSObjectProtocol?
@@ -36,8 +37,10 @@ final class GameCenterClient: GameCenterAuthenticating {
     init(
         player: GameCenterLocalPlayer = GKLocalPlayer.local,
         notificationCenter: NotificationCenter = .default,
-        accessPoint: GameCenterAccessPointPresenting = GKAccessPoint.shared
+        accessPoint: GameCenterAccessPointPresenting = GKAccessPoint.shared,
+        isNetworkUnavailable: @escaping () -> Bool = { PersistentQuestionAnswerOutbox.shared.isNetworkUnavailable }
     ) {
+        self.isNetworkUnavailable = isNetworkUnavailable
         self.player = player
         self.accessPoint = accessPoint
         self.notificationCenter = notificationCenter
@@ -81,12 +84,16 @@ final class GameCenterClient: GameCenterAuthenticating {
                         "[Auth] Game Center callback failed: domain=\(diagnostic.domain, privacy: .public) code=\(diagnostic.code)"
                     )
                 }
+                if Self.isNetworkFailure(error, isOffline: self.isNetworkUnavailable()) {
+                    self.publishCurrentState(error: error)
+                    return
+                }
                 if let viewController {
                     AppLog.auth.notice("[Auth] Presenting Game Center sign-in")
                     self.presentAuthenticationController?(viewController)
                     return
                 }
-                self.publishCurrentState()
+                self.publishCurrentState(error: error)
             }
         }
         if isRetry, !player.isAuthenticated {
@@ -139,7 +146,23 @@ final class GameCenterClient: GameCenterAuthenticating {
         )
     }
 
-    private func publishCurrentState() {
+    static func isNetworkFailure(_ error: Error?, isOffline: Bool) -> Bool {
+        var candidate = error as NSError?
+        for _ in 0..<4 {
+            guard let current = candidate else { return false }
+            if current.domain == GKErrorDomain {
+                if current.code == GKError.Code.communicationsFailure.rawValue
+                    || (current.code == GKError.Code.notAuthenticated.rawValue && isOffline) { return true }
+                if current.code != GKError.Code.notAuthenticated.rawValue { return false }
+            }
+            if current.domain == NSURLErrorDomain,
+               OfflineQuestionDownloader.permitsFallback(URLError(URLError.Code(rawValue: current.code))) { return true }
+            candidate = current.userInfo[NSUnderlyingErrorKey] as? NSError
+        }
+        return false
+    }
+
+    private func publishCurrentState(error: Error? = nil) {
         let isAuthenticated = player.isAuthenticated
         let hasTeamPlayerID = !player.teamPlayerID.isEmpty
         AppLog.auth.notice(
@@ -147,6 +170,8 @@ final class GameCenterClient: GameCenterAuthenticating {
         )
         if player.isAuthenticated, player.teamPlayerID.isEmpty == false {
             stateChanged?(.authenticated(teamPlayerID: player.teamPlayerID))
+        } else if Self.isNetworkFailure(error, isOffline: isNetworkUnavailable()) {
+            stateChanged?(.networkUnavailable)
         } else {
             stateChanged?(.unavailable)
         }
