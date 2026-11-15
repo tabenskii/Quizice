@@ -148,6 +148,36 @@ final class HomeAIThemeCardInteractionTests: HomeScreenVisualStateTestCase {
         XCTAssertFalse(cardView.frontServiceNoticeLabel.isHidden)
     }
 
+    func testServiceNoticeHasVisibleIntermediateOpacityWithoutMoving() async throws {
+        let animationsWereEnabled = UIView.areAnimationsEnabled
+        UIView.setAnimationsEnabled(true)
+        defer { UIView.setAnimationsEnabled(animationsWereEnabled) }
+        let card = makeHostedServiceNoticeCard()
+        card.reduceMotionProvider = { false }
+        card.configure(
+            state: HomeAIThemeCardState(),
+            appearance: SnapshotSupport.appearance(designStyle: .classic)
+        )
+        let window = try XCTUnwrap(card.window)
+        window.windowScene = try XCTUnwrap(
+            UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first
+        )
+        window.makeKeyAndVisible()
+        card.layer.speed = 0.1
+        window.layoutIfNeeded()
+        try await Task.sleep(nanoseconds: 100_000_000)
+        card.setServiceNotice("Сейчас вопросы создаются с задержкой.", animated: true)
+        let label = card.frontServiceNoticeLabel
+        let finalPosition = label.layer.position
+        try await Task.sleep(nanoseconds: 100_000_000)
+        let rendered = try XCTUnwrap(label.layer.presentation())
+        XCTAssertGreaterThan(rendered.opacity, 0)
+        XCTAssertLessThan(rendered.opacity, 1)
+        XCTAssertEqual(rendered.position.x, finalPosition.x, accuracy: 0.5)
+        XCTAssertEqual(rendered.position.y, finalPosition.y, accuracy: 0.5)
+        XCTAssertEqual(label.alpha, 1)
+    }
+
     private func makeHostedServiceNoticeCard(
         size: CGSize = CGSize(width: 342, height: 640),
         category: UIContentSizeCategory = .large

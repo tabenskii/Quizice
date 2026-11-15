@@ -333,7 +333,8 @@ final class ExpandedAIThemeCardView: UIView, UITextViewDelegate {
         let shouldAnimate = animated && !reduceMotionProvider() && window != nil && text != nil
         UIView.performWithoutAnimation {
             labels.forEach { label in
-                label.alpha = shouldAnimate || text == nil ? 0 : 1
+                label.layer.removeAnimation(forKey: "serviceNoticeFade")
+                label.alpha = text == nil ? 0 : 1
                 label.text = text
                 label.accessibilityLabel = text
                 label.accessibilityElementsHidden = text == nil
@@ -342,12 +343,12 @@ final class ExpandedAIThemeCardView: UIView, UITextViewDelegate {
             self.layoutIfNeeded()
         }
         if shouldAnimate {
-            UIView.animate(
-                withDuration: 0.15, delay: 0,
-                options: [.beginFromCurrentState, .curveEaseOut, .allowUserInteraction]
-            ) {
-                labels.forEach { $0.alpha = 1 }
-            }
+            let fade = CABasicAnimation(keyPath: "opacity")
+            fade.fromValue = 0
+            fade.toValue = 1
+            fade.duration = 0.15
+            fade.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            labels.forEach { $0.layer.add(fade, forKey: "serviceNoticeFade") }
         }
     }
 
