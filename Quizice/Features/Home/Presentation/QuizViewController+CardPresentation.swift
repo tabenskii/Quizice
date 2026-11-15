@@ -337,6 +337,7 @@ extension QuizViewController {
         cardView.layoutIfNeeded()
         let expandedSurfaceColor = cardView.transitionSurfaceColor
         expandedAIThemeCardView = cardView
+        refreshAIServiceNotice()
 
         if reduceMotion {
             cardView.alpha = 0

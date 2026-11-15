@@ -106,6 +106,7 @@ extension QuizViewController {
             analytics.track(.screenView(screen: .aiThemeCreation, theme: .ai))
         }
         if presentedCard == .ai {
+            applyPendingAIServiceNotice()
             UIAccessibility.post(
                 notification: .screenChanged,
                 argument: expandedAIThemeCardView?.frontFocusView

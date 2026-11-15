@@ -179,6 +179,7 @@ final class QuizViewController: BaseQuizViewController, ThemeCollectionDelegate,
     let statisticsStore: StatisticsStore
     let aiQuizThemeService: AIQuizThemeServiceProtocol
     let aiQuizAccessProvider: AIQuizAccessProviding
+    let aiServiceStatusAPI: AIServiceStatusAPI?
     let analytics: AnalyticsTracking
     let themesCollectionService: ThemesCollectionService
     let motivationPromptProvider: (String?) -> String
@@ -212,6 +213,8 @@ final class QuizViewController: BaseQuizViewController, ThemeCollectionDelegate,
     var expandedTheme: QuizTheme?
     var expandedStatisticsSummary: StatisticsSummary?
     var aiSubmissionTask: Task<Void, Never>?
+    var aiServiceNoticeTask: Task<Void, Never>?
+    var pendingAIServiceNoticeUpdate: (() -> Void)?
     var aiProgressTask: Task<Void, Never>?
     var aiAlertPresentationTask: Task<Void, Never>?
     let aiAlertPresenter = QuizAlertPresenter()
@@ -263,6 +266,7 @@ final class QuizViewController: BaseQuizViewController, ThemeCollectionDelegate,
         statisticsStore: StatisticsStore = StatisticsStore(),
         aiQuizThemeService: AIQuizThemeServiceProtocol = MockAIQuizThemeService(),
         aiQuizAccessProvider: AIQuizAccessProviding = AIQuizAccessStore.shared,
+        aiServiceStatusAPI: AIServiceStatusAPI? = nil,
         analytics: AnalyticsTracking = AppMetricaAnalyticsTracker.shared,
         motivationPromptProvider: @escaping (String?) -> String = QuizViewController.randomMotivationPrompt,
         randomQuestionsProvider: @escaping ([QuizQuestion]) -> [QuizQuestion] = { $0.shuffled() },
@@ -284,6 +288,7 @@ final class QuizViewController: BaseQuizViewController, ThemeCollectionDelegate,
         self.statisticsStore = statisticsStore
         self.aiQuizThemeService = aiQuizThemeService
         self.aiQuizAccessProvider = aiQuizAccessProvider
+        self.aiServiceStatusAPI = aiServiceStatusAPI
         self.analytics = analytics
         self.motivationPromptProvider = motivationPromptProvider
         self.randomQuestionsProvider = randomQuestionsProvider
@@ -306,6 +311,7 @@ final class QuizViewController: BaseQuizViewController, ThemeCollectionDelegate,
 
     deinit {
         accountDataObservers.forEach { NotificationCenter.default.removeObserver($0) }
+        aiServiceNoticeTask?.cancel()
         aiSubmissionTask?.cancel()
         aiProgressTask?.cancel()
         aiAlertPresentationTask?.cancel()
@@ -466,5 +472,6 @@ final class QuizViewController: BaseQuizViewController, ThemeCollectionDelegate,
         themesCollectionView.reloadData()
         refreshExpandedThemeCardAppearance()
         refreshBackendCatalog()
+        refreshAIServiceNotice()
     }
 }

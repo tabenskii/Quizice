@@ -68,6 +68,8 @@ final class ExpandedAIThemeCardView: UIView, UITextViewDelegate {
         static let submitButton = "aiThemeSubmitButton"
         static let keyboardDoneButton = "aiThemeKeyboardDoneButton"
         static let progressStatus = "aiThemeProgressStatus"
+        static let frontServiceNotice = "aiThemeFrontServiceNotice"
+        static let backServiceNotice = "aiThemeBackServiceNotice"
     }
 
     enum Layout {
@@ -94,6 +96,7 @@ final class ExpandedAIThemeCardView: UIView, UITextViewDelegate {
         static let optionSize: CGFloat = 15
         static let submitSize: CGFloat = 19
         static let progressSize: CGFloat = 15
+        static let serviceNoticeSize: CGFloat = 15
     }
 
     enum Animation {
@@ -163,6 +166,7 @@ final class ExpandedAIThemeCardView: UIView, UITextViewDelegate {
     let promptTextView = UITextView()
     let promptPlaceholderLabel = UILabel()
     let promptValidationLabel = UILabel()
+    let frontServiceNoticeLabel = UILabel()
     let closeButton = UIButton(type: .system)
     let playButton = UIButton(type: .system)
 
@@ -181,6 +185,7 @@ final class ExpandedAIThemeCardView: UIView, UITextViewDelegate {
     let submitActivityIndicator = UIActivityIndicatorView(style: .medium)
     let submitTitleLabel = UILabel()
     let progressLabel = UILabel()
+    let backServiceNoticeLabel = UILabel()
     var questionCountButtons: [UIButton] = []
     var difficultyButtons: [UIButton] = []
     var lastRenderedGenerationPhase: AIQuizGenerationPhase?
@@ -318,6 +323,33 @@ final class ExpandedAIThemeCardView: UIView, UITextViewDelegate {
 
     func finishFlipForResize() {
         faceTransitionDriver.finishAtRequestedFace()
+    }
+
+    func setServiceNotice(_ message: String?, animated: Bool = false) {
+        let trimmedMessage = message?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let text = trimmedMessage?.isEmpty == false ? trimmedMessage : nil
+        let labels = [frontServiceNoticeLabel, backServiceNoticeLabel]
+        guard labels.contains(where: { $0.text != text }) else { return }
+        let shouldAnimate = animated && !reduceMotionProvider() && window != nil && text != nil
+        UIView.performWithoutAnimation {
+            labels.forEach { label in
+                label.layer.removeAnimation(forKey: "serviceNoticeFade")
+                label.alpha = text == nil ? 0 : 1
+                label.text = text
+                label.accessibilityLabel = text
+                label.accessibilityElementsHidden = text == nil
+                label.isHidden = text == nil
+            }
+            self.layoutIfNeeded()
+        }
+        if shouldAnimate {
+            let fade = CABasicAnimation(keyPath: "opacity")
+            fade.fromValue = 0
+            fade.toValue = 1
+            fade.duration = 0.15
+            fade.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            labels.forEach { $0.layer.add(fade, forKey: "serviceNoticeFade") }
+        }
     }
 
     func setTransitionShadowHidden(_ isHidden: Bool) {
