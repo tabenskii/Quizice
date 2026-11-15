@@ -26,6 +26,29 @@ final class QuizFactoryTests: XCTestCase {
         XCTAssertEqual(QuizFactory.shared.chosenTheme?.themeID, "technology")
     }
 
+    func testLanguageChangeKeepsBackendCatalogUntilReplacementArrives() async throws {
+        let originalLanguage = AppLocalizationStore.shared.languagePreference
+        defer { AppLocalizationStore.shared.languagePreference = originalLanguage }
+        AppLocalizationStore.shared.languagePreference = .english
+        let container = try ModelContainer(for: SwiftDataThemeStore.schema,
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true))
+        let store = SwiftDataThemeStore(context: container.mainContext)
+        store.replaceThemes(with: [SnapshotSupport.makeTheme(id: "custom", name: "Custom topic")],
+                            locale: "en", catalogOrigin: .backend)
+        let repository = ThemeCatalogRepository()
+        repository.setModelContext(container.mainContext)
+        repository.loadData()
+        var replacements = 0
+        repository.onCatalogReplaced = { replacements += 1 }
+
+        AppLocalizationStore.shared.languagePreference = .russian
+
+        XCTAssertEqual(repository.catalogOrigin, .backend)
+        XCTAssertEqual(repository.themes?.map(\.stableID), ["custom"])
+        XCTAssertEqual(store.fetchCatalog().locale, "en")
+        XCTAssertEqual(replacements, 0)
+    }
+
     func testSha256HashMatchesCryptoKitReference() {
         let data = Data("quizice".utf8)
         let expected = SHA256.hash(data: data)

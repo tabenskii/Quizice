@@ -643,7 +643,7 @@ final class ThemeCatalogRepository: ThemeRepository {
     }
 
     private func reloadDataForLocalizationChange() {
-        guard themeStore != nil else { return }
+        guard themeStore != nil, catalogOrigin != .backend else { return }
         loadData(forceReload: true)
     }
 

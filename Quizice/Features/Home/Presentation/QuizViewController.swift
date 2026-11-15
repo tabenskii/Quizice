@@ -393,7 +393,11 @@ final class QuizViewController: BaseQuizViewController, ThemeCollectionDelegate,
         super.viewWillAppear(animated)
         restoreHomeAfterQuizIfNeeded()
         themesCollectionView.reloadData()
-        Task { @MainActor [weak self] in await self?.router?.refreshAccountData() }
+        Task { @MainActor [weak self] in
+            await self?.router?.refreshAccountData()
+            guard !Task.isCancelled else { return }
+            self?.themesCollectionService.refreshStatistics()
+        }
     }
 
     func refreshVisibleAccountData() {

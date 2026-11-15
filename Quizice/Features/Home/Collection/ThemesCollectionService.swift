@@ -395,6 +395,16 @@ final class ThemesCollectionService: NSObject, UICollectionViewDelegate, UIColle
         }
     }
 
+    func collectionView(_ collectionView: UICollectionView, willDisplay cell: UICollectionViewCell,
+                        forItemAt indexPath: IndexPath) {
+        guard let cell = cell as? StatisticsCardCollectionViewCell else { return }
+        cell.configure(
+            summary: statisticsStore.loadSummary(),
+            appearance: AppAppearanceStore.shared.appearance(compatibleWith: collectionView.traitCollection),
+            isSourceHidden: isStatisticsPresented
+        )
+    }
+
     private func reconfigureAIThemeCell() {
         guard let collectionView = observedCollectionView else { return }
         let indexPath = IndexPath(item: aiThemeIndex, section: 0)

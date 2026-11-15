@@ -308,3 +308,14 @@ extension UIView {
         ])
     }
 }
+
+final class HomeActionButton: UIButton {
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        guard layer.shadowOpacity > 0 else { return }
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        layer.shadowPath = UIBezierPath(roundedRect: bounds, cornerRadius: layer.cornerRadius).cgPath
+        CATransaction.commit()
+    }
+}
