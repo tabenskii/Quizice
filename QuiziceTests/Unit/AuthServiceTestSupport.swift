@@ -281,3 +281,22 @@ final class AuthURLProtocolTests: XCTestCase {
         )
     }
 }
+
+
+@MainActor
+final class StubGameCenterLocalPlayer: GameCenterLocalPlayer {
+    var isAuthenticated = false
+    var teamPlayerID = ""
+    var providesSignInUI = true
+    private(set) var resetCount = 0
+    var authenticateHandler: ((UIViewController?, Error?) -> Void)? {
+        didSet {
+            guard let authenticateHandler else { resetCount += 1; return }
+            if oldValue == nil, providesSignInUI { authenticateHandler(UIViewController(), nil) }
+        }
+    }
+
+    func identitySignature() async throws -> (URL, Data, Data, UInt64) {
+        (URL(string: "https://apple.example/key")!, Data([1]), Data([2]), 123)
+    }
+}
