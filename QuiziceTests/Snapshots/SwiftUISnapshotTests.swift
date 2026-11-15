@@ -570,6 +570,21 @@ final class SwiftUISnapshotTests: XCTestCase {
         )
     }
 
+    func testClassicCompletedTopicAlertSnapshot() {
+        SnapshotSupport.setUp(designStyle: .classic)
+        let appearance = SnapshotSupport.appearance(designStyle: .classic)
+        let home = QuizViewController()
+        let viewController = makeAlertSnapshotViewController(
+            overlay: home.makeQuizProgressCompleteAlertOverlay(restart: {}, dismiss: {}),
+            appearance: appearance
+        )
+        SnapshotSupport.assertScreen(
+            viewController,
+            named: "classic-completed-topic-alert-iphone-se",
+            device: .iPhone8
+        )
+    }
+
     func testClassicQuestionExitAlertSnapshot() {
         SnapshotSupport.setUp(designStyle: .classic)
         let appearance = SnapshotSupport.appearance(designStyle: .classic)

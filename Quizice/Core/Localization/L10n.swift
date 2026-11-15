@@ -150,6 +150,8 @@ enum L10n {
         static var showSubscriptionPromoSubtitle: String { L10n.localized("debug_menu.show_subscription_promo.subtitle", comment: "Debug-only subscription promo visibility") }
         static var subscriptionActive: String { L10n.localized("debug_menu.subscription_active", comment: "Debug menu active subscription toggle title") }
         static var subscriptionActiveSubtitle: String { L10n.localized("debug_menu.subscription_active.subtitle", comment: "Debug menu active subscription toggle subtitle") }
+        static var completedTheme: String { L10n.localized("debug_menu.completed_theme", comment: "Preview completed theme alert") }
+        static var completedThemeHint: String { L10n.localized("debug_menu.completed_theme.hint", comment: "Requirements and real reset warning") }
         static var pulse: String { L10n.localized("debug_menu.pulse", comment: "Pulse network console row title") }
         static var pulseSubtitle: String { L10n.localized("debug_menu.pulse.subtitle", comment: "Pulse network console row subtitle") }
     }

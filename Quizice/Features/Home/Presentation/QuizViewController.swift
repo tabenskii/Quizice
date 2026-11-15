@@ -164,6 +164,7 @@ final class QuizViewController: BaseQuizViewController, ThemeCollectionDelegate,
     var helpButton: UIButton!
     var helpButtonVisualSurface: UIView!
 #if DEBUG
+    var debugCompletedThemeRequest: (themeID: String, userID: String)?
     var isDebugInterfaceHidden = false
     var debugCatalogSourceLabel: InsetLabel!
     var debugCatalogSourceState: DebugCatalogSourceState = .loading {

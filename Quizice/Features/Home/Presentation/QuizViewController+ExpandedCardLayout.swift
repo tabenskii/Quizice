@@ -139,6 +139,71 @@ extension QuizViewController {
         updateExpandedThemeCardParallaxPhase()
     }
 
+#if DEBUG
+    func debugProgressResetThemes(
+        userID: String? = StoredBackendAccessTokenProvider().currentSession()?.userID
+    ) -> [QuizTheme] {
+        guard homeCardState.phase == .grid, !isQuizLaunchPending,
+              themeRepository.catalogOrigin == .backend,
+              !UserDefaults.standard.bool(forKey: DebugBackendSettings.useLocalContentOnlyKey),
+              let userID,
+              (try? themeRepository.validateQuestionProgressUser(expectedUserID: userID)) != nil
+        else { return [] }
+        return themeRepository.themes ?? []
+    }
+
+    func openDebugCompletedTheme(
+        themeID: String,
+        userID: String? = StoredBackendAccessTokenProvider().currentSession()?.userID
+    ) {
+        guard presentedViewController == nil, let userID,
+              debugProgressResetThemes(userID: userID).contains(where: { $0.stableID == themeID })
+        else { return }
+        debugCompletedThemeRequest = (themeID, userID)
+        configureNextRound(themeID: themeID)
+        if homeCardState.themeID != themeID { debugCompletedThemeRequest = nil }
+    }
+
+    func completeDebugCompletedThemePresentation() {
+        guard homeCardState.phase == .expandedBack,
+              let request = debugCompletedThemeRequest else { return }
+        debugCompletedThemeRequest = nil
+        guard homeCardState.themeID == request.themeID else { return }
+        presentDebugCompletedTheme(userID: request.userID)
+    }
+
+    func debugQuestionProgressContext(
+        userID: String? = StoredBackendAccessTokenProvider().currentSession()?.userID
+    ) -> (configuration: QuizLaunchConfiguration, userID: String)? {
+        guard !isQuizLaunchPending, homeCardState.canStart,
+              themeRepository.catalogOrigin == .backend,
+              !UserDefaults.standard.bool(forKey: DebugBackendSettings.useLocalContentOnlyKey),
+              let themeID = homeCardState.themeID,
+              themeRepository.themes?.contains(where: { $0.stableID == themeID }) == true,
+              let questionCount = homeCardState.selectedQuestionCount,
+              let userID else { return nil }
+        do {
+            try themeRepository.validateQuestionProgressUser(expectedUserID: userID)
+        } catch {
+            return nil
+        }
+        return (QuizLaunchConfiguration(
+            themeID: themeID, questionCount: questionCount,
+            difficulty: homeCardState.selectedDifficulty,
+            locale: AppLocalizationStore.shared.resolvedLanguageCode,
+            country: QuestionCountryStore.shared.country
+        ), userID)
+    }
+
+    func presentDebugCompletedTheme(
+        userID: String? = StoredBackendAccessTokenProvider().currentSession()?.userID
+    ) {
+        guard presentedViewController == nil,
+              let context = debugQuestionProgressContext(userID: userID) else { return }
+        presentQuizProgressComplete(configuration: context.configuration, userID: context.userID)
+    }
+#endif
+
     private func presentQuizProgressComplete(configuration: QuizLaunchConfiguration, userID: String) {
         guard activeQuizPreparationAlert == nil else { return }
         let alertID = UUID()
@@ -162,11 +227,12 @@ extension QuizViewController {
         restart: @escaping () -> Void,
         dismiss: @escaping () -> Void
     ) -> QuizAlertOverlay {
-        QuizAlertOverlay(
+        let appearance = currentAppearance()
+        return QuizAlertOverlay(
             title: L10n.Question.progressCompleteTitle,
             message: L10n.Question.progressCompleteMessage,
             systemImage: "checkmark.circle.fill",
-            iconColor: currentAppearance().accentColor,
+            iconColor: appearance.designStyle == .classic ? appearance.screenTextColor : appearance.accentColor,
             primaryAction: QuizAlertAction(
                 title: L10n.Question.resetProgressAndStart,
                 emphasis: .primary,

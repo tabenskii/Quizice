@@ -170,6 +170,8 @@ struct DebugMenuView: View {
 
     @Environment(\.dismiss) private var dismiss
     @ObservedObject var viewModel: DebugMenuViewModel
+    var completedThemes: [QuizTheme] = []
+    var showCompletedTheme: (String) -> Void = { _ in }
 
     var body: some View {
         NavigationStack {
@@ -299,6 +301,21 @@ struct DebugMenuView: View {
 
     private var toolsSection: some View {
         Section(L10n.DebugMenu.toolsSectionTitle) {
+            Menu {
+                ForEach(completedThemes, id: \.stableID) { theme in
+                    Button(theme.theme) { showCompletedTheme(theme.stableID) }
+                }
+            } label: {
+                DebugMenuRowLabel(
+                    title: L10n.DebugMenu.completedTheme,
+                    subtitle: L10n.DebugMenu.completedThemeHint,
+                    systemImage: "checkmark.circle",
+                    color: .orange
+                )
+            }
+            .disabled(completedThemes.isEmpty)
+            .accessibilityIdentifier("debugMenuCompletedTheme")
+
             NavigationLink {
                 DebugPulseConsoleView()
             } label: {

@@ -309,3 +309,6 @@
 "onboarding.question_strategy.hideAnswered.detail" = "Questions you’ve answered won’t appear again.";
 "onboarding.question_strategy.retryIncorrect.detail" = "Hide questions answered correctly and keep the ones you missed.";
 "onboarding.question_strategy.showAll.detail" = "Any question may appear again.";
+
+"debug_menu.completed_theme" = "Show completed theme";
+"debug_menu.completed_theme.hint" = "Choose a server theme here from the home screen. Confirming the alert really resets progress for the entire theme.";

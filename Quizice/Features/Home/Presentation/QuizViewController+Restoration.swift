@@ -76,6 +76,9 @@ extension QuizViewController {
     }
 
     func resetExpandedThemeCard() {
+#if DEBUG
+        debugCompletedThemeRequest = nil
+#endif
         expandedCardAnimator?.stopAnimation(true)
         expandedCardAnimator = nil
         if let effect = homeStore.sendAI(.reset) {
@@ -242,7 +245,15 @@ extension QuizViewController {
         feedback.impactOccurred()
 
         let controller = UIHostingController(
-            rootView: DebugMenuView(viewModel: makeDebugMenuViewModel())
+            rootView: DebugMenuView(
+                viewModel: makeDebugMenuViewModel(),
+                completedThemes: debugProgressResetThemes(),
+                showCompletedTheme: { [weak self] themeID in
+                    self?.dismiss(animated: true) { [weak self] in
+                        self?.openDebugCompletedTheme(themeID: themeID)
+                    }
+                }
+            )
         )
         controller.view.accessibilityIdentifier = DebugMenuView.AccessibilityID.root
         controller.overrideUserInterfaceStyle = .dark

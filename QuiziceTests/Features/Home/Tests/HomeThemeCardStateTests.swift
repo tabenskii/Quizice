@@ -359,6 +359,51 @@ final class HomeThemeCardStateTests: HomeScreenVisualStateTestCase {
         XCTAssertEqual(router.showQuestionCallCount, 0)
     }
 
+#if DEBUG
+    func testDebugCompletedThemeRequiresSelectedServerThemeAndMatchingAccount() async throws {
+        let (controller, repository, _, _) = try await makeBackendLaunchHarness()
+        XCTAssertNil(controller.debugQuestionProgressContext(userID: nil))
+        XCTAssertNil(controller.debugQuestionProgressContext(userID: "another-account"))
+        XCTAssertNotNil(controller.debugQuestionProgressContext(userID: "account-a"))
+        UserDefaults.standard.set(true, forKey: DebugBackendSettings.useLocalContentOnlyKey)
+        XCTAssertNil(controller.debugQuestionProgressContext(userID: "account-a"))
+        UserDefaults.standard.removeObject(forKey: DebugBackendSettings.useLocalContentOnlyKey)
+        controller.resetExpandedThemeCard()
+        XCTAssertNil(controller.debugQuestionProgressContext(userID: "account-a"))
+        XCTAssertTrue(repository.resetIDs.isEmpty)
+    }
+
+    func testDebugCompletedThemeWaitsForConfirmationThenUsesNormalResetAndLaunch() async throws {
+        let (controller, repository, router, _) = try await makeBackendLaunchHarness()
+        controller.resetExpandedThemeCard()
+        XCTAssertEqual(controller.homeCardState.phase, .grid)
+        XCTAssertEqual(controller.debugProgressResetThemes(userID: "account-a").map(\.stableID), ["space"])
+        XCTAssertTrue(controller.debugProgressResetThemes(userID: nil).isEmpty)
+        controller.openDebugCompletedTheme(themeID: "unknown", userID: "account-a")
+        XCTAssertNil(controller.debugCompletedThemeRequest)
+        controller.openDebugCompletedTheme(themeID: "space", userID: "account-a")
+        try await waitUntil { controller.activeQuizPreparationAlert != nil }
+        XCTAssertEqual(controller.homeCardState.phase, .expandedBack)
+        XCTAssertNil(controller.debugCompletedThemeRequest)
+        let alert = try XCTUnwrap(controller.activeQuizPreparationAlert)
+        XCTAssertEqual(alert.title, L10n.Question.progressCompleteTitle)
+        XCTAssertTrue(repository.resetIDs.isEmpty)
+        XCTAssertTrue(repository.preparedThemeIDs.isEmpty)
+        try XCTUnwrap(alert.secondaryAction).action()
+        try await waitUntil { controller.presentedViewController == nil }
+        XCTAssertTrue(repository.resetIDs.isEmpty)
+
+        controller.presentDebugCompletedTheme(userID: "account-a")
+        try await waitUntil { controller.activeQuizPreparationAlert != nil }
+        try XCTUnwrap(controller.activeQuizPreparationAlert).primaryAction.action()
+        try await waitUntil { router.showQuestionCallCount == 1 }
+        XCTAssertEqual(repository.resetThemeIDs, ["space"])
+        XCTAssertEqual(repository.resetUserIDs, ["account-a"])
+        XCTAssertEqual(repository.resetIDs.count, 1)
+        XCTAssertEqual(repository.preparedThemeIDs, ["space"])
+    }
+#endif
+
     private func makeBackendLaunchHarness() async throws ->
         (QuizViewController, BackendOnlyHomeThemeRepository, HomeRouterSpy, UIButton) {
         let metadata = QuizTheme(id: "space", theme: "Космос", themeDescription: "Backend", questions: [],
