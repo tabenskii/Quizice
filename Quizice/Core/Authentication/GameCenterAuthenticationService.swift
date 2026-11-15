@@ -233,6 +233,9 @@ final class GameCenterAuthenticationService: AccountManaging, AccountSynchronizi
             deferredPlayerState = playerState
             return
         }
+        if playerState == .networkUnavailable, let cached = loadStoredSession(), cached.permitsOfflinePlay(now: now()) {
+            handle(.authenticated(teamPlayerID: cached.teamPlayerID)); return
+        }
         switch playerState {
         case let .authenticated(teamPlayerID):
             guard teamPlayerID.isEmpty == false else {
@@ -256,11 +259,10 @@ final class GameCenterAuthenticationService: AccountManaging, AccountSynchronizi
                 allowsCachedSession: true,
                 statisticsMayRefreshToken: true
             )
-        case .unavailable:
+        case .unavailable, .networkUnavailable:
             enterGuestMode()
         }
     }
-
     private func beginAuthentication(
         for teamPlayerID: String,
         allowsCachedSession: Bool,
@@ -289,7 +291,6 @@ final class GameCenterAuthenticationService: AccountManaging, AccountSynchronizi
             )
         }
     }
-
     private func restoreOrExchangeSession(
         for teamPlayerID: String,
         allowsCachedSession: Bool,
@@ -382,7 +383,6 @@ final class GameCenterAuthenticationService: AccountManaging, AccountSynchronizi
         try sessionStore.save(session)
         return session
     }
-
     private func completeAuthentication(
         with session: AuthSession,
         attemptID: UUID,

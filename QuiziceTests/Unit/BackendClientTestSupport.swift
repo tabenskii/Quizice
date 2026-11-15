@@ -125,6 +125,16 @@ struct SlowBackendContentAPI: BackendContentAPI {
 }
 
 final class RecordingBackendContentAPI: BackendContentAPI {
+    var offlinePack: OfflineQuestionPack?
+    var onOffline: (() async throws -> Void)?
+    private(set) var requestedOfflineLocales: [String] = []
+    func fetchOfflineQuestions(locale: String, userID: String) async throws -> OfflineQuestionPack {
+        requestedOfflineLocales.append(locale)
+        try await onOffline?()
+        guard let offlinePack else { throw BackendContentError.invalidRequest }
+        return offlinePack
+    }
+
     private(set) var requestedCountries: [String?] = []
 
     func fetchQuestions(
@@ -605,6 +615,7 @@ final class ProgressSessionProvider: BackendAccessTokenProviding {
 }
 
 final class ProgressOutboxSpy: QuestionAnswerOutboxing {
+    var isNetworkUnavailable = false
     var synchronizedUsers: [String] = []
     var beforeFetch: (() async throws -> Void)?
     func enqueue(_ event: QuestionAnswerEvent) {}

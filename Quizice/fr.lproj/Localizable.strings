@@ -312,3 +312,5 @@
 
 "debug_menu.completed_theme" = "Afficher le thème terminé";
 "debug_menu.completed_theme.hint" = "Choisissez ici un thème du serveur depuis l’accueil. La confirmation réinitialise réellement la progression de tout le thème.";
+
+"question.offline_unavailable.message" = "Aucune question enregistrée ne correspond à ces réglages. Connectez-vous à Internet et ouvrez l’écran d’accueil pour télécharger les questions et jouer hors ligne.";

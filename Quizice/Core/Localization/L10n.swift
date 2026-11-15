@@ -242,6 +242,7 @@ enum L10n {
     }
 
     enum Question {
+        static var offlineUnavailableMessage: String { L10n.localized("question.offline_unavailable.message", comment: "Download questions before playing offline") }
         static var answeredCorrect: String { L10n.localized("question.answered.correct", comment: "VoiceOver announcement after a correct answer") }
         static var answeredWrongUnknown: String { L10n.localized("question.answered.wrong_unknown", comment: "VoiceOver announcement after a wrong answer when the correct option cannot be resolved") }
         static var audioLoadFailure: String { L10n.localized("question.audio_load_failure", comment: "Console message when answer sounds fail to load") }

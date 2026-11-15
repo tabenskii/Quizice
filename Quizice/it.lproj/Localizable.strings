@@ -312,3 +312,5 @@
 
 "debug_menu.completed_theme" = "Mostra tema completato";
 "debug_menu.completed_theme.hint" = "Scegli qui un tema del server dalla schermata iniziale. La conferma azzera davvero i progressi dell’intero tema.";
+
+"question.offline_unavailable.message" = "Nessuna domanda salvata corrisponde a queste impostazioni. Connettiti a internet e apri la schermata iniziale per scaricare le domande e giocare offline.";

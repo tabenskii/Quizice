@@ -78,9 +78,18 @@ On a physical iPhone, `localhost` refers to the phone itself.
 
 The client initially loads a matching cached backend catalog or bundled localized
 data, then refreshes theme metadata during launch preparation. In backend catalog
-mode, starting a quiz requests a seeded question batch and requires a valid
-response; a failed request does not fall back to bundled questions. Cached
-backend metadata alone does not make quizzes available offline. See the
+mode, starting a quiz normally requests a seeded question batch. Home downloads a
+separate account-scoped offline pack for the current language without waiting for
+it before showing content. Packs refresh after six hours; each complete download
+replaces its previous version atomically. On connection failures or server 5xx,
+regular and random games use that pack with the selected difficulty, country and
+repeat strategy. A valid cached session is required. A cold-launch Game Center network error may
+restore the last confirmed account without exchanging credentials; cancellation,
+denied sign-in, pending deletion and expired sessions do not grant offline access.
+Authentication and malformed
+response errors do not activate offline fallback. Cached backend metadata alone
+is insufficient. Offline answers and results retain their existing durable IDs
+and synchronize when connectivity returns. See the
 [app reference](app-reference.md#каталог-и-offline) for the exact loading rules.
 
 Release AI generation goes through the backend. It requires a valid backend

@@ -22,12 +22,14 @@ final class ThemeCatalogRepository: ThemeRepository {
                 authenticationRecoverer: NotificationBackendAuthenticationRecoverer()
             )
         }
-        return ThemeCatalogRepository(backendContentAPI: api)
+        return ThemeCatalogRepository(backendContentAPI: api, offlineCache: .shared, automaticallyDownloadsOfflineQuestions: true)
     }()
 
     private var localizationObserver: NSObjectProtocol?
     private var themeStore: SwiftDataThemeStore?
     private let themeDataLoader = LocalizedThemeDataLoader()
+    private let offlineCache: OfflineQuestionCache
+    private let offlineDownloader: OfflineQuestionDownloader
     private let backendContentAPI: BackendContentAPI?
     private let preferenceStore: OnboardingProgressStoring
     private let favoritesStore: GlobalFavoritesStore
@@ -67,6 +69,8 @@ final class ThemeCatalogRepository: ThemeRepository {
 
     init(
         backendContentAPI: BackendContentAPI? = nil,
+        offlineCache: OfflineQuestionCache = OfflineQuestionCache(),
+        automaticallyDownloadsOfflineQuestions: Bool = false,
         preferenceStore: OnboardingProgressStoring = OnboardingProgressStore.shared,
         favoritesStore: GlobalFavoritesStore? = nil,
         seedGenerator: @escaping () -> String = { UUID().uuidString.lowercased() },
@@ -75,6 +79,9 @@ final class ThemeCatalogRepository: ThemeRepository {
         repeatStrategyProvider: @escaping () -> QuestionRepeatStrategy = { QuestionRepeatStrategyStore.shared.strategy },
         countryProvider: @escaping () -> String? = { QuestionCountryStore.shared.country }
     ) {
+        self.offlineCache = offlineCache
+        self.offlineDownloader = OfflineQuestionDownloader(api: automaticallyDownloadsOfflineQuestions ? backendContentAPI : nil, cache: offlineCache,
+                                                          accessTokenProvider: accessTokenProvider, outbox: answerOutbox)
         self.backendContentAPI = backendContentAPI
         self.preferenceStore = preferenceStore
         self.favoritesStore = favoritesStore ?? (preferenceStore as? OnboardingProgressStore)?.favoritesStore ?? GlobalFavoritesStore()
@@ -106,6 +113,7 @@ final class ThemeCatalogRepository: ThemeRepository {
     /// Catalog questions are public content; only their personalized flags reset.
     @MainActor
     func eraseCachedPersonalization() throws {
+        offlineDownloader.cancel()
         personalizationGeneration = UUID()
         favoritesSyncTask?.cancel()
         favoritesSyncTask = nil
@@ -259,6 +267,7 @@ final class ThemeCatalogRepository: ThemeRepository {
                 themes = backendThemes
                 applyFavoriteOrder(currentFavoriteIDs)
                 catalogOrigin = .backend
+                offlineDownloader.start(locale: locale)
                 onCatalogReplaced?()
                 AppLog.content.info(
                     "Backend theme catalog accepted: locale=\(locale, privacy: .public) themes=\(backendThemes.count, privacy: .public)"
@@ -304,6 +313,7 @@ final class ThemeCatalogRepository: ThemeRepository {
     @MainActor
     private func performFavoritesSync(for userID: String) async -> Bool {
         guard let backendContentAPI else { return false }
+        offlineDownloader.start(locale: AppLocalizationStore.shared.resolvedLanguageCode)
         let generation = personalizationGeneration
         _ = favoritesStore.favorites(for: userID) // Persist migration IDs before any network work.
         func isCurrent() -> Bool {
@@ -368,6 +378,9 @@ final class ThemeCatalogRepository: ThemeRepository {
         )
         try Task.checkCancellation()
         try validateQuestionProgressUser(expectedUserID: expectedUserID)
+        offlineCache.invalidate(userID: expectedUserID)
+        offlineDownloader.cancel()
+        offlineDownloader.start(locale: AppLocalizationStore.shared.resolvedLanguageCode)
     }
 
     @MainActor
@@ -414,16 +427,17 @@ final class ThemeCatalogRepository: ThemeRepository {
         let selectedCountry = countryProvider()
         let strategy = effectiveQuestionRepeatStrategy
         let userID = accessTokenProvider.currentSession()?.userID
-        if strategy.progressMode != nil {
-            guard let userID else { throw BackendContentError.unauthenticated }
-            try await answerOutbox.synchronizeBeforeFetchingQuestions(for: userID)
-            guard accessTokenProvider.currentSession()?.userID == userID else {
-                throw QuestionAnswerSyncError.accountChanged
-            }
-        }
         let seed = seedGenerator()
         let startedAt = Date()
         do {
+            if answerOutbox.isNetworkUnavailable { throw BackendContentError.transport(.notConnectedToInternet) }
+            if strategy.progressMode != nil {
+                guard let userID else { throw BackendContentError.unauthenticated }
+                try await answerOutbox.synchronizeBeforeFetchingQuestions(for: userID)
+                guard accessTokenProvider.currentSession()?.userID == userID else {
+                    throw QuestionAnswerSyncError.accountChanged
+                }
+            }
             let response = try await backendContentAPI.fetchQuestions(
                 themeID: themeID,
                 count: questionCount,
@@ -475,6 +489,13 @@ final class ThemeCatalogRepository: ThemeRepository {
         } catch let error as QuizPreparationError {
             throw error
         } catch {
+            if OfflineQuestionDownloader.permitsFallback(error), let userID {
+                return try await offlineDownloader.makeQuiz(metadata: metadata, themeIDs: [themeID], userID: userID,
+                    questionCount: questionCount, difficulty: difficulty, locale: locale, strategy: strategy,
+                    selectedCountry: selectedCountry,
+                    country: selectedCountry.flatMap { metadata.countries.contains($0) ? $0 : nil },
+                    countryProvider: countryProvider)
+            }
             AppLog.content.error(
                 "⚠️ BACKEND QUESTIONS: failed, no bundled fallback in backend catalog mode theme=\(themeID, privacy: .public) locale=\(locale, privacy: .public) count=\(questionCount, privacy: .public) seed=\(seed, privacy: .public) duration_ms=\(Self.durationMilliseconds(since: startedAt), privacy: .public) error=\(String(describing: error), privacy: .public)"
             )
@@ -520,16 +541,17 @@ final class ThemeCatalogRepository: ThemeRepository {
         let selectedCountry = countryProvider()
         let strategy = effectiveQuestionRepeatStrategy
         let userID = accessTokenProvider.currentSession()?.userID
-        if strategy.progressMode != nil {
-            guard let userID else { throw BackendContentError.unauthenticated }
-            try await answerOutbox.synchronizeBeforeFetchingQuestions(for: userID)
-            guard accessTokenProvider.currentSession()?.userID == userID else {
-                throw QuestionAnswerSyncError.accountChanged
-            }
-        }
         let seed = seedGenerator()
         let startedAt = Date()
         do {
+            if answerOutbox.isNetworkUnavailable { throw BackendContentError.transport(.notConnectedToInternet) }
+            if strategy.progressMode != nil {
+                guard let userID else { throw BackendContentError.unauthenticated }
+                try await answerOutbox.synchronizeBeforeFetchingQuestions(for: userID)
+                guard accessTokenProvider.currentSession()?.userID == userID else {
+                    throw QuestionAnswerSyncError.accountChanged
+                }
+            }
             let response = try await backendContentAPI.fetchRandomQuestions(
                 selectionMode: selectionMode,
                 count: questionCount,
@@ -570,6 +592,13 @@ final class ThemeCatalogRepository: ThemeRepository {
         } catch is CancellationError {
             throw CancellationError()
         } catch {
+            if OfflineQuestionDownloader.permitsFallback(error), let userID {
+                return try await offlineDownloader.makeQuiz(metadata: localFallback,
+                    themeIDs: Set((themes ?? []).map(\.stableID)), userID: userID,
+                    questionCount: questionCount, difficulty: difficulty, locale: locale, strategy: strategy,
+                    selectedCountry: selectedCountry, country: selectedCountry,
+                    balanced: selectionMode == .randomBalanced, countryProvider: countryProvider)
+            }
             AppLog.content.error(
                 "⚠️ BACKEND RANDOM QUESTIONS: failed, no bundled fallback in backend catalog mode selection=\(selectionMode.rawValue, privacy: .public) locale=\(locale, privacy: .public) count=\(questionCount, privacy: .public) seed=\(seed, privacy: .public) duration_ms=\(Self.durationMilliseconds(since: startedAt), privacy: .public) error=\(String(describing: error), privacy: .public)"
             )

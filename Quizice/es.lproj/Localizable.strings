@@ -312,3 +312,5 @@
 
 "debug_menu.completed_theme" = "Mostrar tema completado";
 "debug_menu.completed_theme.hint" = "Elige aquí un tema del servidor desde la pantalla principal. Confirmar restablece realmente el progreso de todo el tema.";
+
+"question.offline_unavailable.message" = "No hay preguntas guardadas para estos ajustes. Conéctate a internet y abre la pantalla de inicio para descargar preguntas y jugar sin conexión.";

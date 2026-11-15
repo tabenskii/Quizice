@@ -312,3 +312,5 @@
 
 "debug_menu.completed_theme" = "Show completed theme";
 "debug_menu.completed_theme.hint" = "Choose a server theme here from the home screen. Confirming the alert really resets progress for the entire theme.";
+
+"question.offline_unavailable.message" = "No saved questions match these settings. Connect to the internet and open the home screen to download questions for offline play.";

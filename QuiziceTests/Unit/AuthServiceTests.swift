@@ -1,4 +1,5 @@
 import XCTest
+import GameKit
 import UIKit
 @testable import Quizice
 @MainActor
@@ -642,6 +643,54 @@ final class GameCenterAuthenticationServiceTests: XCTestCase {
         XCTAssertEqual(harness.api.authenticatedIdentities.map(\.teamPlayerId), ["team-2"])
         XCTAssertEqual(harness.api.syncAccessTokens, ["previous-token", "new-token"])
         XCTAssertTrue(harness.aiAccess.isAIQuizAvailable)
+    }
+
+    func testColdOfflineLaunchRestoresValidAccountAndCancellationStillSignsOut() async {
+        let player = StubGameCenterLocalPlayer()
+        player.providesSignInUI = false
+        let client = GameCenterClient(player: player, notificationCenter: NotificationCenter(),
+            accessPoint: StubGameCenterAccessPoint(), isNetworkUnavailable: { true })
+        let cached = startupSession
+        let h = makeHarness(storedSession: cached, client: client)
+        h.api.syncHandler = { _, _ in throw BackendAPIError.transport(.notConnectedToInternet) }
+        h.service.start { _ in XCTFail("Offline restoration must not show system sign-in") }
+        player.authenticateHandler?(nil, NSError(domain: GKErrorDomain, code: GKError.Code.communicationsFailure.rawValue))
+        await waitUntil { h.service.accountAccessState == .authenticated }
+        XCTAssertEqual(h.service.authenticatedAccountID, cached.userID)
+        XCTAssertEqual(h.statistics.activeUserID, cached.userID)
+        XCTAssertEqual(h.sessionStore.session, cached)
+        XCTAssertTrue(h.api.authenticatedIdentities.isEmpty)
+        player.authenticateHandler?(nil, NSError(domain: GKErrorDomain, code: GKError.Code.cancelled.rawValue))
+        await waitUntil { h.service.accountAccessState == .signInRequired }
+        XCTAssertNil(h.sessionStore.session)
+    }
+
+    func testOfflineLaunchCannotCreateAnAccountOrUseExpiredOrEmptyCredentials() {
+        let expired = AuthSession(userID: "A", accessToken: "token", expiresAt: Date(timeIntervalSince1970: 900), teamPlayerID: "team-1")
+        let blank = AuthSession(userID: "A", accessToken: " ", expiresAt: .distantFuture, teamPlayerID: "team-1")
+        for cached in [nil, expired, blank] {
+            let h = makeHarness(storedSession: cached)
+            h.service.start { _ in }
+            h.gameCenter.emit(.networkUnavailable)
+            XCTAssertEqual(h.service.accountAccessState, .signInRequired)
+            XCTAssertTrue(h.api.authenticatedIdentities.isEmpty)
+            XCTAssertNil(h.sessionStore.session)
+        }
+    }
+
+    func testGameCenterNetworkClassificationDoesNotTreatDenialAsOffline() {
+        for code in [GKError.Code.cancelled, .userDenied, .invalidCredentials, .parentalControlsBlocked] {
+            let error = NSError(domain: GKErrorDomain, code: code.rawValue,
+                userInfo: [NSUnderlyingErrorKey: URLError(.notConnectedToInternet)])
+            XCTAssertFalse(GameCenterClient.isNetworkFailure(error, isOffline: true))
+        }
+        let unsigned = NSError(domain: GKErrorDomain, code: GKError.Code.notAuthenticated.rawValue)
+        XCTAssertFalse(GameCenterClient.isNetworkFailure(unsigned, isOffline: false))
+        XCTAssertTrue(GameCenterClient.isNetworkFailure(unsigned, isOffline: true))
+        let nested = NSError(domain: GKErrorDomain, code: GKError.Code.notAuthenticated.rawValue,
+            userInfo: [NSUnderlyingErrorKey: URLError(.notConnectedToInternet)])
+        XCTAssertTrue(GameCenterClient.isNetworkFailure(nested, isOffline: false))
+        XCTAssertFalse(GameCenterClient.isNetworkFailure(nil, isOffline: true))
     }
 
     private var startupSession: AuthSession {
@@ -1328,7 +1377,7 @@ final class AccountDeletionServiceTests: XCTestCase {
     }
 
     func testPendingDeletionSurvivesUnavailableOrDifferentGameCenterOnRestart() async throws {
-        for playerState in [GameCenterPlayerState.unavailable, .authenticated(teamPlayerID: "other-player")] {
+        for playerState in [GameCenterPlayerState.unavailable, .networkUnavailable, .authenticated(teamPlayerID: "other-player")] {
             let h = Harness()
             await h.signIn()
             h.api.deletionHandler = { throw BackendAPIError.transport(.timedOut) }
