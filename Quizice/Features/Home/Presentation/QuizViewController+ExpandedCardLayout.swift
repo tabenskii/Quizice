@@ -139,6 +139,39 @@ extension QuizViewController {
         updateExpandedThemeCardParallaxPhase()
     }
 
+#if DEBUG
+    func debugQuestionProgressContext(
+        userID: String? = StoredBackendAccessTokenProvider().currentSession()?.userID
+    ) -> (configuration: QuizLaunchConfiguration, userID: String)? {
+        guard !isQuizLaunchPending, homeCardState.canStart,
+              themeRepository.catalogOrigin == .backend,
+              !UserDefaults.standard.bool(forKey: DebugBackendSettings.useLocalContentOnlyKey),
+              let themeID = homeCardState.themeID,
+              themeRepository.themes?.contains(where: { $0.stableID == themeID }) == true,
+              let questionCount = homeCardState.selectedQuestionCount,
+              let userID else { return nil }
+        do {
+            try themeRepository.validateQuestionProgressUser(expectedUserID: userID)
+        } catch {
+            return nil
+        }
+        return (QuizLaunchConfiguration(
+            themeID: themeID, questionCount: questionCount,
+            difficulty: homeCardState.selectedDifficulty,
+            locale: AppLocalizationStore.shared.resolvedLanguageCode,
+            country: QuestionCountryStore.shared.country
+        ), userID)
+    }
+
+    func presentDebugCompletedTheme(
+        userID: String? = StoredBackendAccessTokenProvider().currentSession()?.userID
+    ) {
+        guard presentedViewController == nil,
+              let context = debugQuestionProgressContext(userID: userID) else { return }
+        presentQuizProgressComplete(configuration: context.configuration, userID: context.userID)
+    }
+#endif
+
     private func presentQuizProgressComplete(configuration: QuizLaunchConfiguration, userID: String) {
         guard activeQuizPreparationAlert == nil else { return }
         let alertID = UUID()

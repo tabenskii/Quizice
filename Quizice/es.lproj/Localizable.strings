@@ -309,3 +309,6 @@
 "onboarding.question_strategy.hideAnswered.detail" = "Las preguntas que ya hayas respondido no volverán a aparecer.";
 "onboarding.question_strategy.retryIncorrect.detail" = "Oculta las preguntas acertadas y conserva las que fallaste.";
 "onboarding.question_strategy.showAll.detail" = "Cualquier pregunta puede volver a aparecer.";
+
+"debug_menu.completed_theme" = "Mostrar tema completado";
+"debug_menu.completed_theme.hint" = "Abre la configuración de un tema del servidor con la sesión iniciada. Confirmar restablece realmente el progreso de todo el tema.";

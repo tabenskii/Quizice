@@ -309,3 +309,6 @@
 "onboarding.question_strategy.hideAnswered.detail" = "Уже отвеченные вопросы больше не появятся.";
 "onboarding.question_strategy.retryIncorrect.detail" = "Вопросы с верным ответом скрываются, с ошибкой — остаются.";
 "onboarding.question_strategy.showAll.detail" = "Любой вопрос может встретиться снова.";
+
+"debug_menu.completed_theme" = "Показать завершённую тему";
+"debug_menu.completed_theme.hint" = "Откройте настройки серверной темы после входа. Подтверждение алёрта действительно сбросит прогресс всей темы.";

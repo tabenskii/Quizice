@@ -242,7 +242,15 @@ extension QuizViewController {
         feedback.impactOccurred()
 
         let controller = UIHostingController(
-            rootView: DebugMenuView(viewModel: makeDebugMenuViewModel())
+            rootView: DebugMenuView(
+                viewModel: makeDebugMenuViewModel(),
+                canShowCompletedTheme: debugQuestionProgressContext() != nil,
+                showCompletedTheme: { [weak self] in
+                    self?.dismiss(animated: true) { [weak self] in
+                        self?.presentDebugCompletedTheme()
+                    }
+                }
+            )
         )
         controller.view.accessibilityIdentifier = DebugMenuView.AccessibilityID.root
         controller.overrideUserInterfaceStyle = .dark

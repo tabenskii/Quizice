@@ -309,3 +309,6 @@
 "onboarding.question_strategy.hideAnswered.detail" = "Les questions déjà répondues ne réapparaîtront pas.";
 "onboarding.question_strategy.retryIncorrect.detail" = "Masquer les questions réussies et garder celles avec une erreur.";
 "onboarding.question_strategy.showAll.detail" = "Toute question peut réapparaître.";
+
+"debug_menu.completed_theme" = "Afficher le thème terminé";
+"debug_menu.completed_theme.hint" = "Connectez-vous et ouvrez les réglages d’un thème du serveur. La confirmation réinitialise réellement la progression de tout le thème.";

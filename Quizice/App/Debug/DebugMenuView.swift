@@ -170,6 +170,8 @@ struct DebugMenuView: View {
 
     @Environment(\.dismiss) private var dismiss
     @ObservedObject var viewModel: DebugMenuViewModel
+    var canShowCompletedTheme = false
+    var showCompletedTheme: () -> Void = {}
 
     var body: some View {
         NavigationStack {
@@ -299,6 +301,17 @@ struct DebugMenuView: View {
 
     private var toolsSection: some View {
         Section(L10n.DebugMenu.toolsSectionTitle) {
+            Button(action: showCompletedTheme) {
+                DebugMenuRowLabel(
+                    title: L10n.DebugMenu.completedTheme,
+                    subtitle: L10n.DebugMenu.completedThemeHint,
+                    systemImage: "checkmark.circle",
+                    color: .orange
+                )
+            }
+            .disabled(!canShowCompletedTheme)
+            .accessibilityIdentifier("debugMenuCompletedTheme")
+
             NavigationLink {
                 DebugPulseConsoleView()
             } label: {

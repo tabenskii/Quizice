@@ -309,3 +309,6 @@
 "onboarding.question_strategy.hideAnswered.detail" = "Bereits beantwortete Fragen erscheinen nicht erneut.";
 "onboarding.question_strategy.retryIncorrect.detail" = "Richtig beantwortete Fragen ausblenden, falsch beantwortete behalten.";
 "onboarding.question_strategy.showAll.detail" = "Jede Frage kann erneut erscheinen.";
+
+"debug_menu.completed_theme" = "Abgeschlossenes Thema anzeigen";
+"debug_menu.completed_theme.hint" = "Öffne angemeldet die Einstellungen eines Server-Themas. Die Bestätigung setzt den Fortschritt des gesamten Themas tatsächlich zurück.";
