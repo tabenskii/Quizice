@@ -227,11 +227,12 @@ extension QuizViewController {
         restart: @escaping () -> Void,
         dismiss: @escaping () -> Void
     ) -> QuizAlertOverlay {
-        QuizAlertOverlay(
+        let appearance = currentAppearance()
+        return QuizAlertOverlay(
             title: L10n.Question.progressCompleteTitle,
             message: L10n.Question.progressCompleteMessage,
             systemImage: "checkmark.circle.fill",
-            iconColor: currentAppearance().accentColor,
+            iconColor: appearance.designStyle == .classic ? appearance.screenTextColor : appearance.accentColor,
             primaryAction: QuizAlertAction(
                 title: L10n.Question.resetProgressAndStart,
                 emphasis: .primary,
