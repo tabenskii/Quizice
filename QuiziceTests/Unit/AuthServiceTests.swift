@@ -245,54 +245,67 @@ final class GameCenterAuthenticationServiceTests: XCTestCase {
         XCTAssertEqual(h.service.authenticatedAccountID, "user-1")
     }
 
-    func testCancelledGameCenterUICanBeRequestedAgainAndThenAuthenticate() async throws {
+    func testContinueTriggersSystemGameCenterUIWithoutAControllerCallback() async {
         let player = StubGameCenterLocalPlayer()
-        let client = GameCenterClient(player: player, notificationCenter: NotificationCenter())
+        player.providesSignInUI = false
+        let point = StubGameCenterAccessPoint()
+        let client = GameCenterClient(player: player, notificationCenter: NotificationCenter(), accessPoint: point)
         let h = makeHarness(client: client)
-        var presented: [UIViewController] = []
-        h.service.start { presented.append($0) }
-        await waitUntil { presented.count == 1 }
+        h.service.start { _ in XCTFail("No controller should be provided") }
+        player.authenticateHandler?(nil, nil)
+        await waitUntil { h.service.accountAccessState == .signInRequired }
+
+        h.service.signIn { _ in XCTFail("The access point presents system UI") }
+        XCTAssertEqual(point.triggerCount, 1)
+        XCTAssertEqual(h.service.accountAccessState, .signInRequired)
+        h.service.signIn { _ in }
+        XCTAssertEqual(point.triggerCount, 1)
+        XCTAssertEqual(player.resetCount, 0)
+    }
+
+    func testCancelledSystemGameCenterUICanBeTriggeredRepeatedlyAndThenAuthenticate() async {
+        let player = StubGameCenterLocalPlayer()
+        player.providesSignInUI = false
+        let point = StubGameCenterAccessPoint()
+        let client = GameCenterClient(player: player, notificationCenter: NotificationCenter(), accessPoint: point)
+        let h = makeHarness(client: client)
+        h.service.start { _ in }
         player.authenticateHandler?(nil, NSError(domain: "GKErrorDomain", code: 2))
         await waitUntil { h.service.accountAccessState == .signInRequired }
 
-        h.service.signIn { presented.append($0) }
-        await waitUntil { presented.count == 2 }
-        XCTAssertEqual(player.resetCount, 1)
-        XCTAssertFalse(presented[0] === presented[1])
+        for expectedCount in 1...3 {
+            h.service.signIn { _ in }
+            XCTAssertEqual(point.triggerCount, expectedCount)
+            point.finish()
+            await waitUntil { h.service.accountAccessState == .signInRequired }
+        }
+        h.service.signIn { _ in }
+        XCTAssertEqual(point.triggerCount, 4)
         player.isAuthenticated = true
         player.teamPlayerID = "team-1"
-        player.authenticateHandler?(nil, nil)
+        point.finish()
         await waitUntil { h.service.accountAccessState == .authenticated }
         XCTAssertEqual(h.service.authenticatedAccountID, "user-1")
+        XCTAssertEqual(player.resetCount, 0)
     }
 
-    func testSilentGameCenterRetryStaysRetryableAndIgnoresPreviousCallbacks() async throws {
+    func testBackendRetryForSignedInPlayerDoesNotOpenGameCenterUI() async {
         let player = StubGameCenterLocalPlayer()
-        let client = GameCenterClient(player: player, notificationCenter: NotificationCenter())
-        let h = makeHarness(client: client)
-        var initialPresentationCount = 0
-        h.service.start { _ in initialPresentationCount += 1 }
-        await waitUntil { initialPresentationCount == 1 }
-        let oldHandler = try XCTUnwrap(player.authenticateHandler)
-        oldHandler(nil, NSError(domain: "GKErrorDomain", code: 2))
-        await waitUntil { h.service.accountAccessState == .signInRequired }
         player.providesSignInUI = false
-        var presentationCount = 0
-        h.service.signIn { _ in presentationCount += 1 }
-        XCTAssertEqual(h.service.accountAccessState, .signInRequired)
-        h.service.signIn { _ in presentationCount += 1 }
-        XCTAssertEqual(h.service.accountAccessState, .signInRequired)
-        XCTAssertEqual(player.resetCount, 2)
-        oldHandler(UIViewController(), nil)
-        for _ in 0..<5 { await Task.yield() }
-        XCTAssertEqual(presentationCount, 0)
-        XCTAssertEqual(initialPresentationCount, 1)
-        XCTAssertTrue(h.api.authenticatedIdentities.isEmpty)
+        player.isAuthenticated = true
+        player.teamPlayerID = "team-1"
+        let point = StubGameCenterAccessPoint()
+        let client = GameCenterClient(player: player, notificationCenter: NotificationCenter(), accessPoint: point)
+        let h = makeHarness(client: client)
+        h.api.authenticationErrors = [.transport(.notConnectedToInternet)]
+        h.service.start { _ in }
+        player.authenticateHandler?(nil, nil)
+        await waitUntil { h.service.accountAccessState == .signInRequired }
 
-        player.providesSignInUI = true
-        h.service.signIn { _ in presentationCount += 1 }
-        await waitUntil { presentationCount == 1 }
-        XCTAssertEqual(player.resetCount, 3)
+        h.service.signIn { _ in }
+        await waitUntil { h.service.accountAccessState == .authenticated }
+        XCTAssertEqual(point.triggerCount, 0)
+        XCTAssertEqual(h.api.authenticatedIdentities.count, 2)
     }
 
     func testBackendAuthenticationFailureKeepsAccessBlockedUntilSignInSucceeds() async {

@@ -300,3 +300,24 @@ final class StubGameCenterLocalPlayer: GameCenterLocalPlayer {
         (URL(string: "https://apple.example/key")!, Data([1]), Data([2]), 123)
     }
 }
+
+
+@MainActor
+final class StubGameCenterAccessPoint: GameCenterAccessPointPresenting {
+    private(set) var triggerCount = 0
+    var isPresentingGameCenter = false
+    private var handler: (() -> Void)?
+
+    func trigger(handler: @escaping () -> Void) {
+        triggerCount += 1
+        isPresentingGameCenter = true
+        self.handler = handler
+    }
+
+    func finish() {
+        isPresentingGameCenter = false
+        let callback = handler
+        handler = nil
+        callback?()
+    }
+}

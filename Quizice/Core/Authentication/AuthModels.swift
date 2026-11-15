@@ -316,5 +316,18 @@ protocol GameCenterAuthenticating: AnyObject {
         present: @escaping (UIViewController) -> Void,
         stateChanged: @escaping (GameCenterPlayerState) -> Void
     )
+    func signIn(
+        present: @escaping (UIViewController) -> Void,
+        stateChanged: @escaping (GameCenterPlayerState) -> Void
+    )
     func fetchIdentity(bundleIdentifier: String) async throws -> GameCenterIdentity
+}
+
+extension GameCenterAuthenticating {
+    func signIn(
+        present: @escaping (UIViewController) -> Void,
+        stateChanged: @escaping (GameCenterPlayerState) -> Void
+    ) {
+        start(present: present, stateChanged: stateChanged)
+    }
 }

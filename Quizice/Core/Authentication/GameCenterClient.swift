@@ -16,18 +16,30 @@ extension GKLocalPlayer: GameCenterLocalPlayer {
 }
 
 @MainActor
+protocol GameCenterAccessPointPresenting: AnyObject {
+    var isPresentingGameCenter: Bool { get }
+    func trigger(handler: @escaping () -> Void)
+}
+
+extension GKAccessPoint: GameCenterAccessPointPresenting {}
+
+@MainActor
 final class GameCenterClient: GameCenterAuthenticating {
     private let player: GameCenterLocalPlayer
     private let notificationCenter: NotificationCenter
+    private let accessPoint: GameCenterAccessPointPresenting
+    private var presentAuthenticationController: ((UIViewController) -> Void)?
     private var authenticationObserver: NSObjectProtocol?
     private var authenticationAttemptID = UUID()
     private var stateChanged: ((GameCenterPlayerState) -> Void)?
 
     init(
         player: GameCenterLocalPlayer = GKLocalPlayer.local,
-        notificationCenter: NotificationCenter = .default
+        notificationCenter: NotificationCenter = .default,
+        accessPoint: GameCenterAccessPointPresenting = GKAccessPoint.shared
     ) {
         self.player = player
+        self.accessPoint = accessPoint
         self.notificationCenter = notificationCenter
     }
 
@@ -43,6 +55,7 @@ final class GameCenterClient: GameCenterAuthenticating {
     ) {
         let isRetry = self.stateChanged != nil
         self.stateChanged = stateChanged
+        presentAuthenticationController = present
         let attemptID = UUID()
         authenticationAttemptID = attemptID
         AppLog.auth.notice("[Auth] Starting Game Center authentication")
@@ -70,7 +83,7 @@ final class GameCenterClient: GameCenterAuthenticating {
                 }
                 if let viewController {
                     AppLog.auth.notice("[Auth] Presenting Game Center sign-in")
-                    present(viewController)
+                    self.presentAuthenticationController?(viewController)
                     return
                 }
                 self.publishCurrentState()
@@ -80,6 +93,23 @@ final class GameCenterClient: GameCenterAuthenticating {
             // GameKit may suppress another callback after the player cancelled.
             // Keep retry available until it supplies UI or an authenticated player.
             publishCurrentState()
+        }
+    }
+
+    func signIn(
+        present: @escaping (UIViewController) -> Void,
+        stateChanged: @escaping (GameCenterPlayerState) -> Void
+    ) {
+        if self.stateChanged == nil {
+            start(present: present, stateChanged: stateChanged)
+        } else {
+            self.stateChanged = stateChanged
+            presentAuthenticationController = present
+        }
+        publishCurrentState()
+        guard !player.isAuthenticated, !accessPoint.isPresentingGameCenter else { return }
+        accessPoint.trigger { [weak self] in
+            Task { @MainActor [weak self] in self?.publishCurrentState() }
         }
     }
 

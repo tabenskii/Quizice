@@ -153,7 +153,7 @@ final class GameCenterAuthenticationService: AccountManaging, AccountSynchronizi
         }
 #endif
         state = .initializing
-        gameCenter.start(present: present) { [weak self] playerState in
+        gameCenter.signIn(present: present) { [weak self] playerState in
             self?.handle(playerState)
         }
     }
