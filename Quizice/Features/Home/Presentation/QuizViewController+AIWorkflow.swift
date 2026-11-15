@@ -4,6 +4,7 @@ extension QuizViewController {
     func refreshAIServiceNotice() {
         aiServiceNoticeTask?.cancel()
         aiServiceNoticeTask = nil
+        pendingAIServiceNoticeUpdate = nil
         guard let cardView = expandedAIThemeCardView else { return }
         cardView.setServiceNotice(nil)
         guard let api = aiServiceStatusAPI else { return }
@@ -15,9 +16,24 @@ extension QuizViewController {
                   let self, let cardView,
                   self.expandedAIThemeCardView === cardView,
                   AppLocalizationStore.shared.resolvedLanguageCode == locale else { return }
-            cardView.setServiceNotice(notice)
+            self.pendingAIServiceNoticeUpdate = { [weak self, weak cardView] in
+                guard let self, let cardView,
+                      self.expandedAIThemeCardView === cardView,
+                      AppLocalizationStore.shared.resolvedLanguageCode == locale else { return }
+                cardView.setServiceNotice(notice, animated: true)
+            }
+            self.applyPendingAIServiceNotice()
             self.aiServiceNoticeTask = nil
         }
+    }
+
+    func applyPendingAIServiceNotice() {
+        guard homeCardState.presentedCard == .ai,
+              homeCardState.phase == .expandedFront || homeCardState.phase == .expandedBack
+        else { return }
+        let update = pendingAIServiceNoticeUpdate
+        pendingAIServiceNoticeUpdate = nil
+        update?()
     }
 
     func sendAIThemeCardAction(_ action: HomeAIThemeCardAction) {

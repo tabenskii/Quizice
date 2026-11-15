@@ -214,6 +214,7 @@ final class QuizViewController: BaseQuizViewController, ThemeCollectionDelegate,
     var expandedStatisticsSummary: StatisticsSummary?
     var aiSubmissionTask: Task<Void, Never>?
     var aiServiceNoticeTask: Task<Void, Never>?
+    var pendingAIServiceNoticeUpdate: (() -> Void)?
     var aiProgressTask: Task<Void, Never>?
     var aiAlertPresentationTask: Task<Void, Never>?
     let aiAlertPresenter = QuizAlertPresenter()

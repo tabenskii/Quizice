@@ -88,6 +88,33 @@ final class HomeAIServiceNoticeTests: HomeScreenVisualStateTestCase {
         XCTAssertNil(firstCard.frontServiceNoticeLabel.text)
     }
 
+    func testNoticeArrivingDuringFlipWaitsForTheStableFace() async throws {
+        let api = HomeAIServiceStatusStub()
+        defer { api.failPendingRequests() }
+        let controller = makeHomeViewController(api: api)
+        let card = try await openAIThemeCard(in: controller)
+        try await waitUntil { api.requestedLocales.count == 1 }
+        let task = try XCTUnwrap(controller.aiServiceNoticeTask)
+        card.promptTextView.text = "Космос"
+        card.textViewDidChange(card.promptTextView)
+        _ = controller.homeStore.send(.flipRequested)
+        XCTAssertEqual(controller.homeCardState.phase, .flippingToBack)
+
+        try api.completeRequest(at: 0, with: .success("Проверка плавного появления"))
+        await task.value
+        XCTAssertTrue(card.frontServiceNoticeLabel.isHidden)
+        XCTAssertTrue(card.backServiceNoticeLabel.isHidden)
+        XCTAssertNotNil(controller.pendingAIServiceNoticeUpdate)
+
+        controller.flipExpandedAIThemeCard(to: .back)
+        try await waitUntil { controller.homeCardState.phase == .expandedBack }
+        XCTAssertNil(controller.pendingAIServiceNoticeUpdate)
+        XCTAssertEqual(card.backServiceNoticeLabel.text, "Проверка плавного появления")
+        XCTAssertFalse(card.backServiceNoticeLabel.isHidden)
+        XCTAssertEqual(card.backServiceNoticeLabel.alpha, 1)
+        XCTAssertEqual(card.promptTextView.text, "Космос")
+    }
+
     private func makeHomeViewController(api: AIServiceStatusAPI) -> QuizViewController {
         QuizFactory.shared.themes = [makeTheme(name: "Музыка")]
         let viewController = QuizViewController(

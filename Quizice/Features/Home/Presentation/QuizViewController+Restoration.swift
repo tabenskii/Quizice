@@ -105,6 +105,7 @@ extension QuizViewController {
     func removeExpandedThemeCardViews() {
         aiServiceNoticeTask?.cancel()
         aiServiceNoticeTask = nil
+        pendingAIServiceNoticeUpdate = nil
         showRoundConfigurationAfterExpansion = false
         quizPreparationTask?.cancel()
         quizPreparationTask = nil

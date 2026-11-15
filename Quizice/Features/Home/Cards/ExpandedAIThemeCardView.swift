@@ -325,16 +325,35 @@ final class ExpandedAIThemeCardView: UIView, UITextViewDelegate {
         faceTransitionDriver.finishAtRequestedFace()
     }
 
-    func setServiceNotice(_ message: String?) {
+    func setServiceNotice(_ message: String?, animated: Bool = false) {
         let trimmedMessage = message?.trimmingCharacters(in: .whitespacesAndNewlines)
         let text = trimmedMessage?.isEmpty == false ? trimmedMessage : nil
-        [frontServiceNoticeLabel, backServiceNoticeLabel].forEach { label in
+        let labels = [frontServiceNoticeLabel, backServiceNoticeLabel]
+        guard labels.contains(where: { $0.text != text }) else { return }
+        let shouldAnimate = animated && !reduceMotionProvider() && window != nil
+        if shouldAnimate { layoutIfNeeded() }
+        labels.forEach { label in
+            if label.isHidden { label.alpha = 0 }
             label.text = text
             label.accessibilityLabel = text
-            label.isHidden = text == nil
             label.accessibilityElementsHidden = text == nil
         }
-        setNeedsLayout()
+        let update = {
+            labels.forEach { label in
+                label.isHidden = text == nil
+                label.alpha = text == nil ? 0 : 1
+            }
+            self.layoutIfNeeded()
+        }
+        if shouldAnimate {
+            UIView.animate(
+                withDuration: 0.2, delay: 0,
+                options: [.beginFromCurrentState, .curveEaseOut, .allowUserInteraction],
+                animations: update
+            )
+        } else {
+            UIView.performWithoutAnimation(update)
+        }
     }
 
     func setTransitionShadowHidden(_ isHidden: Bool) {

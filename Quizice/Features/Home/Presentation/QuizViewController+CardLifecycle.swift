@@ -114,6 +114,7 @@ extension QuizViewController {
                         : self.expandedAIThemeCardView?.backFocusView
                 )
             }
+            if completedStableFlip { self.applyPendingAIServiceNotice() }
             if self.expandedCardNeedsRefresh {
                 self.refreshExpandedThemeCardAppearance()
             }
