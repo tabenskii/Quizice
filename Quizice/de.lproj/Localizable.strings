@@ -287,7 +287,7 @@
 
 /* Required account start screen */
 "account_start.connecting.title" = "Konto wird verbunden";
-"account_start.sign_in.message" = "Melde dich zum Spielen mit Game Center an. Falls das nicht klappt, prüfe deine Internetverbindung und die Game-Center-Anmeldung in den Geräteeinstellungen.";
+"account_start.sign_in.message" = "Melde dich zum Spielen mit Game Center an. Wenn du kein Spielerprofil erstellen kannst, schließe die Einrichtung unter Einstellungen → Game Center ab. Kehre dann hierher zurück und versuche die Anmeldung erneut.";
 "account_start.sign_in.action" = "Mit Game Center fortfahren";
 "account_start.deletion_pending.title" = "Kontolöschung abschließen";
 "account_start.deletion_pending.message" = "Die Kontolöschung ist noch nicht abgeschlossen. Wiederhole die Anfrage, um dein Konto und seine Daten zu löschen.";

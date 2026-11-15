@@ -7,6 +7,7 @@ import XCTest
 final class FakeGameCenterClient: GameCenterAuthenticating {
     private var stateChanged: ((GameCenterPlayerState) -> Void)?
     private(set) var startCount = 0
+    private(set) var present: ((UIViewController) -> Void)?
     var identityError: Error?
     var identity = GameCenterIdentity(
         teamPlayerId: "team-1",
@@ -22,6 +23,7 @@ final class FakeGameCenterClient: GameCenterAuthenticating {
         stateChanged: @escaping (GameCenterPlayerState) -> Void
     ) {
         self.stateChanged = stateChanged
+        self.present = present
         startCount += 1
     }
 
@@ -33,6 +35,10 @@ final class FakeGameCenterClient: GameCenterAuthenticating {
     func emit(_ state: GameCenterPlayerState) {
         stateChanged?(state)
     }
+
+    func requestPresentation(_ viewController: UIViewController) {
+        present?(viewController)
+    }
 }
 
 final class FakeAuthAPI: AuthAPI {
@@ -41,6 +47,7 @@ final class FakeAuthAPI: AuthAPI {
     var recreationRequests = 0
     var authenticatedIdentities: [GameCenterIdentity] = []
     var authenticationErrors: [BackendAPIError] = []
+    var authenticationHandler: ((GameCenterIdentity) async throws -> AuthSession)?
     var syncRequests: [StatisticsStore.SyncRequest] = []
     var syncAccessTokens: [String] = []
     var syncErrors: [BackendAPIError] = []
@@ -50,6 +57,7 @@ final class FakeAuthAPI: AuthAPI {
 
     func authenticate(identity: GameCenterIdentity) async throws -> AuthSession {
         authenticatedIdentities.append(identity)
+        if let authenticationHandler { return try await authenticationHandler(identity) }
         if authenticationErrors.isEmpty == false {
             throw authenticationErrors.removeFirst()
         }
@@ -111,6 +119,28 @@ actor SuspendedAuthStatisticsResponse {
         let pending = continuation
         continuation = nil
         pending?.resume(with: result)
+    }
+}
+
+actor SuspendedAuthSessionResponse {
+    private var continuation: CheckedContinuation<AuthSession, Error>?
+    private let onSuspend: () -> Void
+
+    init(onSuspend: @escaping () -> Void) {
+        self.onSuspend = onSuspend
+    }
+
+    func wait() async throws -> AuthSession {
+        try await withCheckedThrowingContinuation { continuation in
+            self.continuation = continuation
+            onSuspend()
+        }
+    }
+
+    func resume(with session: AuthSession) {
+        let pending = continuation
+        continuation = nil
+        pending?.resume(returning: session)
     }
 }
 
@@ -249,5 +279,45 @@ final class AuthURLProtocolTests: XCTestCase {
             cachedResponse: nil,
             client: nil
         )
+    }
+}
+
+
+@MainActor
+final class StubGameCenterLocalPlayer: GameCenterLocalPlayer {
+    var isAuthenticated = false
+    var teamPlayerID = ""
+    var providesSignInUI = true
+    private(set) var resetCount = 0
+    var authenticateHandler: ((UIViewController?, Error?) -> Void)? {
+        didSet {
+            guard let authenticateHandler else { resetCount += 1; return }
+            if oldValue == nil, providesSignInUI { authenticateHandler(UIViewController(), nil) }
+        }
+    }
+
+    func identitySignature() async throws -> (URL, Data, Data, UInt64) {
+        (URL(string: "https://apple.example/key")!, Data([1]), Data([2]), 123)
+    }
+}
+
+
+@MainActor
+final class StubGameCenterAccessPoint: GameCenterAccessPointPresenting {
+    private(set) var triggerCount = 0
+    var isPresentingGameCenter = false
+    private var handler: (() -> Void)?
+
+    func trigger(handler: @escaping () -> Void) {
+        triggerCount += 1
+        isPresentingGameCenter = true
+        self.handler = handler
+    }
+
+    func finish() {
+        isPresentingGameCenter = false
+        let callback = handler
+        handler = nil
+        callback?()
     }
 }

@@ -10,6 +10,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     private var authenticationService: GameCenterAuthenticationService?
     private var accountAccessPresenter: AppAccountAccessPresenter?
     private var networkMonitor: NWPathMonitor?
+    private var initialPreparationTask: Task<Void, Never>?
 
     func scene(
         _ scene: UIScene,
@@ -45,9 +46,6 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         }
         window.makeKeyAndVisible()
         self.window = window
-        authenticationService?.start { [weak accountAccessPresenter] in
-            accountAccessPresenter?.presentSystemViewController($0)
-        }
 
     }
 
@@ -57,6 +55,9 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         if authenticationService.usesDebugBackendAuthentication {
             // Keep Settings/debug recovery reachable even if the test key is rejected.
             startSimulatorContent(in: window, authenticationService: authenticationService)
+            authenticationService.start { [weak self] in
+                self?.accountAccessPresenter?.presentSystemViewController($0)
+            }
             return
         }
 #endif
@@ -82,50 +83,10 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         let appearance = AppAppearanceStore.shared.appearance(
             compatibleWith: window.traitCollection
         )
-        let accountAccessPresenter = AppAccountAccessPresenter(
-            window: window,
-            accessProvider: authenticationService,
-            accountManager: authenticationService,
-            prepareContentForReveal: { [weak coordinator] completion in
-                guard let coordinator else { completion(); return }
-                coordinator.presentInitialOnboardingIfNeeded(completion: completion)
-            },
-            resetContent: { [weak coordinator] completion in
-                guard let coordinator else { completion(); return }
-                coordinator.resetAccountNavigation(completion: completion)
-            },
-            presentSystemContent: { [weak coordinator] in coordinator?.presentSystemViewController($0) }
-        )
-        self.accountAccessPresenter = accountAccessPresenter
-        accountAccessPresenter.start()
-        launchOverlayPresenter.present(
-            in: window,
-            appearance: appearance,
-            preparation: { [weak coordinator, weak authenticationService] in
-#if DEBUG
-                if authenticationService?.usesDebugBackendAuthentication == true {
-                    await authenticationService?.waitForDebugAuthentication()
-                }
-#endif
-                await coordinator?.prepareInitialCatalog()
-            },
-            prepareContentForReveal: { [weak accountAccessPresenter] completion in
-                guard let accountAccessPresenter else { completion(); return }
-                accountAccessPresenter.prepareInitialContent(completion: completion)
-            },
-            onDismissed: { [weak coordinator, weak authenticationService, weak accountAccessPresenter] in
-                accountAccessPresenter?.launchDidFinish()
-                guard authenticationService?.accountAccessState == .authenticated else { return }
-                coordinator?.restoreInitialAccessibilityFocusAfterLaunch()
-                // GameKit's welcome banner can temporarily take VoiceOver focus.
-                DispatchQueue.main.asyncAfter(deadline: .now() + Self.gameCenterBannerSettleDelay) {
-                    [weak coordinator, weak authenticationService] in
-                    guard authenticationService?.accountAccessState == .authenticated else { return }
-                    coordinator?.restoreInitialAccessibilityFocusAfterLaunch()
-                }
-            }
-        )
+        startLaunch(in: window, coordinator: coordinator,
+                    authenticationService: authenticationService, appearance: appearance)
     }
+
 
 #if DEBUG && targetEnvironment(simulator)
     @objc private func reconnectDebugTestAccount() {
@@ -138,7 +99,6 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             let service = GameCenterAuthenticationService.live()
             guard service.usesDebugBackendAuthentication else { return }
             self.startAuthenticatedContent(in: window, authenticationService: service)
-            service.start { [weak self] in self?.accountAccessPresenter?.presentSystemViewController($0) }
         }
     }
 
@@ -172,6 +132,66 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         )
     }
 #endif
+
+    func startLaunch(
+        in window: UIWindow,
+        coordinator: QuizFlowCoordinator,
+        authenticationService: GameCenterAuthenticationService,
+        appearance: AppAppearance
+    ) {
+        let accountAccessPresenter = AppAccountAccessPresenter(
+            window: window,
+            accessProvider: authenticationService,
+            accountManager: authenticationService,
+            prepareContentForReveal: { [weak coordinator] completion in
+                guard let coordinator else { completion(); return }
+                coordinator.presentInitialOnboardingIfNeeded(completion: completion)
+            },
+            resetContent: { [weak coordinator] completion in
+                guard let coordinator else { completion(); return }
+                coordinator.resetAccountNavigation(completion: completion)
+            },
+            presentSystemContent: { [weak coordinator] in coordinator?.presentSystemViewController($0) }
+        )
+        self.accountAccessPresenter = accountAccessPresenter
+        accountAccessPresenter.start()
+        initialPreparationTask?.cancel()
+        // Keep preparation alive when sign-in UI or the deadline reveals the app.
+        // Game Center cannot block catalog loading; account changes are checked by the repository.
+        let preparationTask = Task { @MainActor [weak coordinator, weak authenticationService] in
+            async let authentication: Void? = authenticationService?.waitForInitialAuthentication()
+            await coordinator?.prepareInitialCatalog()
+            await authentication
+        }
+        initialPreparationTask = preparationTask
+        launchOverlayPresenter.present(
+            in: window,
+            appearance: appearance,
+            preparation: { await preparationTask.value },
+            prepareContentForReveal: { [weak accountAccessPresenter] completion in
+                guard let accountAccessPresenter else { completion(); return }
+                accountAccessPresenter.prepareInitialContent(completion: completion)
+            },
+            onDismissed: { [weak coordinator, weak authenticationService, weak accountAccessPresenter] in
+                accountAccessPresenter?.launchDidFinish()
+                guard authenticationService?.accountAccessState == .authenticated else { return }
+                coordinator?.restoreInitialAccessibilityFocusAfterLaunch()
+                // GameKit's welcome banner can temporarily take VoiceOver focus.
+                DispatchQueue.main.asyncAfter(deadline: .now() + Self.gameCenterBannerSettleDelay) {
+                    [weak coordinator, weak authenticationService] in
+                    guard authenticationService?.accountAccessState == .authenticated else { return }
+                    coordinator?.restoreInitialAccessibilityFocusAfterLaunch()
+                }
+            }
+        )
+        window.makeKeyAndVisible()
+        authenticationService.start { [weak accountAccessPresenter, weak launchOverlayPresenter] controller in
+            // Queue first: dismissing the splash flushes the request above the
+            // account gate, where required user interaction remains accessible.
+            accountAccessPresenter?.presentSystemViewController(controller)
+            launchOverlayPresenter?.dismiss(animated: false)
+        }
+    }
 
     private func monitorAccountConnectivity(for coordinator: QuizFlowCoordinator) {
         networkMonitor?.cancel()
