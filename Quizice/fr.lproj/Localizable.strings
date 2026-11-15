@@ -287,7 +287,7 @@
 
 /* Required account start screen */
 "account_start.connecting.title" = "Connexion à votre compte";
-"account_start.sign_in.message" = "Connectez-vous avec Game Center pour jouer. En cas d’échec, vérifiez Internet et la connexion à Game Center dans les réglages de l’appareil.";
+"account_start.sign_in.message" = "Connectez-vous avec Game Center pour jouer. Si vous ne parvenez pas à créer un profil de joueur, terminez sa configuration dans Réglages → Game Center, puis revenez ici et réessayez de vous connecter.";
 "account_start.sign_in.action" = "Continuer avec Game Center";
 "account_start.deletion_pending.title" = "Terminez la suppression";
 "account_start.deletion_pending.message" = "La suppression du compte n’est pas encore terminée. Réessayez pour supprimer votre compte et ses données.";

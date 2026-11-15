@@ -287,7 +287,7 @@
 
 /* Required account start screen */
 "account_start.connecting.title" = "Connecting your account";
-"account_start.sign_in.message" = "Continue with Game Center to play. If sign-in fails, check your internet connection and Game Center sign-in in device Settings.";
+"account_start.sign_in.message" = "Sign in with Game Center to play. If you can’t create a player profile, finish setting it up in Settings → Game Center, then return here and try signing in again.";
 "account_start.sign_in.action" = "Continue with Game Center";
 "account_start.deletion_pending.title" = "Finish deleting your account";
 "account_start.deletion_pending.message" = "Account deletion is not yet complete. Retry the request to delete your account and its data.";

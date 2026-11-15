@@ -287,7 +287,7 @@
 
 /* Required account start screen */
 "account_start.connecting.title" = "Подключаем аккаунт";
-"account_start.sign_in.message" = "Для игры войдите через Game Center. Если не получается, проверьте интернет и вход в Game Center в настройках устройства.";
+"account_start.sign_in.message" = "Для игры войдите через Game Center. Если не удаётся создать профиль игрока, завершите его настройку в «Настройки → Game Center», затем вернитесь сюда и повторите вход.";
 "account_start.sign_in.action" = "Продолжить с Game Center";
 "account_start.deletion_pending.title" = "Завершите удаление";
 "account_start.deletion_pending.message" = "Удаление аккаунта ещё не завершено. Повторите запрос, чтобы удалить аккаунт и его данные.";
