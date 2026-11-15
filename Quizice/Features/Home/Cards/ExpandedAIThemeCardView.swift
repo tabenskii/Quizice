@@ -330,29 +330,24 @@ final class ExpandedAIThemeCardView: UIView, UITextViewDelegate {
         let text = trimmedMessage?.isEmpty == false ? trimmedMessage : nil
         let labels = [frontServiceNoticeLabel, backServiceNoticeLabel]
         guard labels.contains(where: { $0.text != text }) else { return }
-        let shouldAnimate = animated && !reduceMotionProvider() && window != nil
-        if shouldAnimate { layoutIfNeeded() }
-        labels.forEach { label in
-            if label.isHidden { label.alpha = 0 }
-            label.text = text
-            label.accessibilityLabel = text
-            label.accessibilityElementsHidden = text == nil
-        }
-        let update = {
+        let shouldAnimate = animated && !reduceMotionProvider() && window != nil && text != nil
+        UIView.performWithoutAnimation {
             labels.forEach { label in
+                label.alpha = shouldAnimate || text == nil ? 0 : 1
+                label.text = text
+                label.accessibilityLabel = text
+                label.accessibilityElementsHidden = text == nil
                 label.isHidden = text == nil
-                label.alpha = text == nil ? 0 : 1
             }
             self.layoutIfNeeded()
         }
         if shouldAnimate {
             UIView.animate(
-                withDuration: 0.2, delay: 0,
-                options: [.beginFromCurrentState, .curveEaseOut, .allowUserInteraction],
-                animations: update
-            )
-        } else {
-            UIView.performWithoutAnimation(update)
+                withDuration: 0.15, delay: 0,
+                options: [.beginFromCurrentState, .curveEaseOut, .allowUserInteraction]
+            ) {
+                labels.forEach { $0.alpha = 1 }
+            }
         }
     }
 
