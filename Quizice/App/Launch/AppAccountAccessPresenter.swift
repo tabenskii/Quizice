@@ -24,6 +24,8 @@ final class AppAccountAccessPresenter {
     private var initialCompletions: [() -> Void] = []
     private var pendingSystemController: UIViewController?
     private var operationTask: Task<Void, Never>?
+    private var connectionDeadlineTask: Task<Void, Never>?
+    private let waitForConnectionTimeout: @MainActor () async throws -> Void
     private weak var coveredView: UIView?
     private var previousAccessibilityHidden = false
     private var previousInteractionEnabled = true
@@ -34,7 +36,10 @@ final class AppAccountAccessPresenter {
         accountManager: any AccountManaging,
         prepareContentForReveal: @escaping (@escaping () -> Void) -> Void,
         resetContent: @escaping (@escaping () -> Void) -> Void,
-        presentSystemContent: @escaping (UIViewController) -> Void
+        presentSystemContent: @escaping (UIViewController) -> Void,
+        waitForConnectionTimeout: @escaping @MainActor () async throws -> Void = {
+            try await Task.sleep(nanoseconds: 20_000_000_000)
+        }
     ) {
         self.window = window
         self.accessProvider = accessProvider
@@ -42,6 +47,7 @@ final class AppAccountAccessPresenter {
         self.prepareContentForReveal = prepareContentForReveal
         self.resetContent = resetContent
         self.presentSystemContent = presentSystemContent
+        self.waitForConnectionTimeout = waitForConnectionTimeout
     }
 
     func start() {
@@ -113,6 +119,8 @@ final class AppAccountAccessPresenter {
         accessProvider.accountAccessStateDidChange = nil
         operationTask?.cancel()
         operationTask = nil
+        connectionDeadlineTask?.cancel()
+        connectionDeadlineTask = nil
         preparationID = nil
         pendingSystemController = nil
         initialCompletions.removeAll()
@@ -126,13 +134,23 @@ final class AppAccountAccessPresenter {
         guard isStarted else { return }
         let state = accessProvider.accountAccessState
         model.state = state
+        model.needsGameCenterSignIn = accessProvider.needsGameCenterSignIn
+        if state != .loading {
+            connectionDeadlineTask?.cancel()
+            connectionDeadlineTask = nil
+        }
         guard state == .authenticated else {
             preparationID = nil
             showGate()
             if state != .loading, hasAdmittedAccount {
                 resetPreviousAccountContent()
             }
-            finishInitialPreparation()
+            if state == .loading {
+                scheduleConnectionDeadline()
+                if model.errorMessage != nil { finishInitialPreparation() }
+            } else {
+                finishInitialPreparation()
+            }
             return
         }
         model.errorMessage = nil
@@ -191,12 +209,27 @@ final class AppAccountAccessPresenter {
         completions.forEach { $0() }
     }
 
+    private func scheduleConnectionDeadline() {
+        guard connectionDeadlineTask == nil, model.errorMessage == nil else { return }
+        connectionDeadlineTask = Task { @MainActor [weak self, waitForConnectionTimeout] in
+            do { try await waitForConnectionTimeout() } catch { return }
+            guard let self, self.isStarted, !Task.isCancelled,
+                  self.accessProvider.accountAccessState == .loading else { return }
+            self.connectionDeadlineTask = nil
+            self.model.errorMessage = L10n.AccountStart.connectionFailedMessage
+            self.finishInitialPreparation()
+        }
+    }
+
     private func performPrimaryAction() {
         guard operationTask == nil else { return }
-        model.errorMessage = nil
         let state = accessProvider.accountAccessState
-        if state == .signInRequired {
-            accessProvider.signIn { [weak self] in self?.presentSystemViewController($0) }
+        let canRetryConnection = state == .loading && model.errorMessage != nil
+        model.errorMessage = nil
+        if state == .signInRequired || canRetryConnection {
+            let present: (UIViewController) -> Void = { [weak self] in self?.presentSystemViewController($0) }
+            if canRetryConnection { accessProvider.retryConnection(present: present) }
+            else { accessProvider.signIn(present: present) }
             return
         }
         guard state == .deleted || state == .deletionPending else { return }

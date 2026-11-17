@@ -20,6 +20,7 @@ enum L10n {
     }
 
     enum AccountStart {
+        static var connectionFailedMessage: String { L10n.localized("account_start.connection.failed", comment: "Account connection failed; retry without opening Game Center sign-in") }
         static var deletionSignInRequired: String { L10n.localized("account_start.deletion_pending.sign_in", comment: "Sign in to the original Game Center account to finish deletion") }
         static var connectingTitle: String { L10n.localized("account_start.connecting.title", comment: "Account connection in progress") }
         static var signInMessage: String { L10n.localized("account_start.sign_in.message", comment: "Game Center sign-in required before playing") }

@@ -34,6 +34,7 @@ final class GameCenterAuthenticationService: AccountManaging, AccountSynchronizi
     private var pendingSyncObserver: NSObjectProtocol?
     private var authenticationInvalidationObserver: NSObjectProtocol?
     private var currentTeamPlayerID: String?
+    private(set) var needsGameCenterSignIn = false
     private var started = false
     private let initialAuthentication = InitialAuthenticationReadiness()
 #if DEBUG
@@ -142,16 +143,17 @@ final class GameCenterAuthenticationService: AccountManaging, AccountSynchronizi
 
     func waitForInitialAuthentication() async { await initialAuthentication.wait() }
 
-    func signIn(present: @escaping (UIViewController) -> Void) {
+    func requestSignIn(present: @escaping (UIViewController) -> Void, retryingConnection: Bool) {
         guard started else { start(present: present); return }
         guard !accountOperationInProgress, deletionRecord == nil,
-              accountAccessState == .signInRequired else { return }
+              accountAccessState == .signInRequired || (retryingConnection && accountAccessState == .loading) else { return }
 #if DEBUG
         if let devAuthenticationProvider {
             beginDevAuthentication(using: devAuthenticationProvider)
             return
         }
 #endif
+        stopAccountWork()
         state = .initializing
         gameCenter.signIn(present: present) { [weak self] playerState in
             self?.handle(playerState)
@@ -236,6 +238,7 @@ final class GameCenterAuthenticationService: AccountManaging, AccountSynchronizi
         if playerState == .networkUnavailable, let cached = loadStoredSession(), cached.permitsOfflinePlay(now: now()) {
             handle(.authenticated(teamPlayerID: cached.teamPlayerID)); return
         }
+        needsGameCenterSignIn = playerState == .unavailable
         switch playerState {
         case let .authenticated(teamPlayerID):
             guard teamPlayerID.isEmpty == false else {
@@ -254,11 +257,7 @@ final class GameCenterAuthenticationService: AccountManaging, AccountSynchronizi
                 synchronizeStatistics()
                 return
             }
-            beginAuthentication(
-                for: teamPlayerID,
-                allowsCachedSession: true,
-                statisticsMayRefreshToken: true
-            )
+            beginAuthentication(for: teamPlayerID, allowsCachedSession: true, statisticsMayRefreshToken: true)
         case .unavailable, .networkUnavailable:
             enterGuestMode()
         }
