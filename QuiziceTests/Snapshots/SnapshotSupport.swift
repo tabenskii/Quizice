@@ -49,6 +49,7 @@ enum SnapshotSupport {
         UserDefaults.standard.removeObject(forKey: DebugSubscriptionPromoSettings.showPromoKey)
         SubscriptionEntitlementStore.shared.setDebugSubscriptionActive(false)
 #endif
+        UserDefaults.standard.removeObject(forKey: QuestionRepeatStrategyStore.defaultsKey)
         resetLocalizedThemePreferences()
     }
 
@@ -64,6 +65,7 @@ enum SnapshotSupport {
         UserDefaults.standard.removeObject(forKey: DebugSubscriptionPromoSettings.showPromoKey)
         SubscriptionEntitlementStore.shared.setDebugSubscriptionActive(false)
 #endif
+        UserDefaults.standard.removeObject(forKey: QuestionRepeatStrategyStore.defaultsKey)
         resetLocalizedThemePreferences()
         resetSharedQuizFactoryForTests()
     }
