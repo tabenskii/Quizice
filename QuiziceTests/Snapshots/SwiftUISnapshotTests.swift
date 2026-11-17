@@ -118,6 +118,22 @@ final class SwiftUISnapshotTests: XCTestCase {
         )
     }
 
+    func testAccountConnectionSplashSnapshots() {
+        for style in [AppDesignStyle.classic, .clean, .radar] {
+            SnapshotSupport.setUp(designStyle: style)
+            for state in [AppAccountAccessState.loading, .signInRequired] {
+                let model = AccountStartModel(state: state)
+                model.needsGameCenterSignIn = false
+                let controller = makeHostingController(rootView: AccountStartView(
+                    model: model, appearance: SnapshotSupport.appearance(designStyle: style), onPrimaryAction: {}
+                ))
+                let suffix = state == .loading ? "waiting" : "retry"
+                SnapshotSupport.assertScreen(controller,
+                    named: "\(style.rawValue)-account-connection-\(suffix)", device: .iPhone8)
+            }
+        }
+    }
+
     func testAccountDeletedStartScreenSnapshot() {
         SnapshotSupport.setUp(designStyle: .classic)
         let viewController = makeHostingController(rootView: AccountStartView(

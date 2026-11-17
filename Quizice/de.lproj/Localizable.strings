@@ -314,3 +314,5 @@
 "debug_menu.completed_theme.hint" = "Wähle hier auf dem Startbildschirm ein Server-Thema. Die Bestätigung setzt den Fortschritt des gesamten Themas tatsächlich zurück.";
 
 "question.offline_unavailable.message" = "Keine gespeicherten Fragen passen zu diesen Einstellungen. Verbinde dich mit dem Internet und öffne den Startbildschirm, um Fragen für das Offline-Spiel herunterzuladen.";
+
+"account_start.connection.failed" = "Dein Konto konnte nicht verbunden werden. Prüfe deine Internetverbindung und versuche es erneut.";

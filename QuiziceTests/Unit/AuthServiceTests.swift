@@ -48,6 +48,36 @@ final class GameCenterAuthenticationServiceTests: XCTestCase {
         XCTAssertEqual(rejected.gameCenter.startCount, 0)
     }
 #endif
+    func testOfflineGameCenterFailureDoesNotPretendThePlayerNeedsSignIn() async {
+        let h = makeHarness()
+        h.service.start { _ in }
+        h.gameCenter.emit(.networkUnavailable)
+        await waitUntil { h.service.accountAccessState == .signInRequired }
+        XCTAssertFalse(h.service.needsGameCenterSignIn)
+        h.gameCenter.emit(.unavailable)
+        XCTAssertTrue(h.service.needsGameCenterSignIn)
+    }
+
+    func testManualConnectionRetryIgnoresThePreviousBackendResponse() async {
+        let h = makeHarness()
+        let started = expectation(description: "Original authentication waits")
+        let oldResponse = SuspendedAuthSessionResponse { started.fulfill() }
+        h.api.authenticationHandler = { _ in try await oldResponse.wait() }
+        h.service.start { _ in }
+        h.gameCenter.emit(.authenticated(teamPlayerID: "team-1"))
+        await fulfillment(of: [started], timeout: 1)
+        h.service.retryConnection { _ in }
+        h.api.authenticationHandler = nil
+        h.gameCenter.emit(.authenticated(teamPlayerID: "team-1"))
+        await waitUntil { h.service.accountAccessState == .authenticated }
+        let currentSession = h.sessionStore.session
+        await oldResponse.resume(with: AuthSession(userID: "old-user", accessToken: "old-token",
+            expiresAt: .distantFuture, teamPlayerID: "team-1"))
+        for _ in 0..<10 { await Task.yield() }
+        XCTAssertEqual(h.sessionStore.session, currentSession)
+        XCTAssertFalse(h.service.needsGameCenterSignIn)
+    }
+
     func testInitialAuthenticationWaitsForBackendAndResolvesOnlyOnce() async {
         let harness = makeHarness()
         let backendStarted = expectation(description: "Backend authentication started")
@@ -255,6 +285,7 @@ final class GameCenterAuthenticationServiceTests: XCTestCase {
         h.service.start { _ in XCTFail("No controller should be provided") }
         player.authenticateHandler?(nil, nil)
         await waitUntil { h.service.accountAccessState == .signInRequired }
+        XCTAssertTrue(h.service.needsGameCenterSignIn)
 
         h.service.signIn { _ in XCTFail("The access point presents system UI") }
         XCTAssertEqual(point.triggerCount, 1)
@@ -302,6 +333,7 @@ final class GameCenterAuthenticationServiceTests: XCTestCase {
         h.service.start { _ in }
         player.authenticateHandler?(nil, nil)
         await waitUntil { h.service.accountAccessState == .signInRequired }
+        XCTAssertFalse(h.service.needsGameCenterSignIn)
 
         h.service.signIn { _ in }
         await waitUntil { h.service.accountAccessState == .authenticated }

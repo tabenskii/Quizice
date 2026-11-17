@@ -74,13 +74,17 @@ enum AppAccountAccessState: Equatable {
 @MainActor
 protocol AppAccountAccessProviding: AnyObject {
     var accountAccessState: AppAccountAccessState { get }
+    var needsGameCenterSignIn: Bool { get }
     var authenticatedAccountID: String? { get }
     var accountAccessStateDidChange: ((AppAccountAccessState) -> Void)? { get set }
     func signIn(present: @escaping (UIViewController) -> Void)
+    func retryConnection(present: @escaping (UIViewController) -> Void)
 }
 
 extension AppAccountAccessProviding {
     var authenticatedAccountID: String? { nil }
+    var needsGameCenterSignIn: Bool { accountAccessState == .signInRequired }
+    func retryConnection(present: @escaping (UIViewController) -> Void) { signIn(present: present) }
 }
 
 @MainActor

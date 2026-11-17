@@ -29,7 +29,7 @@ final class SceneLaunchTests: QuizFlowCoordinatorTestCase {
 
         // Pass the normal minimum hold with animations disabled. A catalog-only
         // readiness check would reveal the loading account gate at this point.
-        try await Task.sleep(nanoseconds: 1_300_000_000)
+        try await Task.sleep(nanoseconds: 2_400_000_000)
         XCTAssertFalse(overlay.isHidden)
         XCTAssertEqual(overlay.alpha, 1)
         XCTAssertEqual(harness.authentication.accountAccessState, .loading)
@@ -86,45 +86,24 @@ final class SceneLaunchTests: QuizFlowCoordinatorTestCase {
         XCTAssertNil(harness.navigationController.presentedViewController)
     }
 
-    func testSceneLaunchDeadlineRevealsLockedGateAndAcceptsLateAuthentication() async throws {
+    func testSceneCatalogDeadlineKeepsSplashUntilLateGameCenterAuthentication() async throws {
         UIView.setAnimationsEnabled(false)
         let harness = try makeSceneLaunchHarness()
-        harness.scene.startLaunch(
-            in: harness.window, coordinator: harness.coordinator,
-            authenticationService: harness.authentication,
-            appearance: makeLaunchAppearance(designStyle: .classic)
-        )
+        harness.scene.startLaunch(in: harness.window, coordinator: harness.coordinator,
+            authenticationService: harness.authentication, appearance: makeLaunchAppearance(designStyle: .classic))
         let overlay = try XCTUnwrap(launchOverlay(in: harness.window))
-        try await waitForSceneLaunch { overlay.isHidden }
-
+        try await Task.sleep(nanoseconds: 2_400_000_000)
+        XCTAssertFalse(overlay.isHidden)
+        XCTAssertEqual(overlay.alpha, 1)
         XCTAssertEqual(harness.authentication.state, .initializing)
-        XCTAssertEqual(harness.repository.refreshCount, 1)
-        let gate = try XCTUnwrap(accountGate(in: harness.window))
-        let host = try XCTUnwrap(gate.rootViewController)
-        XCTAssertTrue(gate.isKeyWindow)
         XCTAssertFalse(harness.window.isUserInteractionEnabled)
-        XCTAssertTrue(harness.navigationController.view.accessibilityElementsHidden)
-
-        let signIn = UIViewController()
-        harness.gameCenter.requestPresentation(signIn)
-        try await waitForSceneLaunch {
-            signIn.presentingViewController === host
-                && signIn.viewIfLoaded?.window === gate
-                && !signIn.isBeingPresented
-        }
-        await withCheckedContinuation { continuation in
-            signIn.dismiss(animated: false) { continuation.resume() }
-        }
         harness.gameCenter.emit(.authenticated(teamPlayerID: "team-1"))
         try await waitForSceneLaunch {
-            harness.authentication.accountAccessState == .authenticated
+            overlay.isHidden && harness.authentication.accountAccessState == .authenticated
                 && self.accountGate(in: harness.window) == nil
         }
-
-        XCTAssertTrue(overlay.isHidden)
         XCTAssertEqual(harness.gameCenter.startCount, 1)
         XCTAssertTrue(harness.window.isUserInteractionEnabled)
-        XCTAssertFalse(harness.navigationController.view.accessibilityElementsHidden)
     }
 
     private static var launchSession: AuthSession {
