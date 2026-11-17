@@ -129,7 +129,8 @@ struct QuizOnboardingView: View {
                         selectedThemeIDs: Binding(get: { selection.selectedIDs }, set: selection.select),
                         isActive: selectedPage == .topics,
                         focusedHeaderPage: $focusedHeaderPage,
-                        onAdvance: advance
+                        onAdvance: advance,
+                        onGoBack: goBack
                     )
                     .tag(OnboardingPage.topics)
 
@@ -137,7 +138,8 @@ struct QuizOnboardingView: View {
                         themePreview: themes.first,
                         repeatStrategy: questionRepeatStrategy,
                         isActive: selectedPage == .tutorial,
-                        focusedHeaderPage: $focusedHeaderPage
+                        focusedHeaderPage: $focusedHeaderPage,
+                        onGoBack: goBack
                     )
                         .tag(OnboardingPage.tutorial)
                 }
@@ -347,18 +349,19 @@ struct QuizOnboardingView: View {
     }
 }
 
-struct OnboardingTopicsAdvanceGesture: UIGestureRecognizerRepresentable {
+struct OnboardingTopicsNavigationGesture: UIGestureRecognizerRepresentable {
     let width: CGFloat
     let isActive: Bool
     let onAdvance: () -> Void
+    let onGoBack: () -> Void
 
     func makeCoordinator(converter: CoordinateSpaceConverter) -> Coordinator {
-        Coordinator(width: width, location: { converter.localLocation }, onAdvance: onAdvance)
+        Coordinator(width: width, location: { converter.localLocation }, onAdvance: onAdvance, onGoBack: onGoBack)
     }
 
     func makeUIGestureRecognizer(context: Context) -> UITapGestureRecognizer {
-        let recognizer = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.advance(_:)))
-        recognizer.name = "onboardingTopicsAdvance"
+        let recognizer = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.navigate(_:)))
+        recognizer.name = "onboardingTopicsNavigation"
         recognizer.cancelsTouchesInView = false
         recognizer.delegate = context.coordinator
         recognizer.isEnabled = isActive
@@ -368,6 +371,7 @@ struct OnboardingTopicsAdvanceGesture: UIGestureRecognizerRepresentable {
     func updateUIGestureRecognizer(_ recognizer: UITapGestureRecognizer, context: Context) {
         context.coordinator.width = width
         context.coordinator.onAdvance = onAdvance
+        context.coordinator.onGoBack = onGoBack
         recognizer.isEnabled = isActive
     }
 
@@ -375,11 +379,14 @@ struct OnboardingTopicsAdvanceGesture: UIGestureRecognizerRepresentable {
         let location: () -> CGPoint
         var width: CGFloat
         var onAdvance: () -> Void
+        var onGoBack: () -> Void
 
-        init(width: CGFloat, location: @escaping () -> CGPoint, onAdvance: @escaping () -> Void) {
+        init(width: CGFloat, location: @escaping () -> CGPoint,
+             onAdvance: @escaping () -> Void, onGoBack: @escaping () -> Void = {}) {
             self.location = location
             self.width = width
             self.onAdvance = onAdvance
+            self.onGoBack = onGoBack
         }
 
         func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
@@ -397,12 +404,12 @@ struct OnboardingTopicsAdvanceGesture: UIGestureRecognizerRepresentable {
 
         func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
             let x = location().x
-            return width > 0 && x >= max(0, width - 64) && x <= width
+            return width > 0 && x >= 0 && x <= width && (x <= 64 || x >= max(0, width - 64))
         }
 
-        @objc func advance(_ recognizer: UITapGestureRecognizer) {
-            guard recognizer.state == .ended else { return }
-            onAdvance()
+        @objc func navigate(_ recognizer: UITapGestureRecognizer) {
+            guard recognizer.state == .ended, gestureRecognizerShouldBegin(recognizer) else { return }
+            if location().x <= 64 { onGoBack() } else { onAdvance() }
         }
     }
 }
