@@ -223,6 +223,7 @@ struct OnboardingTopicsPage: View {
     @Binding var selectedThemeIDs: Set<String>
     let isActive: Bool
     var focusedHeaderPage: AccessibilityFocusState<OnboardingPage?>.Binding
+    var onAdvance: () -> Void = {}
 
     @Environment(\.appAppearance) private var appearance
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -295,6 +296,7 @@ struct OnboardingTopicsPage: View {
                 maxHeight: geometry.size.height,
                 alignment: .top
             )
+            .gesture(OnboardingTopicsAdvanceGesture(width: geometry.size.width, isActive: isActive, onAdvance: onAdvance))
         }
         .accessibilityIdentifier("onboardingTopicsPage")
     }
@@ -403,6 +405,7 @@ struct OnboardingTutorialPage: View {
             .padding(.top, 20)
             .padding(.bottom, 14)
             .frame(maxWidth: .infinity)
+            .background(OnboardingTutorialScrollIndicator(color: appearance.secondaryScreenTextColor))
         }
         .accessibilityIdentifier("onboardingTutorialPage")
         .onAppear(perform: updateReveal)
@@ -453,6 +456,46 @@ struct OnboardingTutorialPage: View {
         guard !reduceMotion, UIView.areAnimationsEnabled else { return nil }
         return .timingCurve(0.23, 1, 0.32, 1, duration: 0.34)
             .delay(Double(index) * 0.07)
+    }
+}
+
+struct OnboardingTutorialScrollIndicator: UIViewRepresentable {
+    let color: UIColor
+
+    func makeUIView(context: Context) -> AttachmentView { AttachmentView() }
+
+    func updateUIView(_ view: AttachmentView, context: Context) {
+        view.indicator.backgroundColor = color
+    }
+
+    static func dismantleUIView(_ view: AttachmentView, coordinator: ()) {
+        view.indicator.detach()
+    }
+
+    final class AttachmentView: UIView {
+        let indicator = PersistentScrollIndicatorView()
+
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            if window == nil { indicator.detach() } else { attachIfNeeded() }
+        }
+
+        override func layoutSubviews() {
+            super.layoutSubviews()
+            attachIfNeeded()
+        }
+
+        private func attachIfNeeded() {
+            var ancestor = superview
+            while let view = ancestor {
+                if let scroll = view as? UIScrollView {
+                    indicator.accessibilityIdentifier = "onboardingTutorialScrollIndicator"
+                    indicator.attach(to: scroll)
+                    return
+                }
+                ancestor = view.superview
+            }
+        }
     }
 }
 
