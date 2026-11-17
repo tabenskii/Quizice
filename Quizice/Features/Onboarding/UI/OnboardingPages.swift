@@ -224,6 +224,7 @@ struct OnboardingTopicsPage: View {
     let isActive: Bool
     var focusedHeaderPage: AccessibilityFocusState<OnboardingPage?>.Binding
     var onAdvance: () -> Void = {}
+    var onGoBack: () -> Void = {}
 
     @Environment(\.appAppearance) private var appearance
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -296,7 +297,9 @@ struct OnboardingTopicsPage: View {
                 maxHeight: geometry.size.height,
                 alignment: .top
             )
-            .gesture(OnboardingTopicsAdvanceGesture(width: geometry.size.width, isActive: isActive, onAdvance: onAdvance))
+            .contentShape(Rectangle())
+            .gesture(OnboardingTopicsNavigationGesture(width: geometry.size.width, isActive: isActive,
+                onAdvance: onAdvance, onGoBack: onGoBack))
         }
         .accessibilityIdentifier("onboardingTopicsPage")
     }
@@ -339,6 +342,7 @@ struct OnboardingTutorialPage: View {
     @Binding var repeatStrategy: QuestionRepeatStrategy
     let isActive: Bool
     var focusedHeaderPage: AccessibilityFocusState<OnboardingPage?>.Binding
+    var onGoBack: () -> Void = {}
 
     @Environment(\.appAppearance) private var appearance
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -407,6 +411,14 @@ struct OnboardingTutorialPage: View {
             .frame(maxWidth: .infinity)
             .background(OnboardingTutorialScrollIndicator(color: appearance.secondaryScreenTextColor))
         }
+        .contentShape(Rectangle())
+        .gesture(
+            SpatialTapGesture().onEnded { value in
+                guard value.location.x >= 0, value.location.x <= 64 else { return }
+                onGoBack()
+            },
+            including: isActive ? .all : .subviews
+        )
         .accessibilityIdentifier("onboardingTutorialPage")
         .onAppear(perform: updateReveal)
         .onChange(of: isActive) { _, _ in updateReveal() }

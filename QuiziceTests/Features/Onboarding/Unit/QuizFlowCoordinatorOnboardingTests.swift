@@ -776,14 +776,15 @@ private final class EndedOnboardingTap: UITapGestureRecognizer {
 }
 
 extension QuizFlowCoordinatorOnboardingTests {
-    func testTopicsEdgeGestureRecognizesOnlyTheRightEdgeAndPreservesControls() {
+    func testTopicsEdgeGestureNavigatesBothEdgesAndPreservesControls() {
         var location = CGPoint(x: 380, y: 200)
         var advances = 0
-        let coordinator = OnboardingTopicsAdvanceGesture.Coordinator(width: 390,
-            location: { location }, onAdvance: { advances += 1 })
+        var backs = 0
+        let coordinator = OnboardingTopicsNavigationGesture.Coordinator(width: 390,
+            location: { location }, onAdvance: { advances += 1 }, onGoBack: { backs += 1 })
         let recognizer = UITapGestureRecognizer()
         XCTAssertTrue(coordinator.gestureRecognizerShouldBegin(recognizer))
-        for x in [CGFloat(0), 200, 320, 400] {
+        for x in [CGFloat(-1), 200, 320, 400] {
             location.x = x
             XCTAssertFalse(coordinator.gestureRecognizerShouldBegin(recognizer))
         }
@@ -795,12 +796,17 @@ extension QuizFlowCoordinatorOnboardingTests {
         let card = UIControl()
         let label = UILabel()
         card.addSubview(label)
-        XCTAssertFalse(OnboardingTopicsAdvanceGesture.Coordinator.permitsNavigation(from: card))
-        XCTAssertFalse(OnboardingTopicsAdvanceGesture.Coordinator.permitsNavigation(from: label))
-        XCTAssertTrue(OnboardingTopicsAdvanceGesture.Coordinator.permitsNavigation(from: UIView()))
-        coordinator.advance(recognizer)
+        XCTAssertFalse(OnboardingTopicsNavigationGesture.Coordinator.permitsNavigation(from: card))
+        XCTAssertFalse(OnboardingTopicsNavigationGesture.Coordinator.permitsNavigation(from: label))
+        XCTAssertTrue(OnboardingTopicsNavigationGesture.Coordinator.permitsNavigation(from: UIView()))
+        coordinator.navigate(recognizer)
         XCTAssertEqual(advances, 0)
-        coordinator.advance(EndedOnboardingTap())
+        location.x = 820
+        coordinator.navigate(EndedOnboardingTap())
+        XCTAssertEqual(advances, 1)
+        location.x = 20
+        coordinator.navigate(EndedOnboardingTap())
+        XCTAssertEqual(backs, 1)
         XCTAssertEqual(advances, 1)
     }
 
