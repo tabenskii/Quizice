@@ -766,3 +766,92 @@ private struct OnboardingStrategyHarness {
 private final class OnboardingStrategyCompletionSpy {
     var selections: [Set<String>] = []
 }
+
+@MainActor
+private final class EndedOnboardingTap: UITapGestureRecognizer {
+    override var state: UIGestureRecognizer.State {
+        get { .ended }
+        set {}
+    }
+}
+
+extension QuizFlowCoordinatorOnboardingTests {
+    func testTopicsEdgeGestureRecognizesOnlyTheRightEdgeAndPreservesControls() {
+        var location = CGPoint(x: 380, y: 200)
+        var advances = 0
+        let coordinator = OnboardingTopicsAdvanceGesture.Coordinator(width: 390,
+            location: { location }, onAdvance: { advances += 1 })
+        let recognizer = UITapGestureRecognizer()
+        XCTAssertTrue(coordinator.gestureRecognizerShouldBegin(recognizer))
+        for x in [CGFloat(0), 200, 320, 400] {
+            location.x = x
+            XCTAssertFalse(coordinator.gestureRecognizerShouldBegin(recognizer))
+        }
+        coordinator.width = 834
+        location.x = 820
+        XCTAssertTrue(coordinator.gestureRecognizerShouldBegin(recognizer))
+        location.x = 380
+        XCTAssertFalse(coordinator.gestureRecognizerShouldBegin(recognizer))
+        let card = UIControl()
+        let label = UILabel()
+        card.addSubview(label)
+        XCTAssertFalse(OnboardingTopicsAdvanceGesture.Coordinator.permitsNavigation(from: card))
+        XCTAssertFalse(OnboardingTopicsAdvanceGesture.Coordinator.permitsNavigation(from: label))
+        XCTAssertTrue(OnboardingTopicsAdvanceGesture.Coordinator.permitsNavigation(from: UIView()))
+        coordinator.advance(recognizer)
+        XCTAssertEqual(advances, 0)
+        coordinator.advance(EndedOnboardingTap())
+        XCTAssertEqual(advances, 1)
+    }
+
+    func testTutorialShowsPersistentScrollIndicatorBeforeAnyDragging() {
+        withStrategyOnboarding { harness in
+            let indicator = harness.controller.view.descendant(withAccessibilityIdentifier: "onboardingTutorialScrollIndicator")
+            XCTAssertNotNil(indicator)
+            XCTAssertGreaterThan(indicator?.bounds.height ?? 0, 24)
+            XCTAssertEqual(indicator?.bounds.width, 3)
+            XCTAssertFalse(indicator?.isUserInteractionEnabled ?? true)
+            RunLoop.main.run(until: Date().addingTimeInterval(0.2))
+            XCTAssertGreaterThan(indicator?.bounds.height ?? 0, 24)
+        }
+    }
+
+    func testTutorialIndicatorMovesWithinViewportWhenPageScrolls() {
+        withStrategyOnboarding { harness in
+            guard let indicator = harness.controller.view.descendant(
+                withAccessibilityIdentifier: "onboardingTutorialScrollIndicator"
+            ) else { return XCTFail("Missing scroll indicator") }
+            var ancestor = indicator.superview
+            while ancestor != nil && !(ancestor is UIScrollView) { ancestor = ancestor?.superview }
+            guard let scroll = ancestor as? UIScrollView else { return XCTFail("Missing tutorial scroll view") }
+            let initialY = indicator.convert(indicator.bounds, to: scroll).minY - scroll.contentOffset.y
+            scroll.setContentOffset(CGPoint(x: 0, y: 200), animated: false)
+            scroll.layoutIfNeeded()
+            RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+            harness.controller.view.layoutIfNeeded()
+            let scrolledY = indicator.convert(indicator.bounds, to: scroll).minY - scroll.contentOffset.y
+            XCTAssertGreaterThan(scrolledY, initialY)
+            XCTAssertGreaterThanOrEqual(scrolledY, 0)
+            XCTAssertLessThanOrEqual(scrolledY + indicator.bounds.height, scroll.bounds.height)
+        }
+    }
+
+    func testSharedIndicatorHidesWhenContentFitsAndDetachesCleanly() {
+        let scroll = UIScrollView(frame: CGRect(x: 0, y: 0, width: 390, height: 600))
+        let indicator = PersistentScrollIndicatorView()
+        scroll.contentSize = CGSize(width: 390, height: 400)
+        indicator.attach(to: scroll)
+        XCTAssertTrue(indicator.isHidden)
+        scroll.contentSize.height = 1200
+        XCTAssertFalse(indicator.isHidden)
+        let firstY = indicator.frame.minY
+        scroll.contentOffset.y = 300
+        XCTAssertGreaterThan(indicator.frame.minY - scroll.contentOffset.y, firstY)
+        scroll.bounds.size.height = 1400
+        XCTAssertTrue(indicator.isHidden)
+        indicator.detach()
+        XCTAssertNil(indicator.superview)
+        scroll.contentSize.height = 2000
+        XCTAssertNil(indicator.superview)
+    }
+}

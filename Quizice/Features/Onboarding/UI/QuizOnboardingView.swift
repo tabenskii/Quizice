@@ -128,7 +128,8 @@ struct QuizOnboardingView: View {
                         catalogOrigin: catalogOrigin,
                         selectedThemeIDs: Binding(get: { selection.selectedIDs }, set: selection.select),
                         isActive: selectedPage == .topics,
-                        focusedHeaderPage: $focusedHeaderPage
+                        focusedHeaderPage: $focusedHeaderPage,
+                        onAdvance: advance
                     )
                     .tag(OnboardingPage.topics)
 
@@ -343,6 +344,66 @@ struct QuizOnboardingView: View {
     private var pageAnimation: Animation? {
         guard !reduceMotion else { return nil }
         return .timingCurve(0.32, 0.72, 0, 1, duration: 0.32)
+    }
+}
+
+struct OnboardingTopicsAdvanceGesture: UIGestureRecognizerRepresentable {
+    let width: CGFloat
+    let isActive: Bool
+    let onAdvance: () -> Void
+
+    func makeCoordinator(converter: CoordinateSpaceConverter) -> Coordinator {
+        Coordinator(width: width, location: { converter.localLocation }, onAdvance: onAdvance)
+    }
+
+    func makeUIGestureRecognizer(context: Context) -> UITapGestureRecognizer {
+        let recognizer = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.advance(_:)))
+        recognizer.name = "onboardingTopicsAdvance"
+        recognizer.cancelsTouchesInView = false
+        recognizer.delegate = context.coordinator
+        recognizer.isEnabled = isActive
+        return recognizer
+    }
+
+    func updateUIGestureRecognizer(_ recognizer: UITapGestureRecognizer, context: Context) {
+        context.coordinator.width = width
+        context.coordinator.onAdvance = onAdvance
+        recognizer.isEnabled = isActive
+    }
+
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        let location: () -> CGPoint
+        var width: CGFloat
+        var onAdvance: () -> Void
+
+        init(width: CGFloat, location: @escaping () -> CGPoint, onAdvance: @escaping () -> Void) {
+            self.location = location
+            self.width = width
+            self.onAdvance = onAdvance
+        }
+
+        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+            Self.permitsNavigation(from: touch.view)
+        }
+
+        static func permitsNavigation(from view: UIView?) -> Bool {
+            var current = view
+            while let candidate = current {
+                if candidate is UIControl { return false }
+                current = candidate.superview
+            }
+            return true
+        }
+
+        func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+            let x = location().x
+            return width > 0 && x >= max(0, width - 64) && x <= width
+        }
+
+        @objc func advance(_ recognizer: UITapGestureRecognizer) {
+            guard recognizer.state == .ended else { return }
+            onAdvance()
+        }
     }
 }
 
