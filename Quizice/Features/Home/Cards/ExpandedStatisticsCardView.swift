@@ -73,6 +73,7 @@ final class ExpandedStatisticsCardView: UIView {
         surfaceStyle = appearance.card
         configuredShadow = appearance.card.shadow
         applyConfiguredSurfaceStyle(appearance.card)
+        scrollView.layer.cornerRadius = appearance.row.cornerRadius
 
         titleLabel.text = L10n.Statistics.title
         titleLabel.textColor = appearance.surfaceTextColor
@@ -169,6 +170,8 @@ final class ExpandedStatisticsCardView: UIView {
 
         scrollView.accessibilityIdentifier = AccessibilityID.scrollView
         scrollView.alwaysBounceVertical = false
+        scrollView.clipsToBounds = true
+        scrollView.layer.cornerCurve = .continuous
         scrollView.translatesAutoresizingMaskIntoConstraints = false
 
         contentStackView.axis = .vertical

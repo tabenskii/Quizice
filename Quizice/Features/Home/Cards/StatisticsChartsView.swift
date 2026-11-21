@@ -3,15 +3,13 @@ import SwiftUI
 import UIKit
 
 final class StatisticsChartsView: UIView {
-    static let fadeDuration: TimeInterval = 0.25
-
     private let sizingController = UIHostingController(rootView: AnyView(EmptyView()))
     private var hostedContent: (UIView & UIContentView)?
     private var state = StatisticsHistoryStore.State.idle
     private var appearance: AppAppearance?
     private var measuredWidth: CGFloat?
     private var measuredHeight: CGFloat = 0
-    private var fadeInHistory = false
+    private var fadeInCharts = false
     private(set) var selectedPeriod = StatisticsPeriod.week
     var onPeriodChange: ((StatisticsPeriod) -> Void)?
     var onRetry: (() -> Void)?
@@ -44,7 +42,7 @@ final class StatisticsChartsView: UIView {
 
     func configure(state: StatisticsHistoryStore.State, period: StatisticsPeriod, appearance: AppAppearance) {
         if state != self.state {
-            fadeInHistory = window != nil && alpha > 0 && UIView.areAnimationsEnabled
+            fadeInCharts = window != nil && UIView.areAnimationsEnabled
         }
         self.state = state
         self.selectedPeriod = period
@@ -60,7 +58,7 @@ final class StatisticsChartsView: UIView {
             state: state,
             period: selectedPeriod,
             appearance: appearance,
-            fadeInHistory: fadeInHistory,
+            fadeInCharts: fadeInCharts,
             selectPeriod: { [weak self] in self?.onPeriodChange?($0) },
             retry: { [weak self] in self?.onRetry?() }
         )
@@ -106,7 +104,7 @@ private struct StatisticsChartsContent: View {
     let state: StatisticsHistoryStore.State
     let period: StatisticsPeriod
     let appearance: AppAppearance
-    let fadeInHistory: Bool
+    let fadeInCharts: Bool
     let selectPeriod: (StatisticsPeriod) -> Void
     let retry: () -> Void
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -135,7 +133,6 @@ private struct StatisticsChartsContent: View {
                     .accessibilityIdentifier("statisticsHistoryRetry")
             case let .loaded(timeline):
                 history(timeline)
-                    .modifier(StatisticsHistoryFadeIn(enabled: fadeInHistory))
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -188,11 +185,14 @@ private struct StatisticsChartsContent: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("statisticsChartsEmptyState")
             } else {
-                metricHeader(title: L10n.Statistics.dailyAccuracy,
-                             value: ((timeline.accuracy ?? 0) / 100).formatted(.percent.precision(.fractionLength(0)).locale(locale)))
-                accuracyChart(timeline)
-                metricHeader(title: L10n.Statistics.dailyGames, value: timeline.playedQuizzes.formatted(.number.locale(locale)))
-                gamesChart(timeline)
+                VStack(alignment: .leading, spacing: 20) {
+                    metricHeader(title: L10n.Statistics.dailyAccuracy,
+                                 value: ((timeline.accuracy ?? 0) / 100).formatted(.percent.precision(.fractionLength(0)).locale(locale)))
+                    accuracyChart(timeline)
+                    metricHeader(title: L10n.Statistics.dailyGames, value: timeline.playedQuizzes.formatted(.number.locale(locale)))
+                    gamesChart(timeline)
+                }
+                .modifier(StatisticsChartsFadeIn(enabled: fadeInCharts))
             }
         }
     }
@@ -281,7 +281,7 @@ private struct StatisticsChartsContent: View {
     }
 }
 
-private struct StatisticsHistoryFadeIn: ViewModifier {
+private struct StatisticsChartsFadeIn: ViewModifier {
     let enabled: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var hasAppeared = false
@@ -291,7 +291,7 @@ private struct StatisticsHistoryFadeIn: ViewModifier {
             .opacity(enabled && !reduceMotion && !hasAppeared ? 0 : 1)
             .onAppear {
                 guard !hasAppeared else { return }
-                withAnimation(enabled && !reduceMotion ? .easeInOut(duration: StatisticsChartsView.fadeDuration) : nil) {
+                withAnimation(enabled && !reduceMotion ? .easeInOut(duration: 0.25) : nil) {
                     hasAppeared = true
                 }
             }
