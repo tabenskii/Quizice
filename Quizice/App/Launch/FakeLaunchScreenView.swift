@@ -7,10 +7,16 @@ enum FakeLaunchCompletionStyle: Equatable {
 }
 
 final class FakeLaunchReadiness: ObservableObject {
-    @Published var isReady: Bool
+    enum State {
+        case waiting
+        case ready
+        case readyAfterDeadline
+    }
 
-    init(isReady: Bool) {
-        self.isReady = isReady
+    @Published var state: State
+
+    init(state: State = .waiting) {
+        self.state = state
     }
 }
 
@@ -109,7 +115,7 @@ struct FakeLaunchScreenView: View {
             appearance: appearance,
             holdDuration: holdDuration,
             motion: motion,
-            readiness: FakeLaunchReadiness(isReady: true),
+            readiness: FakeLaunchReadiness(state: .ready),
             showsBackground: showsBackground,
             onFinished: onFinished
         )
@@ -170,7 +176,7 @@ struct FakeLaunchScreenView: View {
         .task {
             await finishMinimumHold()
         }
-        .onChange(of: readiness.isReady) { _, _ in
+        .onChange(of: readiness.state, initial: true) { _, _ in
             startCompletionIfReady()
         }
     }
@@ -299,8 +305,8 @@ struct FakeLaunchScreenView: View {
 
     private func startCompletionIfReady() {
         guard
-            didFinishMinimumHold,
-            readiness.isReady,
+            readiness.state != .waiting,
+            didFinishMinimumHold || readiness.state == .readyAfterDeadline,
             phase == .holding,
             !didFinish
         else { return }

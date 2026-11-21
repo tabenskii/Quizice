@@ -50,7 +50,9 @@ final class LaunchOverlayPresenter {
 
         let visualStyle = FakeLaunchVisualStyle(appearance: appearance)
         let presentationID = UUID()
-        let readiness = FakeLaunchReadiness(isReady: preparation == nil && prepareContentForReveal == nil)
+        let readiness = FakeLaunchReadiness(
+            state: preparation == nil && prepareContentForReveal == nil ? .ready : .waiting
+        )
         let hostingController = UIHostingController(
             rootView: FakeLaunchScreenView(
                 appearance: appearance,
@@ -122,12 +124,8 @@ final class LaunchOverlayPresenter {
         prepareContentForReveal = nil
         let contentReady = { [weak self] in
             guard let self, activePresentationID == presentationID,
-                  activeReadiness?.isReady == false else { return }
-            if afterTimeout {
-                dismiss(animated: true, duration: Timing.reducedMotionRevealDuration)
-            } else {
-                activeReadiness?.isReady = true
-            }
+                  let readiness = activeReadiness, readiness.state == .waiting else { return }
+            readiness.state = afterTimeout ? .readyAfterDeadline : .ready
         }
         if let prepareContent {
             prepareContent(contentReady)
