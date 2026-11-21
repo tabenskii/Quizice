@@ -274,18 +274,20 @@ final class QuizFlowCoordinatorLaunchTests: QuizFlowCoordinatorTestCase {
         let dismissed = expectation(description: "Launch dismissed once")
         dismissed.assertForOverFulfill = true
         var dismissalCount = 0
-        UIView.setAnimationsEnabled(false)
+        let animationsWereEnabled = UIView.areAnimationsEnabled
+        UIView.setAnimationsEnabled(true)
         defer {
+            UIView.setAnimationsEnabled(animationsWereEnabled)
             continuation?.resume()
             presenter.dismiss(animated: false)
             window.isHidden = true
             window.rootViewController = nil
         }
         presenter.present(
-            // The network deadline bypasses hold and zoom, but must still wait
-            // for the first screen to finish its UIKit presentation.
+            // The network deadline skips the remaining hold but still waits for
+            // the first screen to finish its UIKit presentation before animating.
             in: window, appearance: makeLaunchAppearance(designStyle: .classic), holdDuration: 60,
-            motion: FakeLaunchMotion(logoZoomScale: 42, logoZoomDuration: 60),
+            motion: FakeLaunchMotion(logoZoomScale: 42, logoZoomDuration: 0.1),
             preparationTimeout: 0.05,
             preparation: {
                 started.fulfill()
@@ -317,6 +319,7 @@ final class QuizFlowCoordinatorLaunchTests: QuizFlowCoordinatorTestCase {
         let finish = try XCTUnwrap(finishContentPreparation)
         finish()
         finish()
+        XCTAssertEqual(overlay.alpha, 1, "Content readiness must start the splash transition before fading the window")
         await fulfillment(of: [dismissed], timeout: 5)
         XCTAssertFalse(root.view.accessibilityElementsHidden)
         XCTAssertTrue(overlay.isHidden)
@@ -429,7 +432,7 @@ final class QuizFlowCoordinatorLaunchTests: QuizFlowCoordinatorTestCase {
             UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first
         )
         let window = UIWindow(windowScene: windowScene)
-        let readiness = FakeLaunchReadiness(isReady: false)
+        let readiness = FakeLaunchReadiness()
         let completionExpectation = expectation(description: "Fake launch completes after catalog")
         completionExpectation.assertForOverFulfill = true
         var completionStyle: FakeLaunchCompletionStyle?
@@ -454,7 +457,7 @@ final class QuizFlowCoordinatorLaunchTests: QuizFlowCoordinatorTestCase {
         try await Task.sleep(nanoseconds: 100_000_000)
         XCTAssertNil(completionStyle)
 
-        readiness.isReady = true
+        readiness.state = .ready
         await fulfillment(of: [completionExpectation], timeout: 2)
 
         XCTAssertEqual(completionStyle, .crossfade)
