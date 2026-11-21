@@ -253,6 +253,7 @@ struct QuizSettingsView: View {
                 }
                 .buttonStyle(QuizPressButtonStyle())
                 .accessibilityLabel(L10n.Settings.QuestionStrategy.helpAccessibilityLabel)
+                .padding(.vertical, -14)
             },
             content: {
                 if allowsPersonalizedRepeats {
