@@ -221,6 +221,28 @@ final class HomeThemeMasonryLayoutTests: HomeScreenVisualStateTestCase {
         withExtendedLifetime(catalog) {}
     }
 
+    func testVisibleMoreThemesRoutesTouchesToTheCatalogInsteadOfTheCoveredCard() throws {
+        let catalog = try makeCatalog(names: (0..<16).map { "Тема \($0)" })
+        let collectionView = catalog.cell.themesCollectionView
+        let moreThemes = try XCTUnwrap(catalog.cell.contentView.subviews.compactMap {
+            $0 as? MoreThemesFadeButton
+        }.first)
+        let overlayFrame = collectionView.convert(moreThemes.bounds, from: moreThemes)
+        let coveredCard = try XCTUnwrap(collectionView.visibleCells.compactMap {
+            $0 as? ThemeCardCollectionViewCell
+        }.first { $0.frame.intersects(overlayFrame) })
+        let coveredArea = coveredCard.frame.intersection(overlayFrame).insetBy(dx: 8, dy: 2)
+        XCTAssertFalse(coveredArea.isEmpty)
+        let point = CGPoint(x: coveredArea.midX, y: coveredArea.midY)
+
+        XCTAssertFalse(moreThemes.isHidden)
+        XCTAssertTrue(collectionView.hitTest(point, with: nil) === collectionView)
+
+        moreThemes.setVisible(false, animated: false)
+        XCTAssertTrue(collectionView.hitTest(point, with: nil) === coveredCard.actionButton)
+        withExtendedLifetime(catalog) {}
+    }
+
     func testMoreThemesAccessibilityActionPagesThroughUnequalCards() async throws {
         let names = (0..<16).map { index in
             index.isMultiple(of: 3) ? "Тема \(index) про Древний Рим и мир" : "Тема \(index)"
