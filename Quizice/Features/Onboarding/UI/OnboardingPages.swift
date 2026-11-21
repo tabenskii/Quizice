@@ -21,71 +21,72 @@ struct OnboardingWelcomePage: View {
         GeometryReader { geometry in
             let isCompact = geometry.size.height < Layout.compactHeightThreshold
 
-            VStack(spacing: isCompact ? 12 : 22) {
-                Spacer(minLength: isCompact ? 0 : 8)
+            ScrollView {
+                VStack(spacing: isCompact ? 12 : 22) {
+                    Spacer(minLength: isCompact ? 0 : 8)
 
-                WelcomeArtwork(
-                    themes: themes,
-                    isRevealed: isRevealed || reduceMotion || !UIView.areAnimationsEnabled
-                )
-                .frame(height: Layout.regularArtworkHeight)
-                .scaleEffect(isCompact ? Layout.compactArtworkScale : 1)
-                .frame(
-                    height: isCompact
-                        ? Layout.compactArtworkHeight
-                        : Layout.regularArtworkHeight
-                )
+                    WelcomeArtwork(
+                        themes: themes,
+                        isRevealed: isRevealed || reduceMotion || !UIView.areAnimationsEnabled
+                    )
+                    .frame(height: Layout.regularArtworkHeight)
+                    .scaleEffect(isCompact ? Layout.compactArtworkScale : 1)
+                    .frame(
+                        height: isCompact
+                            ? Layout.compactArtworkHeight
+                            : Layout.regularArtworkHeight
+                    )
 
-                VStack(spacing: isCompact ? 8 : 12) {
-                    Text(L10n.Onboarding.welcomeKicker)
-                        .font(
-                            appearance.typography.swiftUIFont(
-                                size: isCompact ? 11 : 13,
-                                weight: .bold
+                    VStack(spacing: isCompact ? 8 : 12) {
+                        Text(L10n.Onboarding.welcomeKicker)
+                            .font(
+                                appearance.typography.swiftUIFont(
+                                    size: isCompact ? 11 : 13,
+                                    weight: .bold
+                                )
                             )
-                        )
-                        .foregroundStyle(Color(uiColor: appearance.secondaryScreenTextColor))
-                        .textCase(.uppercase)
-                        .tracking(isCompact ? 0.5 : 0.8)
+                            .foregroundStyle(Color(uiColor: appearance.secondaryScreenTextColor))
+                            .textCase(.uppercase)
+                            .tracking(isCompact ? 0.5 : 0.8)
 
-                    Text(L10n.Onboarding.welcomeTitle)
-                        .font(
-                            appearance.typography.swiftUIFont(
-                                size: isCompact ? 30 : 38,
-                                weight: .bold
+                        Text(L10n.Onboarding.welcomeTitle)
+                            .font(
+                                appearance.typography.swiftUIFont(
+                                    size: isCompact ? 30 : 38,
+                                    weight: .bold
+                                )
                             )
-                        )
-                        .foregroundStyle(Color(uiColor: appearance.screenTextColor))
-                        .multilineTextAlignment(.center)
-                        .lineSpacing(isCompact ? -1 : -2)
-                        .minimumScaleFactor(0.76)
-                        .accessibilityAddTraits(.isHeader)
-                        .accessibilityIdentifier("onboardingWelcomeTitle")
-                        .accessibilityFocused(focusedHeaderPage, equals: .welcome)
+                            .foregroundStyle(Color(uiColor: appearance.screenTextColor))
+                            .multilineTextAlignment(.center)
+                            .lineSpacing(isCompact ? -1 : -2)
+                            .minimumScaleFactor(0.76)
+                            .accessibilityAddTraits(.isHeader)
+                            .accessibilityIdentifier("onboardingWelcomeTitle")
+                            .accessibilityFocused(focusedHeaderPage, equals: .welcome)
 
-                    Text(L10n.Onboarding.welcomeSubtitle)
-                        .font(
-                            appearance.typography.swiftUIFont(
-                                size: isCompact ? 15 : 18,
-                                weight: .regular
+                        Text(L10n.Onboarding.welcomeSubtitle)
+                            .font(
+                                appearance.typography.swiftUIFont(
+                                    size: isCompact ? 15 : 18,
+                                    weight: .regular
+                                )
                             )
-                        )
-                        .foregroundStyle(Color(uiColor: appearance.secondaryScreenTextColor))
-                        .multilineTextAlignment(.center)
-                        .lineSpacing(isCompact ? 1 : 3)
-                        .fixedSize(horizontal: false, vertical: true)
+                            .foregroundStyle(Color(uiColor: appearance.secondaryScreenTextColor))
+                            .multilineTextAlignment(.center)
+                            .lineSpacing(isCompact ? 1 : 3)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding(.horizontal, isCompact ? 0 : 4)
+
+                    Spacer(minLength: isCompact ? 0 : 18)
                 }
-                .padding(.horizontal, isCompact ? 0 : 4)
-
-                Spacer(minLength: isCompact ? 0 : 18)
+                .frame(maxWidth: 520)
+                .padding(.horizontal, isCompact ? 20 : 24)
+                .frame(
+                    maxWidth: .infinity,
+                    minHeight: geometry.size.height
+                )
             }
-            .frame(maxWidth: 520)
-            .padding(.horizontal, isCompact ? 20 : 24)
-            .frame(
-                maxWidth: .infinity,
-                minHeight: geometry.size.height,
-                maxHeight: geometry.size.height
-            )
         }
         .accessibilityIdentifier("onboardingWelcomePage")
         .onAppear(perform: updateReveal)
@@ -203,7 +204,7 @@ private struct WelcomeArtwork: View {
             }
             .frame(width: size, height: size)
             .overlay {
-                Image(systemName: systemImage)
+                Image(systemName: ThemeVisualCatalog.resolvedSymbolName(systemImage))
                     .font(appearance.typography.swiftUIFont(size: size * 0.36, weight: .semibold))
                     .foregroundStyle(Color(uiColor: appearance.themeCardTextColor(baseColor: color)))
             }
@@ -222,6 +223,8 @@ struct OnboardingTopicsPage: View {
     @Binding var selectedThemeIDs: Set<String>
     let isActive: Bool
     var focusedHeaderPage: AccessibilityFocusState<OnboardingPage?>.Binding
+    var onAdvance: () -> Void = {}
+    var onGoBack: () -> Void = {}
 
     @Environment(\.appAppearance) private var appearance
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -294,6 +297,9 @@ struct OnboardingTopicsPage: View {
                 maxHeight: geometry.size.height,
                 alignment: .top
             )
+            .contentShape(Rectangle())
+            .gesture(OnboardingTopicsNavigationGesture(width: geometry.size.width, isActive: isActive,
+                onAdvance: onAdvance, onGoBack: onGoBack))
         }
         .accessibilityIdentifier("onboardingTopicsPage")
     }
@@ -333,8 +339,10 @@ private struct OnboardingCatalogSourceBadge: View {
 
 struct OnboardingTutorialPage: View {
     let themePreview: OnboardingTheme?
+    @Binding var repeatStrategy: QuestionRepeatStrategy
     let isActive: Bool
     var focusedHeaderPage: AccessibilityFocusState<OnboardingPage?>.Binding
+    var onGoBack: () -> Void = {}
 
     @Environment(\.appAppearance) private var appearance
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -347,17 +355,17 @@ struct OnboardingTutorialPage: View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 18) {
                 VStack(spacing: 10) {
-                    Text(L10n.Onboarding.tutorialTitle)
-                        .font(appearance.typography.swiftUIFont(size: 32, weight: .bold))
+                    Text(L10n.Onboarding.QuestionStrategy.title)
+                        .font(appearance.typography.swiftUIFont(size: 28, weight: .bold))
                         .foregroundStyle(Color(uiColor: appearance.screenTextColor))
                         .multilineTextAlignment(.center)
-                        .minimumScaleFactor(0.8)
+                        .fixedSize(horizontal: false, vertical: true)
                         .accessibilityAddTraits(.isHeader)
                         .accessibilityIdentifier("onboardingTutorialTitle")
                         .accessibilityFocused(focusedHeaderPage, equals: .tutorial)
 
-                    Text(L10n.Onboarding.tutorialSubtitle)
-                        .font(appearance.typography.swiftUIFont(size: 17, weight: .regular))
+                    Text(L10n.Onboarding.QuestionStrategy.subtitle)
+                        .font(appearance.typography.swiftUIFont(size: 16, weight: .regular))
                         .foregroundStyle(Color(uiColor: appearance.secondaryScreenTextColor))
                         .multilineTextAlignment(.center)
                         .lineSpacing(2)
@@ -365,7 +373,27 @@ struct OnboardingTutorialPage: View {
                 }
                 .padding(.horizontal, 4)
 
-                VStack(spacing: 12) {
+                OnboardingQuestionStrategyPicker(selection: $repeatStrategy)
+
+                VStack(spacing: 6) {
+                    Text(L10n.Onboarding.QuestionStrategy.settingsHint)
+                        .font(appearance.typography.swiftUIFont(size: 14, weight: .medium))
+                    Text(L10n.Onboarding.QuestionStrategy.availabilityHint)
+                        .font(appearance.typography.swiftUIFont(size: 13, weight: .regular))
+                }
+                .foregroundStyle(Color(uiColor: appearance.secondaryScreenTextColor))
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("onboardingQuestionStrategyHint")
+
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(L10n.Onboarding.tutorialTitle)
+                        .font(appearance.typography.swiftUIFont(size: 22, weight: .semibold))
+                        .foregroundStyle(Color(uiColor: appearance.screenTextColor))
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityAddTraits(.isHeader)
+                        .padding(.top, 10)
+
                     ForEach(Array(features.enumerated()), id: \.element.id) { index, feature in
                         TutorialFeatureRow(feature: feature, themePreview: themePreview)
                             // Keep the content readable even if the page is captured or
@@ -381,7 +409,16 @@ struct OnboardingTutorialPage: View {
             .padding(.top, 20)
             .padding(.bottom, 14)
             .frame(maxWidth: .infinity)
+            .background(OnboardingTutorialScrollIndicator(color: appearance.secondaryScreenTextColor))
         }
+        .contentShape(Rectangle())
+        .gesture(
+            SpatialTapGesture().onEnded { value in
+                guard value.location.x >= 0, value.location.x <= 64 else { return }
+                onGoBack()
+            },
+            including: isActive ? .all : .subviews
+        )
         .accessibilityIdentifier("onboardingTutorialPage")
         .onAppear(perform: updateReveal)
         .onChange(of: isActive) { _, _ in updateReveal() }
@@ -431,6 +468,46 @@ struct OnboardingTutorialPage: View {
         guard !reduceMotion, UIView.areAnimationsEnabled else { return nil }
         return .timingCurve(0.23, 1, 0.32, 1, duration: 0.34)
             .delay(Double(index) * 0.07)
+    }
+}
+
+struct OnboardingTutorialScrollIndicator: UIViewRepresentable {
+    let color: UIColor
+
+    func makeUIView(context: Context) -> AttachmentView { AttachmentView() }
+
+    func updateUIView(_ view: AttachmentView, context: Context) {
+        view.indicator.backgroundColor = color
+    }
+
+    static func dismantleUIView(_ view: AttachmentView, coordinator: ()) {
+        view.indicator.detach()
+    }
+
+    final class AttachmentView: UIView {
+        let indicator = PersistentScrollIndicatorView()
+
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            if window == nil { indicator.detach() } else { attachIfNeeded() }
+        }
+
+        override func layoutSubviews() {
+            super.layoutSubviews()
+            attachIfNeeded()
+        }
+
+        private func attachIfNeeded() {
+            var ancestor = superview
+            while let view = ancestor {
+                if let scroll = view as? UIScrollView {
+                    indicator.accessibilityIdentifier = "onboardingTutorialScrollIndicator"
+                    indicator.attach(to: scroll)
+                    return
+                }
+                ancestor = view.superview
+            }
+        }
     }
 }
 

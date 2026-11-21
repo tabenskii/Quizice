@@ -45,7 +45,9 @@ mkdir -p "$(dirname "$RESULT_BUNDLE_PATH")" "$DERIVED_DATA_PATH"
 
 TEMP_FILES=()
 CREATED_SIMULATOR_UDID=""
+BOOTED_SIMULATOR_UDID=""
 SIMULATOR_UDID=""
+SIMULATOR_INITIAL_STATE=""
 
 remember_temp_file() {
   TEMP_FILES+=("$1")
@@ -59,6 +61,9 @@ cleanup() {
   if [[ -n "$CREATED_SIMULATOR_UDID" ]]; then
     xcrun simctl shutdown "$CREATED_SIMULATOR_UDID" >/dev/null 2>&1 || true
     xcrun simctl delete "$CREATED_SIMULATOR_UDID" >/dev/null 2>&1 || true
+  elif [[ -n "$BOOTED_SIMULATOR_UDID" ]]; then
+    # Release devices we started while preserving simulators already in use.
+    xcrun simctl shutdown "$BOOTED_SIMULATOR_UDID" >/dev/null 2>&1 || true
   fi
 }
 trap cleanup EXIT
@@ -103,22 +108,25 @@ for device in payload.get("devices", {}).get(runtime["identifier"], []):
         continue
     if device.get("deviceTypeIdentifier") != device_type.get("identifier"):
         continue
-    candidates.append((0 if device.get("state") == "Booted" else 1, device.get("name", ""), device["udid"]))
+    state = device.get("state", "")
+    candidates.append((0 if state == "Booted" else 1, device.get("name", ""), device["udid"], state))
 
-udid = sorted(candidates)[0][2] if candidates else ""
-print("|".join((udid, device_type["identifier"], runtime["identifier"])))
+selected = sorted(candidates)[0] if candidates else None
+udid, initial_state = selected[2:] if selected else ("", "")
+print("|".join((udid, device_type["identifier"], runtime["identifier"], initial_state)))
 PY
 )" || fail "could not resolve $DEVICE_NAME on iOS $RUNTIME_VERSION"
 
   local device_type_identifier
   local runtime_identifier
-  IFS='|' read -r SIMULATOR_UDID device_type_identifier runtime_identifier <<< "$selection"
+  IFS='|' read -r SIMULATOR_UDID device_type_identifier runtime_identifier SIMULATOR_INITIAL_STATE <<< "$selection"
   if [[ -z "$SIMULATOR_UDID" ]]; then
     SIMULATOR_UDID="$(xcrun simctl create \
       "Quizice CI - $DEVICE_NAME - iOS $RUNTIME_VERSION" \
       "$device_type_identifier" \
       "$runtime_identifier")"
     CREATED_SIMULATOR_UDID="$SIMULATOR_UDID"
+    SIMULATOR_INITIAL_STATE="Shutdown"
     printf 'Created simulator: %s (%s, iOS %s)\n' "$SIMULATOR_UDID" "$DEVICE_NAME" "$RUNTIME_VERSION" >&2
   fi
 }
@@ -222,7 +230,13 @@ done < "$CATEGORY_SUITES"
 
 select_or_create_simulator
 [[ -n "$SIMULATOR_UDID" ]] || fail "simulator selection returned an empty UDID"
-xcrun simctl boot "$SIMULATOR_UDID" >/dev/null 2>&1 || true
+printf 'Preparing simulator: %s (%s, initial state: %s)\n' \
+  "$SIMULATOR_UDID" "$DEVICE_NAME" "$SIMULATOR_INITIAL_STATE"
+if xcrun simctl boot "$SIMULATOR_UDID" >/dev/null 2>&1; then
+  if [[ "$SIMULATOR_INITIAL_STATE" == "Shutdown" ]]; then
+    BOOTED_SIMULATOR_UDID="$SIMULATOR_UDID"
+  fi
+fi
 xcrun simctl bootstatus "$SIMULATOR_UDID" -b
 
 if [[ "$CATEGORY" == "snapshots" ]]; then

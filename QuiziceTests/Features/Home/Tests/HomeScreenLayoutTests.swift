@@ -66,7 +66,7 @@ final class HomeScreenLayoutTests: HomeScreenVisualStateTestCase {
         XCTAssertEqual(collectionView?.touchesShouldCancel(in: UIButton(type: .system)), true)
     }
 
-    func testHomeCollectionRemainsFixedOnRegularAndCompactScreens() {
+    func testHomeCollectionScrollsOnlyWhenContentDoesNotFit() {
         QuizFactory.shared.themes = [makeTheme(name: "Музыка")]
 
         let viewController = makeHomeViewController(in: CGRect(x: 0, y: 0, width: 390, height: 844))
@@ -79,9 +79,9 @@ final class HomeScreenLayoutTests: HomeScreenVisualStateTestCase {
         let compactViewController = makeHomeViewController(in: CGRect(x: 0, y: 0, width: 390, height: 430))
         let compactCollectionView = compactViewController.view.descendant(withAccessibilityIdentifier: "homeThemesCollectionView") as? UICollectionView
 
-        XCTAssertEqual(compactCollectionView?.isScrollEnabled, false)
-        XCTAssertEqual(compactCollectionView?.alwaysBounceVertical, false)
-        XCTAssertEqual(compactCollectionView?.bounces, false)
+        XCTAssertEqual(compactCollectionView?.isScrollEnabled, true)
+        XCTAssertEqual(compactCollectionView?.alwaysBounceVertical, true)
+        XCTAssertEqual(compactCollectionView?.bounces, true)
     }
 
     func testHomeMotivationLabelFadesAsCollectionScrollsUp() throws {

@@ -19,6 +19,48 @@ enum AuthSessionState: Equatable {
     case deletionPending
 }
 
+/// Startup waiting has its own lifetime: cancelling a splash waiter must leave
+/// Game Center and backend authentication running for the account presenter.
+@MainActor
+final class InitialAuthenticationReadiness {
+    private var resolved = false
+    private var waiters: [UUID: CheckedContinuation<Void, Never>] = [:]
+
+    func wait() async {
+        guard !resolved, !Task.isCancelled else { return }
+        let waiterID = UUID()
+        await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                guard !resolved, !Task.isCancelled else {
+                    continuation.resume()
+                    return
+                }
+                waiters[waiterID] = continuation
+            }
+        } onCancel: { [weak self] in
+            Task { @MainActor [weak self] in
+                self?.waiters.removeValue(forKey: waiterID)?.resume()
+            }
+        }
+    }
+
+    func resolveIfNeeded(_ state: AuthSessionState) {
+        switch state {
+        case .initializing, .authenticating: return
+        case .authenticated, .guest, .deletionPending: break
+        }
+        guard !resolved else { return }
+        resolved = true
+        let pending = Array(waiters.values)
+        waiters.removeAll()
+        pending.forEach { $0.resume() }
+    }
+}
+
+enum GameCenterAuthenticationError: Error, Equatable {
+    case playerChanged
+}
+
 /// Only authenticated accounts may enter the app's quiz screens. The legacy
 /// guest storage scope is never an app-access state.
 enum AppAccountAccessState: Equatable {
@@ -32,13 +74,22 @@ enum AppAccountAccessState: Equatable {
 @MainActor
 protocol AppAccountAccessProviding: AnyObject {
     var accountAccessState: AppAccountAccessState { get }
+    var needsGameCenterSignIn: Bool { get }
     var authenticatedAccountID: String? { get }
     var accountAccessStateDidChange: ((AppAccountAccessState) -> Void)? { get set }
     func signIn(present: @escaping (UIViewController) -> Void)
+    func retryConnection(present: @escaping (UIViewController) -> Void)
 }
 
 extension AppAccountAccessProviding {
     var authenticatedAccountID: String? { nil }
+    var needsGameCenterSignIn: Bool { accountAccessState == .signInRequired }
+    func retryConnection(present: @escaping (UIViewController) -> Void) { signIn(present: present) }
+}
+
+@MainActor
+protocol AccountSynchronizing: AnyObject {
+    func synchronizeAccountData() async
 }
 
 @MainActor
@@ -155,6 +206,11 @@ struct AuthSession: Codable, Equatable {
     let expiresAt: Date
     let teamPlayerID: String
 
+    func permitsOfflinePlay(now: Date) -> Bool {
+        expiresAt > now && !userID.isEmpty && !teamPlayerID.isEmpty
+            && !accessToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     func isValid(for teamPlayerID: String, now: Date) -> Bool {
         self.teamPlayerID == teamPlayerID && expiresAt > now
     }
@@ -260,6 +316,7 @@ extension SessionStoring {
 
 enum GameCenterPlayerState: Equatable {
     case authenticated(teamPlayerID: String)
+    case networkUnavailable
     case unavailable
 }
 
@@ -269,5 +326,18 @@ protocol GameCenterAuthenticating: AnyObject {
         present: @escaping (UIViewController) -> Void,
         stateChanged: @escaping (GameCenterPlayerState) -> Void
     )
+    func signIn(
+        present: @escaping (UIViewController) -> Void,
+        stateChanged: @escaping (GameCenterPlayerState) -> Void
+    )
     func fetchIdentity(bundleIdentifier: String) async throws -> GameCenterIdentity
+}
+
+extension GameCenterAuthenticating {
+    func signIn(
+        present: @escaping (UIViewController) -> Void,
+        stateChanged: @escaping (GameCenterPlayerState) -> Void
+    ) {
+        start(present: present, stateChanged: stateChanged)
+    }
 }

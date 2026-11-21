@@ -1,6 +1,10 @@
 import UIKit
 
 struct TopicsPhysicsDescriptor {
+    private static let introductoryThemeIDs = [
+        "music", "technology", "history_culture", "politics_business"
+    ]
+
     let theme: OnboardingTheme
     let spawnX: CGFloat
     let initialAngle: CGFloat
@@ -10,11 +14,16 @@ struct TopicsPhysicsDescriptor {
     let staticAngle: CGFloat
 
     static func make(from themes: [OnboardingTheme]) -> [TopicsPhysicsDescriptor] {
+        let introductoryThemes = introductoryThemeIDs.flatMap { id in
+            themes.filter { $0.id == id }
+        }
+        let additionalThemes = themes.filter { !introductoryThemeIDs.contains($0.id) }
+        let orderedThemes = introductoryThemes + additionalThemes
         let columnCount = themes.count <= 4 ? 2 : 3
         let rowCount = max(Int(ceil(Double(themes.count) / Double(columnCount))), 1)
         let rowSpacing = min(0.22, 0.72 / CGFloat(max(rowCount - 1, 1)))
 
-        return themes.enumerated().map { index, theme in
+        return orderedThemes.enumerated().map { index, theme in
             let hash = stableHash(theme.id)
             let column = index % columnCount
             let row = index / columnCount

@@ -58,6 +58,11 @@ extension QuizViewController {
                         : self.expandedThemeCardView?.backFocusView
                 )
             }
+#if DEBUG
+            if completedStableFlip, completedFace == .back {
+                self.completeDebugCompletedThemePresentation()
+            }
+#endif
             if self.closeAfterFlipToFront, completedFace == .front {
                 self.closeAfterFlipToFront = false
                 self.sendHomeCardAction(.closeRequested)
@@ -109,6 +114,7 @@ extension QuizViewController {
                         : self.expandedAIThemeCardView?.backFocusView
                 )
             }
+            if completedStableFlip { self.applyPendingAIServiceNotice() }
             if self.expandedCardNeedsRefresh {
                 self.refreshExpandedThemeCardAppearance()
             }

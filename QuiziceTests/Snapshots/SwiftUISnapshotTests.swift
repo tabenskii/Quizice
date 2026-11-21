@@ -6,6 +6,8 @@ import SnapshotTesting
 
 @MainActor
 final class SwiftUISnapshotTests: XCTestCase {
+    private var onboardingStrategySuiteNames: [String] = []
+
     private var onboardingThemes: [OnboardingTheme] {
         [
             OnboardingTheme(
@@ -45,8 +47,27 @@ final class SwiftUISnapshotTests: XCTestCase {
     }
 
     override func tearDown() {
+        onboardingStrategySuiteNames.forEach {
+            UserDefaults.standard.removePersistentDomain(forName: $0)
+        }
+        onboardingStrategySuiteNames.removeAll()
         SnapshotSupport.tearDown()
         super.tearDown()
+    }
+
+    func testIPadSettingsSnapshot() {
+        SnapshotSupport.assertScreen(makeHostingController(rootView: QuizSettingsView()),
+            named: "clean-ipad-settings", device: SnapshotSupport.iPadPortrait, afterPrepare: prepareSettingsSnapshot)
+    }
+
+    func testIPadOnboardingSnapshots() {
+        for device in [SnapshotSupport.iPadPortrait, SnapshotSupport.iPadShortWindow] {
+            let controller = makeHostingController(rootView: QuizOnboardingView(
+                appearance: SnapshotSupport.appearance(designStyle: .clean, cleanColorScheme: .light),
+                themes: onboardingThemes, onComplete: { _ in }
+            ))
+            SnapshotSupport.assertScreen(controller, named: "clean-ipad-onboarding-\(Int(device.size!.width))", device: device)
+        }
     }
 
     func testSettingsViewSnapshot() {
@@ -95,6 +116,22 @@ final class SwiftUISnapshotTests: XCTestCase {
             named: "clean-settings-privacy-iphone-se",
             device: .iPhone8
         )
+    }
+
+    func testAccountConnectionSplashSnapshots() {
+        for style in [AppDesignStyle.classic, .clean, .radar] {
+            SnapshotSupport.setUp(designStyle: style)
+            for state in [AppAccountAccessState.loading, .signInRequired] {
+                let model = AccountStartModel(state: state)
+                model.needsGameCenterSignIn = false
+                let controller = makeHostingController(rootView: AccountStartView(
+                    model: model, appearance: SnapshotSupport.appearance(designStyle: style), onPrimaryAction: {}
+                ))
+                let suffix = state == .loading ? "waiting" : "retry"
+                SnapshotSupport.assertScreen(controller,
+                    named: "\(style.rawValue)-account-connection-\(suffix)", device: .iPhone8)
+            }
+        }
     }
 
     func testAccountDeletedStartScreenSnapshot() {
@@ -413,6 +450,7 @@ final class SwiftUISnapshotTests: XCTestCase {
                 appearance: appearance,
                 themes: onboardingThemes,
                 initialPage: .tutorial,
+                strategyDefaults: makeOnboardingStrategyDefaults(),
                 onComplete: { _ in }
             )
         )
@@ -422,6 +460,48 @@ final class SwiftUISnapshotTests: XCTestCase {
             named: "classic-onboarding-tutorial-iphone-se",
             device: .iPhone8
         )
+    }
+
+    func testCleanOnboardingQuestionStrategySnapshot() {
+        let viewController = makeHostingController(rootView: QuizOnboardingView(
+            appearance: SnapshotSupport.appearance(designStyle: .clean),
+            themes: onboardingThemes,
+            initialPage: .tutorial,
+            strategyDefaults: makeOnboardingStrategyDefaults(strategy: .retryIncorrect),
+            onComplete: { _ in }
+        ))
+
+        SnapshotSupport.assertScreen(
+            viewController,
+            named: "clean-onboarding-question-strategy",
+            device: SnapshotSupport.iPhone17Pro
+        )
+    }
+
+    func testCleanOnboardingQuestionStrategyAccessibilityXXLSnapshot() {
+        let viewController = makeHostingController(rootView: QuizOnboardingView(
+            appearance: SnapshotSupport.appearance(designStyle: .clean),
+            themes: onboardingThemes,
+            initialPage: .tutorial,
+            strategyDefaults: makeOnboardingStrategyDefaults(),
+            onComplete: { _ in }
+        ))
+
+        SnapshotSupport.assertScreen(
+            viewController,
+            named: "clean-onboarding-question-strategy-accessibility-xxl",
+            device: SnapshotSupport.iPhone17Pro,
+            contentSizeCategory: .accessibilityExtraExtraLarge
+        )
+    }
+
+    private func makeOnboardingStrategyDefaults(strategy: QuestionRepeatStrategy? = nil) -> UserDefaults {
+        let suiteName = "SwiftUISnapshotTests.OnboardingStrategy.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        onboardingStrategySuiteNames.append(suiteName)
+        if let strategy { QuestionRepeatStrategyStore(defaults: defaults).strategy = strategy }
+        return defaults
     }
 
     func testClassicAIThemeServiceAlertSnapshot() async {
@@ -488,6 +568,35 @@ final class SwiftUISnapshotTests: XCTestCase {
         SnapshotSupport.assertScreen(
             viewController,
             named: "clean-question-exit-alert-iphone-se",
+            device: .iPhone8
+        )
+    }
+
+    func testCleanCompletedTopicAlertSnapshot() {
+        let appearance = SnapshotSupport.appearance(designStyle: .clean)
+        let home = QuizViewController()
+        let viewController = makeAlertSnapshotViewController(
+            overlay: home.makeQuizProgressCompleteAlertOverlay(restart: {}, dismiss: {}),
+            appearance: appearance
+        )
+        SnapshotSupport.assertScreen(
+            viewController,
+            named: "clean-completed-topic-alert-iphone-se",
+            device: .iPhone8
+        )
+    }
+
+    func testClassicCompletedTopicAlertSnapshot() {
+        SnapshotSupport.setUp(designStyle: .classic)
+        let appearance = SnapshotSupport.appearance(designStyle: .classic)
+        let home = QuizViewController()
+        let viewController = makeAlertSnapshotViewController(
+            overlay: home.makeQuizProgressCompleteAlertOverlay(restart: {}, dismiss: {}),
+            appearance: appearance
+        )
+        SnapshotSupport.assertScreen(
+            viewController,
+            named: "classic-completed-topic-alert-iphone-se",
             device: .iPhone8
         )
     }

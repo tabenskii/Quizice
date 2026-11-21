@@ -307,6 +307,7 @@ final class QuizFlowCoordinatorNavigationTests: QuizFlowCoordinatorTestCase {
         let replayedQuestionTexts = replayedTheme.quizTheme.questions.map(\.question)
         XCTAssertEqual(replayedTheme.themeID, RandomQuizSelection.themeID)
         XCTAssertEqual(replayedTheme.themeName, L10n.Home.randomSelection)
+        XCTAssertTrue(replayedTheme.quizTheme.questions.allSatisfy { $0.sourceThemeName == "Catalog" })
         XCTAssertEqual(replayedQuestionTexts.count, RandomQuizSelection.questionCount)
         XCTAssertNotEqual(replayedQuestionTexts, initialQuestionTexts)
         XCTAssertTrue(replayedQuestionTexts.contains("Catalog question 5?"))

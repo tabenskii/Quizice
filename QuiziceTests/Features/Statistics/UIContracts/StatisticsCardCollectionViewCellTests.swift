@@ -72,6 +72,31 @@ final class StatisticsCardCollectionViewCellTests: XCTestCase {
         )
     }
 
+    func testPrefetchedStatisticsCellReadsCurrentAccountSummaryBeforeDisplay() throws {
+        let store = makeStatisticsStore()
+        let service = ThemesCollectionService(statisticsStore: store)
+        let collectionView = makeCollectionView(service: service)
+        let indexPath = IndexPath(item: 3, section: 0)
+        let cell = service.collectionView(collectionView, cellForItemAt: indexPath)
+        let played = try XCTUnwrap(cell.contentView.descendant(
+            withAccessibilityIdentifier: ThemesCollectionService.Content.statisticsPlayedValueAccessibilityID
+        ) as? UILabel)
+        XCTAssertEqual(played.text, "0")
+        store.activateAuthenticatedUser("player")
+        store.recordAttempt(correctAnswers: 4, totalQuestions: 5)
+
+        service.collectionView(collectionView, willDisplay: cell, forItemAt: indexPath)
+
+        XCTAssertEqual(played.text, "1")
+        let accuracy = cell.contentView.descendant(
+            withAccessibilityIdentifier: ThemesCollectionService.Content.statisticsAccuracyValueAccessibilityID
+        ) as? UILabel
+        XCTAssertEqual(accuracy?.text, "80%")
+        store.activateGuest()
+        service.collectionView(collectionView, willDisplay: cell, forItemAt: indexPath)
+        XCTAssertEqual(played.text, "0")
+    }
+
     func testPresentedStatisticsStateReconfiguresOnlyItsSourceVisibility() throws {
         let service = ThemesCollectionService(statisticsStore: makeStatisticsStore())
         let collectionView = makeCollectionView(service: service)

@@ -248,9 +248,8 @@ final class StatisticsCardCollectionViewCell: UICollectionViewCell {
         contentStackView.addArrangedSubview(metricsStackView)
         actionButton.addSubview(contentStackView)
 
+        actionButton.constrainHomeActionWidth(in: contentView)
         NSLayoutConstraint.activate([
-            actionButton.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
-            actionButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
             actionButton.topAnchor.constraint(equalTo: contentView.topAnchor),
             actionButton.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -Layout.bottomInset),
 

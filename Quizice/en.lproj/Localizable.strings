@@ -117,7 +117,9 @@
 "question.show_question" = "Show question";
 "question.tap_to_answer.accessibility_hint" = "Double tap to select this answer.";
 "question.unavailable.message" = "This theme has no available questions yet. Go back and choose another theme.";
-"question.progress_complete.message" = "You’ve completed all questions available for this repeat setting. Choose another setting or theme to keep playing.";
+"question.progress_complete.title" = "All questions completed";
+"question.progress_complete.message" = "You’ve completed all available questions with these settings. Reset answer progress for the entire topic and start again? Your game statistics will be kept.";
+"question.progress_complete.restart" = "Reset and start again";
 "question.loading_failed.title" = "Could not load questions";
 "question.loading_failed.message" = "We couldn't retrieve the questions. Please try again a little later.";
 "question.network_failure.message" = "Check your internet connection and try again.";
@@ -285,12 +287,35 @@
 
 /* Required account start screen */
 "account_start.connecting.title" = "Connecting your account";
-"account_start.sign_in.message" = "Continue with Game Center to play. If sign-in fails, check your internet connection and Game Center sign-in in device Settings.";
+"account_start.sign_in.message" = "Sign in with Game Center to play. If you can’t create a player profile, finish setting it up in Settings → Game Center, then return here and try signing in again.";
 "account_start.sign_in.action" = "Continue with Game Center";
 "account_start.deletion_pending.title" = "Finish deleting your account";
 "account_start.deletion_pending.message" = "Account deletion is not yet complete. Retry the request to delete your account and its data.";
 "account_start.deletion_pending.action" = "Retry account deletion";
 "account_start.deletion_pending.sign_in" = "To finish deletion, sign in to the original Game Center account in iPhone Settings, then try again.";
+
+"debug_menu.test_account.title" = "Backend test account";
+"debug_menu.test_account.key" = "Private test account key";
+"debug_menu.test_account.connect" = "Connect / renew test account";
+"debug_menu.test_account.help" = "Enter the key once. Leave this field empty to reuse the saved key. Sessions renew automatically; your statistics stay with the same account.";
+"debug_menu.test_account.no_backend" = "Enable the backend before connecting.";
+"debug_menu.test_account.key_required" = "Enter the private test account key.";
+"debug_menu.test_account.failure" = "Could not connect. Check the key and your connection, then retry.";
+
+"onboarding.question_strategy.title" = "How should questions repeat?";
+"onboarding.question_strategy.subtitle" = "Choose which questions you’ll see again.";
+"onboarding.question_strategy.settings_hint" = "You can change this later in Settings.";
+"onboarding.question_strategy.availability_hint" = "Applies to ready-made topics from the online catalog after Game Center sign-in. Guests see all questions.";
+"onboarding.question_strategy.hideAnswered.detail" = "Questions you’ve answered won’t appear again.";
+"onboarding.question_strategy.retryIncorrect.detail" = "Hide questions answered correctly and keep the ones you missed.";
+"onboarding.question_strategy.showAll.detail" = "Any question may appear again.";
+
+"debug_menu.completed_theme" = "Show completed theme";
+"debug_menu.completed_theme.hint" = "Choose a server theme here from the home screen. Confirming the alert really resets progress for the entire theme.";
+
+"question.offline_unavailable.message" = "No saved questions match these settings. Connect to the internet and open the home screen to download questions for offline play.";
+
+"account_start.connection.failed" = "Could not connect your account. Check your internet connection and try again.";
 
 /* Daily account statistics */
 "statistics.history.title" = "Game history";

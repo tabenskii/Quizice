@@ -24,8 +24,54 @@ final class ScreenSnapshotTests: XCTestCase {
         super.tearDown()
     }
 
+    func testIPadHomeSnapshots() {
+        for style in [AppDesignStyle.classic, .radar, .clean] {
+            SnapshotSupport.setUp(designStyle: style)
+            SnapshotSupport.assertScreen(
+                makeHomeViewController(themes: makeRepresentativeBackendCatalogThemes()),
+                named: "\(style.rawValue)-ipad-home", device: SnapshotSupport.iPadPortrait
+            )
+        }
+    }
+
+    func testIPadQuestionSnapshots() {
+        for style in [AppDesignStyle.classic, .radar, .clean] {
+            SnapshotSupport.setUp(designStyle: style)
+            SnapshotSupport.assertScreen(makeQuestionViewController(), named: "\(style.rawValue)-ipad-question",
+                device: SnapshotSupport.iPadLandscape, afterPrepare: prepareQuestionSnapshot)
+            SnapshotSupport.assertScreen(makeJapanQuestionViewController(), named: "\(style.rawValue)-ipad-short-question",
+                device: SnapshotSupport.iPadShortWindow, afterPrepare: prepareQuestionSnapshot)
+        }
+    }
+
+    func testIPadResultSnapshots() {
+        for style in [AppDesignStyle.classic, .radar, .clean] {
+            SnapshotSupport.setUp(designStyle: style)
+            SnapshotSupport.assertScreen(makeResultViewController(), named: "\(style.rawValue)-ipad-result", device: SnapshotSupport.iPadPortrait)
+        }
+    }
+
     func testHomeScreenSnapshot() {
         SnapshotSupport.assertScreen(makeHomeViewController(), named: "clean-home", size: portraitSize)
+    }
+
+    func testHomeMasonryCatalogSnapshot() {
+        let titles = [
+            "Музыка", "История Древнего Рима", "Кино", "Искусство и культура мира",
+            "Спорт", "Наука и жизнь", "Игры", "Мифы и легенды"
+        ]
+        let themes = titles.enumerated().map { index, title in
+            SnapshotSupport.makeTheme(
+                id: "masonry-\(index)", name: title,
+                sfSymbolName: index.isMultiple(of: 2) ? "sparkles" : "book.fill",
+                colorHex: index.isMultiple(of: 2) ? "#8B5CF6" : "#62A2E6"
+            )
+        }
+        SnapshotSupport.assertScreen(
+            makeHomeViewController(themes: themes),
+            named: "clean-home-masonry-catalog",
+            size: portraitSize
+        )
     }
 
     func testCollapsedBackendCatalogSnapshot() {
@@ -339,9 +385,7 @@ final class ScreenSnapshotTests: XCTestCase {
         assertAdaptiveSnapshots(
             makeViewController: { self.makeQuestionViewController() },
             screenName: "question",
-            // The iPhone target supports portrait only. The fixed question
-            // card is bounded by the actual supported viewport.
-            includesLandscape: false,
+            includesLandscape: true,
             afterPrepare: prepareQuestionSnapshot
         )
     }

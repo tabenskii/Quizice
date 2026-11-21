@@ -125,6 +125,16 @@ struct SlowBackendContentAPI: BackendContentAPI {
 }
 
 final class RecordingBackendContentAPI: BackendContentAPI {
+    var offlinePack: OfflineQuestionPack?
+    var onOffline: (() async throws -> Void)?
+    private(set) var requestedOfflineLocales: [String] = []
+    func fetchOfflineQuestions(locale: String, userID: String) async throws -> OfflineQuestionPack {
+        requestedOfflineLocales.append(locale)
+        try await onOffline?()
+        guard let offlinePack else { throw BackendContentError.invalidRequest }
+        return offlinePack
+    }
+
     private(set) var requestedCountries: [String?] = []
 
     func fetchQuestions(
@@ -266,6 +276,8 @@ final class ThemePreferencesBackendContentAPI: BackendContentAPI {
     var beforePreferencesResponse: (() -> Void)?
     var beforeAsyncPreferencesResponse: (() async -> Void)?
     var beforeCatalogResponse: (() async -> Void)?
+    var catalogError: Error?
+    private(set) var fetchedCatalogLocales: [String] = []
     private(set) var fetchedPreferenceLocales: [String] = []
     private(set) var replacedPreferences: [(locale: String, themeIDs: [String])] = []
 
@@ -277,8 +289,31 @@ final class ThemePreferencesBackendContentAPI: BackendContentAPI {
         self.remoteFavoriteThemeIDs = remoteFavoriteThemeIDs
     }
 
+    private(set) var fetchedFavorites = 0
+    private(set) var favoriteMutations: [FavoriteMutation] = []
+    private var revision: Int64 = 0
+
+    func fetchFavorites() async throws -> BackendFavoritesSnapshot {
+        fetchedFavorites += 1
+        beforePreferencesResponse?()
+        await beforeAsyncPreferencesResponse?()
+        if let preferencesError { throw preferencesError }
+        return BackendFavoritesSnapshot(favoriteThemeIds: remoteFavoriteThemeIDs, revision: revision)
+    }
+
+    func patchFavorites(_ mutation: FavoriteMutation, session: AuthSession) async throws -> BackendFavoritesSnapshot {
+        favoriteMutations.append(mutation)
+        if let preferencesError { throw preferencesError }
+        remoteFavoriteThemeIDs.removeAll { mutation.removeThemeIds.contains($0) }
+        remoteFavoriteThemeIDs.append(contentsOf: mutation.addThemeIds.filter { !remoteFavoriteThemeIDs.contains($0) })
+        revision += 1
+        return BackendFavoritesSnapshot(favoriteThemeIds: remoteFavoriteThemeIDs, revision: revision, mutationId: mutation.mutationId)
+    }
+
     func fetchThemes(locale: String) async throws -> BackendThemeCatalogResponse {
+        fetchedCatalogLocales.append(locale)
         await beforeCatalogResponse?()
+        if let catalogError { throw catalogError }
         return BackendThemeCatalogResponse(locale: locale, themes: catalogThemes)
     }
 
@@ -409,6 +444,32 @@ final class BackendRandomQuestionTests: XCTestCase {
                 seed: seed
             )
             XCTAssertEqual(response.questions.count, 5)
+            XCTAssertTrue(response.questions.allSatisfy { $0.makeModel().sourceThemeName == nil })
+        }
+    }
+
+    func testRandomQuestionsDecodeLocalizedThemeNamesWithoutChangingQuestionIdentity() async throws {
+        let api = makeContentAPI()
+        let seed = "550e8400-e29b-41d4-a716-446655440000"
+        for selectionMode in CrossThemeQuestionSelectionMode.allCases {
+            BackendTestURLProtocol.requestHandler = { request in
+                let questions = (0..<5).map { index in
+                    var question = Self.questionJSON(index: index)
+                    question["themeName"] = index.isMultiple(of: 2) ? "Музыка" : "Технологии"
+                    return question
+                }
+                let body = try JSONSerialization.data(withJSONObject: [
+                    "locale": "ru", "seed": seed, "questions": questions
+                ])
+                return Self.response(for: request, data: body)
+            }
+            let response = try await api.fetchRandomQuestions(
+                selectionMode: selectionMode, count: 5, locale: "ru", seed: seed
+            )
+            let questions = response.questions.map { $0.makeModel(locale: response.locale) }
+            XCTAssertEqual(questions.map(\.sourceThemeName), ["Музыка", "Технологии", "Музыка", "Технологии", "Музыка"])
+            XCTAssertEqual(questions.map(\.questionID), (0..<5).map { "question-\($0)" })
+            XCTAssertTrue(questions.allSatisfy { $0.locale == "ru" && $0.questionVersion == 1 })
         }
     }
 
@@ -554,6 +615,7 @@ final class ProgressSessionProvider: BackendAccessTokenProviding {
 }
 
 final class ProgressOutboxSpy: QuestionAnswerOutboxing {
+    var isNetworkUnavailable = false
     var synchronizedUsers: [String] = []
     var beforeFetch: (() async throws -> Void)?
     func enqueue(_ event: QuestionAnswerEvent) {}

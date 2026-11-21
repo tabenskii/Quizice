@@ -5,8 +5,8 @@ import XCTest
 
 @MainActor
 final class AppAccountAccessPresenterTests: XCTestCase {
-    func testEveryUnauthenticatedStateKeepsGameplayBehindOpaqueNonDismissibleGate() async throws {
-        for state in [AppAccountAccessState.loading, .signInRequired, .deletionPending, .deleted] {
+    func testResolvedUnauthenticatedStatesKeepGameplayBehindOpaqueNonDismissibleGate() async throws {
+        for state in [AppAccountAccessState.signInRequired, .deletionPending, .deleted] {
             let harness = try makeHarness(state: state)
             defer { harness.dispose() }
             harness.presenter.start()
@@ -25,6 +25,71 @@ final class AppAccountAccessPresenterTests: XCTestCase {
             XCTAssertEqual(harness.account.createCallCount, 0)
             XCTAssertEqual(harness.account.deleteCallCount, 0)
         }
+    }
+
+    func testLoadingDoesNotAllowSplashToRevealTheAccountGate() async throws {
+        let harness = try makeHarness(state: .loading)
+        defer { harness.dispose() }
+        harness.presenter.start()
+        var revealCount = 0
+        harness.presenter.prepareInitialContent { revealCount += 1 }
+        await Task.yield()
+        XCTAssertEqual(revealCount, 0)
+        XCTAssertTrue(try accountHost(in: harness).rootView.model.usesConnectionSplash)
+        harness.account.send(.authenticated)
+        try await waitUntil { harness.events.prepareCompletions.count == 1 }
+        XCTAssertEqual(revealCount, 0)
+        harness.events.prepareCompletions[0]()
+        try await waitUntil { revealCount == 1 }
+    }
+
+    func testConnectionTimeoutOffersRetryOnSplashAndAcceptsLateAuthentication() async throws {
+        let harness = try makeHarness(state: .loading, connectionTimeout: 0.05)
+        defer { harness.dispose() }
+        harness.presenter.start()
+        var reveals = 0
+        harness.presenter.prepareInitialContent { reveals += 1 }
+        let host = try accountHost(in: harness)
+        try await waitUntil { host.rootView.model.errorMessage != nil }
+        XCTAssertEqual(reveals, 1)
+        XCTAssertTrue(host.rootView.model.usesConnectionSplash)
+        _ = try assertGameplayIsLocked(harness)
+        host.rootView.onPrimaryAction()
+        XCTAssertEqual(harness.account.signInCallCount, 1)
+        XCTAssertNil(host.rootView.model.errorMessage)
+        harness.account.send(.loading)
+        try await waitUntil { host.rootView.model.errorMessage != nil }
+        XCTAssertEqual(reveals, 1)
+        harness.account.send(.authenticated)
+        try await waitUntil { harness.events.prepareCompletions.count == 1 }
+        harness.events.prepareCompletions[0]()
+        try await waitUntil { self.visibleGate(in: harness) == nil }
+    }
+
+    func testStoppingLaunchCancelsThePendingConnectionTimeout() async throws {
+        let harness = try makeHarness(state: .loading, connectionTimeout: 0.05)
+        defer { harness.dispose() }
+        harness.presenter.start()
+        var reveals = 0
+        harness.presenter.prepareInitialContent { reveals += 1 }
+        let model = try accountHost(in: harness).rootView.model
+        harness.presenter.stop()
+        try await Task.sleep(nanoseconds: 100_000_000)
+        XCTAssertNil(model.errorMessage)
+        XCTAssertEqual(reveals, 0)
+        XCTAssertNil(visibleGate(in: harness))
+    }
+
+    func testBackendFailureDoesNotAskAuthenticatedGameCenterPlayerToSignInAgain() async throws {
+        let harness = try makeHarness(state: .signInRequired)
+        defer { harness.dispose() }
+        harness.account.needsGameCenterSignIn = false
+        harness.presenter.start()
+        let host = try accountHost(in: harness)
+        XCTAssertTrue(host.rootView.model.usesConnectionSplash)
+        host.rootView.onPrimaryAction()
+        XCTAssertEqual(harness.account.signInCallCount, 1)
+        XCTAssertEqual(harness.account.createCallCount, 0)
     }
 
     func testAuthenticationKeepsGameplayLockedUntilInitialUIKitContentCompletes() async throws {
@@ -342,7 +407,7 @@ final class AppAccountAccessPresenterTests: XCTestCase {
         try XCTUnwrap(visibleGate(in: harness)?.rootViewController as? UIHostingController<AccountStartView>)
     }
 
-    private func makeHarness(state: AppAccountAccessState) throws -> AccessPresenterHarness {
+    private func makeHarness(state: AppAccountAccessState, connectionTimeout: TimeInterval = 20) throws -> AccessPresenterHarness {
         let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
         let previousKeyWindow = scene.windows.first(where: \.isKeyWindow)
         let window = UIWindow(windowScene: scene)
@@ -359,14 +424,15 @@ final class AppAccountAccessPresenterTests: XCTestCase {
             root: root,
             account: account,
             events: events,
-            presenter: makePresenter(window: window, account: account, events: events)
+            presenter: makePresenter(window: window, account: account, events: events, connectionTimeout: connectionTimeout)
         )
     }
 
     private func makePresenter(
         window: UIWindow,
         account: AccessPresenterAccountStub,
-        events: AccessPresenterEvents
+        events: AccessPresenterEvents,
+        connectionTimeout: TimeInterval = 20
     ) -> AppAccountAccessPresenter {
         AppAccountAccessPresenter(
             window: window,
@@ -374,7 +440,8 @@ final class AppAccountAccessPresenterTests: XCTestCase {
             accountManager: account,
             prepareContentForReveal: { events.prepareCompletions.append($0) },
             resetContent: { events.resetCompletions.append($0) },
-            presentSystemContent: { events.systemControllers.append($0) }
+            presentSystemContent: { events.systemControllers.append($0) },
+            waitForConnectionTimeout: { try await Task.sleep(nanoseconds: UInt64(connectionTimeout * 1_000_000_000)) }
         )
     }
 
@@ -446,6 +513,7 @@ private final class AccessPresenterEvents {
 private final class AccessPresenterAccountStub: AppAccountAccessProviding, AccountManaging {
     private(set) var accountAccessState: AppAccountAccessState
     var authenticatedAccountID: String?
+    var needsGameCenterSignIn = true
     var accountAccessStateDidChange: ((AppAccountAccessState) -> Void)?
     private(set) var createCallCount = 0
     private(set) var deleteCallCount = 0

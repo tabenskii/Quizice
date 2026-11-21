@@ -164,6 +164,7 @@ final class QuizViewController: BaseQuizViewController, ThemeCollectionDelegate,
     var helpButton: UIButton!
     var helpButtonVisualSurface: UIView!
 #if DEBUG
+    var debugCompletedThemeRequest: (themeID: String, userID: String)?
     var isDebugInterfaceHidden = false
     var debugCatalogSourceLabel: InsetLabel!
     var debugCatalogSourceState: DebugCatalogSourceState = .loading {
@@ -179,6 +180,7 @@ final class QuizViewController: BaseQuizViewController, ThemeCollectionDelegate,
     let statisticsHistoryStore: StatisticsHistoryStore
     let aiQuizThemeService: AIQuizThemeServiceProtocol
     let aiQuizAccessProvider: AIQuizAccessProviding
+    let aiServiceStatusAPI: AIServiceStatusAPI?
     let analytics: AnalyticsTracking
     let themesCollectionService: ThemesCollectionService
     let motivationPromptProvider: (String?) -> String
@@ -212,17 +214,21 @@ final class QuizViewController: BaseQuizViewController, ThemeCollectionDelegate,
     var expandedTheme: QuizTheme?
     var expandedStatisticsSummary: StatisticsSummary?
     var aiSubmissionTask: Task<Void, Never>?
+    var aiServiceNoticeTask: Task<Void, Never>?
+    var pendingAIServiceNoticeUpdate: (() -> Void)?
     var aiProgressTask: Task<Void, Never>?
     var aiAlertPresentationTask: Task<Void, Never>?
     let aiAlertPresenter = QuizAlertPresenter()
     let quizPreparationAlertPresenter = QuizAlertPresenter()
     var activeQuizPreparationAlert: QuizAlertOverlay?
+    var activeQuizPreparationAlertID: UUID?
     var feelingLuckyTask: Task<Void, Never>?
     var feelingLuckyRequestID: UUID?
     var backendCatalogRefreshTask: Task<Void, Never>?
     var backendCatalogRefreshRequestID: UUID?
     var showRoundConfigurationAfterExpansion = false
     var quizPreparationTask: Task<Void, Never>?
+    var quizPreparationRequestID: UUID?
     weak var quizTransitionSourceView: UIView?
     var isQuizLaunchPending = false
     var hasQuizLaunchStarted = false
@@ -232,6 +238,8 @@ final class QuizViewController: BaseQuizViewController, ThemeCollectionDelegate,
     var expandedCardScreenViewTracked = false
     var expandedCardLastTrackedFace: HomeThemeCardFace?
     var expandedAIKeyboardLift: CGFloat = 0
+    var expandedAIKeyboardFrame: CGRect?
+    var lastLayoutSize: CGSize = .zero
     weak var router: HomeRouting?
 
     var cardSlideTransitionSourceView: UIView {
@@ -260,6 +268,7 @@ final class QuizViewController: BaseQuizViewController, ThemeCollectionDelegate,
         statisticsHistoryStore: StatisticsHistoryStore? = nil,
         aiQuizThemeService: AIQuizThemeServiceProtocol = MockAIQuizThemeService(),
         aiQuizAccessProvider: AIQuizAccessProviding = AIQuizAccessStore.shared,
+        aiServiceStatusAPI: AIServiceStatusAPI? = nil,
         analytics: AnalyticsTracking = AppMetricaAnalyticsTracker.shared,
         motivationPromptProvider: @escaping (String?) -> String = QuizViewController.randomMotivationPrompt,
         randomQuestionsProvider: @escaping ([QuizQuestion]) -> [QuizQuestion] = { $0.shuffled() },
@@ -282,6 +291,7 @@ final class QuizViewController: BaseQuizViewController, ThemeCollectionDelegate,
         self.statisticsHistoryStore = statisticsHistoryStore ?? StatisticsHistoryStore(api: nil, sessionProvider: NoopBackendAccessTokenProvider())
         self.aiQuizThemeService = aiQuizThemeService
         self.aiQuizAccessProvider = aiQuizAccessProvider
+        self.aiServiceStatusAPI = aiServiceStatusAPI
         self.analytics = analytics
         self.motivationPromptProvider = motivationPromptProvider
         self.randomQuestionsProvider = randomQuestionsProvider
@@ -300,7 +310,11 @@ final class QuizViewController: BaseQuizViewController, ThemeCollectionDelegate,
         super.init(nibName: nil, bundle: nil)
     }
 
+    private var accountDataObservers: [NSObjectProtocol] = []
+
     deinit {
+        accountDataObservers.forEach { NotificationCenter.default.removeObserver($0) }
+        aiServiceNoticeTask?.cancel()
         aiSubmissionTask?.cancel()
         aiProgressTask?.cancel()
         aiAlertPresentationTask?.cancel()
@@ -330,6 +344,11 @@ final class QuizViewController: BaseQuizViewController, ThemeCollectionDelegate,
 
         configureThemesCollectionService()
         installLocalizationObserver()
+        accountDataObservers = [Notification.Name.statisticsDidChange, .favoritesDidChange].map { name in
+            NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                Task { @MainActor [weak self] in self?.refreshVisibleAccountData() }
+            }
+        }
         updateThemeAvailabilityMessage()
         statisticsHistoryStore.onChange = { [weak self] in self?.refreshStatisticsCharts() }
     }
@@ -341,6 +360,15 @@ final class QuizViewController: BaseQuizViewController, ThemeCollectionDelegate,
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
+        let layoutSize = view.safeAreaLayoutGuide.layoutFrame.size
+        if lastLayoutSize != layoutSize {
+            let wasLaidOut = lastLayoutSize != .zero
+            lastLayoutSize = layoutSize
+            if wasLaidOut {
+                themesCollectionService.captureScrollAnchor()
+                settleCardForWindowResize()
+            }
+        }
         if let settingsButtonVisualSurface {
             settingsButton.sendSubviewToBack(settingsButtonVisualSurface)
         }
@@ -348,11 +376,14 @@ final class QuizViewController: BaseQuizViewController, ThemeCollectionDelegate,
             helpButton.sendSubviewToBack(helpButtonVisualSurface)
         }
         updateCollectionTopInset()
+        themesCollectionView.layoutIfNeeded()
+        themesCollectionService.restoreScrollAnchor()
         updateCollectionScrollAvailability()
         expandedCardBackdropView?.frame = view.bounds
         expandedCardBackdropDismissButton?.frame = view.bounds
         if expandedCardAnimator == nil,
-           homeCardState.phase == .expandedFront || homeCardState.phase == .expandedBack {
+           homeCardState.phase == .expandedFront || homeCardState.phase == .expandedBack
+            || homeCardState.phase == .launching {
             expandedThemeCardView?.frame = expandedThemeCardFrame()
             expandedStatisticsCardView?.frame = expandedThemeCardFrame()
             expandedAIThemeCardView?.frame = expandedAIThemeCardFrame()
@@ -362,10 +393,27 @@ final class QuizViewController: BaseQuizViewController, ThemeCollectionDelegate,
         }
     }
 
+    override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
+        themesCollectionService.captureScrollAnchor()
+        super.viewWillTransition(to: size, with: coordinator)
+    }
+
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         restoreHomeAfterQuizIfNeeded()
         themesCollectionView.reloadData()
+        Task { @MainActor [weak self] in
+            await self?.router?.refreshAccountData()
+            guard !Task.isCancelled else { return }
+            self?.themesCollectionService.refreshStatistics()
+        }
+    }
+
+    func refreshVisibleAccountData() {
+        guard isViewLoaded else { return }
+        // Keep the source views stable while a card animation owns them.
+        if homeCardState.phase == .grid { themesCollectionView.reloadData() }
+        refreshExpandedThemeCardAppearance()
     }
 
     override func viewDidAppear(_ animated: Bool) {
@@ -437,5 +485,6 @@ final class QuizViewController: BaseQuizViewController, ThemeCollectionDelegate,
         themesCollectionView.reloadData()
         refreshExpandedThemeCardAppearance()
         refreshBackendCatalog()
+        refreshAIServiceNotice()
     }
 }

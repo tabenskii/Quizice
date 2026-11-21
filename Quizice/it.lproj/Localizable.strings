@@ -117,7 +117,9 @@
 "question.show_question" = "Mostra domanda";
 "question.tap_to_answer.accessibility_hint" = "Tocca due volte per selezionare questa risposta.";
 "question.unavailable.message" = "Questo tema non ha ancora domande disponibili. Torna indietro e scegli un altro tema.";
-"question.progress_complete.message" = "Hai completato tutte le domande disponibili per questa impostazione di ripetizione. Scegli un’altra impostazione o tema.";
+"question.progress_complete.title" = "Tutte le domande completate";
+"question.progress_complete.message" = "Hai completato tutte le domande disponibili con queste impostazioni. Vuoi azzerare i progressi delle risposte per l’intero tema e ricominciare? Le statistiche di gioco saranno conservate.";
+"question.progress_complete.restart" = "Azzera e ricomincia";
 "question.loading_failed.title" = "Impossibile caricare le domande";
 "question.loading_failed.message" = "Non è stato possibile recuperare le domande. Riprova tra poco.";
 "question.network_failure.message" = "Controlla la connessione a internet e riprova.";
@@ -285,12 +287,35 @@
 
 /* Required account start screen */
 "account_start.connecting.title" = "Connessione all’account";
-"account_start.sign_in.message" = "Accedi con Game Center per giocare. Se non riesci, controlla internet e l’accesso a Game Center nelle impostazioni del dispositivo.";
+"account_start.sign_in.message" = "Accedi con Game Center per giocare. Se non riesci a creare un profilo giocatore, completa la configurazione in Impostazioni → Game Center, poi torna qui e riprova ad accedere.";
 "account_start.sign_in.action" = "Continua con Game Center";
 "account_start.deletion_pending.title" = "Completa l’eliminazione";
 "account_start.deletion_pending.message" = "L’eliminazione dell’account non è ancora completata. Riprova per eliminare il tuo account e i suoi dati.";
 "account_start.deletion_pending.action" = "Riprova l’eliminazione";
 "account_start.deletion_pending.sign_in" = "Per completare l’eliminazione, accedi all’account Game Center originale nelle Impostazioni di iPhone e riprova.";
+
+"debug_menu.test_account.title" = "Account di prova del server";
+"debug_menu.test_account.key" = "Chiave privata dell’account di prova";
+"debug_menu.test_account.connect" = "Connetti / rinnova sessione";
+"debug_menu.test_account.help" = "Inserisci la chiave una volta. Lascia il campo vuoto per usare la chiave salvata. Le sessioni si rinnovano automaticamente, mantenendo le statistiche.";
+"debug_menu.test_account.no_backend" = "Attiva il server prima di connetterti.";
+"debug_menu.test_account.key_required" = "Inserisci la chiave privata dell’account di prova.";
+"debug_menu.test_account.failure" = "Connessione non riuscita. Controlla la chiave e la connessione, poi riprova.";
+
+"onboarding.question_strategy.title" = "Quali domande ripetere?";
+"onboarding.question_strategy.subtitle" = "Scegli quali domande rivedere.";
+"onboarding.question_strategy.settings_hint" = "Puoi cambiare la scelta nelle Impostazioni.";
+"onboarding.question_strategy.availability_hint" = "Vale per i temi pronti del catalogo online dopo l’accesso a Game Center. Gli ospiti vedono tutte le domande.";
+"onboarding.question_strategy.hideAnswered.detail" = "Le domande a cui hai già risposto non riappariranno.";
+"onboarding.question_strategy.retryIncorrect.detail" = "Nascondi le domande corrette e mantieni quelle sbagliate.";
+"onboarding.question_strategy.showAll.detail" = "Qualsiasi domanda può riapparire.";
+
+"debug_menu.completed_theme" = "Mostra tema completato";
+"debug_menu.completed_theme.hint" = "Scegli qui un tema del server dalla schermata iniziale. La conferma azzera davvero i progressi dell’intero tema.";
+
+"question.offline_unavailable.message" = "Nessuna domanda salvata corrisponde a queste impostazioni. Connettiti a internet e apri la schermata iniziale per scaricare le domande e giocare offline.";
+
+"account_start.connection.failed" = "Impossibile collegare il tuo account. Controlla la connessione Internet e riprova.";
 
 /* Daily account statistics */
 "statistics.history.title" = "Cronologia delle partite";

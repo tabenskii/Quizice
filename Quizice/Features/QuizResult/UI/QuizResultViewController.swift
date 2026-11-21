@@ -168,6 +168,7 @@ final class QuizResultViewController: BaseQuizViewController, QuizResultViewCont
     }
 
     private var scrollView: UIScrollView!
+    private var maximumWidthConstraint: NSLayoutConstraint!
     private var resultCardView: UIView!
     private var perfectScoreEffectView: PerfectScoreCardEffectView!
     private var contentStackView: UIStackView!
@@ -207,6 +208,13 @@ final class QuizResultViewController: BaseQuizViewController, QuizResultViewCont
         installAppearanceTraitObserver()
         presenter?.viewDidLoad()
         installLocalizationObserver()
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        maximumWidthConstraint.constant = AppAdaptiveLayout(
+            width: view.safeAreaLayoutGuide.layoutFrame.width
+        ).resultMaximumWidth
     }
 
     override func viewDidAppear(_ animated: Bool) {
@@ -449,6 +457,7 @@ final class QuizResultViewController: BaseQuizViewController, QuizResultViewCont
     }
     
     private func activateLayoutConstraints(in rootView: UIView) {
+        maximumWidthConstraint = resultCardView.widthAnchor.constraint(lessThanOrEqualToConstant: Layout.maximumContentWidth)
         NSLayoutConstraint.activate([
             scrollView.topAnchor.constraint(equalTo: rootView.safeAreaLayoutGuide.topAnchor),
             scrollView.leadingAnchor.constraint(equalTo: rootView.leadingAnchor),
@@ -461,7 +470,7 @@ final class QuizResultViewController: BaseQuizViewController, QuizResultViewCont
             resultCardView.centerYAnchor.constraint(equalTo: scrollView.contentLayoutGuide.centerYAnchor),
             resultCardView.leadingAnchor.constraint(greaterThanOrEqualTo: scrollView.contentLayoutGuide.leadingAnchor, constant: Layout.cardHorizontalInset),
             resultCardView.trailingAnchor.constraint(lessThanOrEqualTo: scrollView.contentLayoutGuide.trailingAnchor, constant: -Layout.cardHorizontalInset),
-            resultCardView.widthAnchor.constraint(lessThanOrEqualToConstant: Layout.maximumContentWidth),
+            maximumWidthConstraint!,
             resultCardView.topAnchor.constraint(greaterThanOrEqualTo: scrollView.contentLayoutGuide.topAnchor, constant: Layout.cardVerticalMinimumInset),
             resultCardView.bottomAnchor.constraint(lessThanOrEqualTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -Layout.cardVerticalMinimumInset),
             

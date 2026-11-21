@@ -113,9 +113,19 @@ extension ExpandedAIThemeCardView {
         let curveRawValue = userInfo[UIResponder.keyboardAnimationCurveUserInfoKey]
             as? UInt ?? UInt(UIView.AnimationCurve.easeInOut.rawValue)
         let options = UIView.AnimationOptions(rawValue: curveRawValue << 16)
-        onKeyboardFrameChange?(frameInWindow, duration, options)
-        let frameInCard = convert(frameInWindow, from: window)
-        let overlap = bounds.intersection(frameInCard).height
+        updateKeyboardFrameInWindow(frameInWindow, duration: duration, options: options)
+    }
+
+    func updateKeyboardFrameInWindow(
+        _ frame: CGRect?, duration: TimeInterval, options: UIView.AnimationOptions
+    ) {
+        onKeyboardFrameChange?(frame, duration, options)
+        let overlap: CGFloat
+        if let frame, let window {
+            overlap = bounds.intersection(convert(frame, from: window)).height
+        } else {
+            overlap = 0
+        }
         updateKeyboardInsets(overlap: overlap, duration: duration, options: options)
     }
 
@@ -126,7 +136,6 @@ extension ExpandedAIThemeCardView {
         let curveRawValue = userInfo?[UIResponder.keyboardAnimationCurveUserInfoKey]
             as? UInt ?? UInt(UIView.AnimationCurve.easeInOut.rawValue)
         let options = UIView.AnimationOptions(rawValue: curveRawValue << 16)
-        onKeyboardFrameChange?(nil, duration, options)
-        updateKeyboardInsets(overlap: 0, duration: duration, options: options)
+        updateKeyboardFrameInWindow(nil, duration: duration, options: options)
     }
 }

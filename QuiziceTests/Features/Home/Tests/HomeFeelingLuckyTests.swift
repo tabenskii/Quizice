@@ -213,12 +213,14 @@ final class HomeFeelingLuckyTests: HomeScreenVisualStateTestCase {
         XCTAssertEqual(selectedTheme.themeID, "random-selection")
         XCTAssertEqual(selectedTheme.themeName, L10n.Home.randomSelection)
         XCTAssertEqual(selectedTheme.questionsAndAnswers.count, 5)
-        XCTAssertTrue(selectedTheme.quizTheme.questions.contains { selected in
-            music.questions.contains { $0 === selected }
-        })
-        XCTAssertTrue(selectedTheme.quizTheme.questions.contains { selected in
-            technology.questions.contains { $0 === selected }
-        })
+        XCTAssertEqual(selectedTheme.quizTheme.questions.map(\.sourceThemeName), [
+            "Технологии", "Технологии", "Технологии", "Технологии", "Музыка"
+        ])
+        XCTAssertEqual(selectedTheme.quizTheme.questions.map(\.question), offeredQuestions.reversed().prefix(5).map(\.question))
+        XCTAssertTrue((music.questions + technology.questions).allSatisfy { $0.sourceThemeName == nil })
+        XCTAssertFalse(selectedTheme.quizTheme.questions.contains { selected in
+            offeredQuestions.contains { $0 === selected }
+        }, "Round metadata must not mutate shared catalog questions")
         XCTAssertEqual(QuizFactory.shared.questionsCount, 5)
         XCTAssertEqual(router.showQuestionCallCount, 1)
     }

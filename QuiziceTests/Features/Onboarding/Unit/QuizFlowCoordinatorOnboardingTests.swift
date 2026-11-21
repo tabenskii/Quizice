@@ -136,6 +136,137 @@ final class QuizFlowCoordinatorOnboardingTests: QuizFlowCoordinatorTestCase {
         )
     }
 
+    func testUprightGravityPointsDownInBothIPadLandscapeOrientations() {
+        for (orientation, x, y): (UIInterfaceOrientation, Double, Double) in [
+            (.portrait, 0, -1), (.portraitUpsideDown, 0, 1),
+            (.landscapeLeft, 1, 0), (.landscapeRight, -1, 0)
+        ] {
+            XCTAssertEqual(
+                TopicsPhysicsView.motionGravityTarget(.init(x: x, y: y, z: 0), orientation: orientation),
+                CGVector(dx: 0, dy: 1)
+            )
+        }
+        XCTAssertEqual(TopicsPhysicsView.motionGravityTarget(.init(x: 0, y: -1, z: 0), orientation: .landscapeRight),
+                       CGVector(dx: 1, dy: 0), "A deliberate tilt still moves the cards in screen coordinates")
+        XCTAssertEqual(TopicsPhysicsView.motionGravityTarget(.init(x: 0.01, y: 0, z: 1), orientation: .landscapeRight),
+                       CGVector(dx: 0, dy: 1), "A flat iPad should return to downward gravity")
+    }
+
+    func testPhoneFavoritesUpdateOpenIPadOnboardingAndMoveToTopOfHome() async throws {
+        let phoneSuite = "Favorites.phone.\(UUID())"
+        let iPadSuite = "Favorites.iPad.\(UUID())"
+        let phoneDefaults = try XCTUnwrap(UserDefaults(suiteName: phoneSuite))
+        let iPadDefaults = try XCTUnwrap(UserDefaults(suiteName: iPadSuite))
+        defer {
+            phoneDefaults.removePersistentDomain(forName: phoneSuite)
+            iPadDefaults.removePersistentDomain(forName: iPadSuite)
+        }
+        let phoneSession = ProgressSessionProvider()
+        let iPadSession = ProgressSessionProvider()
+        let phone = OnboardingProgressStore(userDefaults: phoneDefaults, userIDProvider: { phoneSession.session?.userID })
+        let iPad = OnboardingProgressStore(userDefaults: iPadDefaults, userIDProvider: { iPadSession.session?.userID })
+        let favorites = ["cinema", "technology", "history_culture", "politics_business"]
+        let backend = ThemePreferencesBackendContentAPI(catalogThemes: (["music"] + favorites).map {
+            BackendThemeDTO(id: $0, name: $0.capitalized, description: "", sfSymbol: "star", emoji: "⭐️",
+                            colorHex: "#FF8252", isFavorite: false)
+        })
+        let phoneRepository = ThemeCatalogRepository(backendContentAPI: backend, preferenceStore: phone, accessTokenProvider: phoneSession)
+        let iPadRepository = ThemeCatalogRepository(backendContentAPI: backend, preferenceStore: iPad, accessTokenProvider: iPadSession)
+        let navigation = RoutingNavigationControllerSpy()
+        let coordinator = QuizFlowCoordinator(
+            window: UIWindow(frame: CGRect(x: 0, y: 0, width: 1194, height: 834)), navigationController: navigation,
+            themeRepository: iPadRepository, aiQuizThemeService: MockAIQuizThemeService(),
+            answerOutbox: NoopQuestionAnswerOutbox(), onboardingProgressStore: iPad
+        )
+        let locale = AppLocalizationStore.shared.resolvedLanguageCode
+        coordinator.start()
+        await coordinator.prepareInitialCatalog()
+        coordinator.presentInitialOnboardingIfNeeded()
+        let onboarding = try XCTUnwrap(navigation.presentedControllers.first as? UIHostingController<QuizOnboardingView>)
+        let selection = onboarding.rootView.selection
+        XCTAssertTrue(selection.selectedIDs.isEmpty)
+
+        phone.complete(preferredThemeIDs: favorites, locale: locale)
+        let uploaded = await phoneRepository.synchronizeThemePreferences(locale: locale)
+        XCTAssertTrue(uploaded)
+        await coordinator.refreshAccountData()
+
+        XCTAssertEqual(selection.selectedIDs, Set(favorites))
+        let home = try XCTUnwrap(navigation.viewControllers.first as? QuizViewController)
+        XCTAssertEqual(home.themesCollectionService.displayedThemes.map(\.stableID), favorites + ["music"])
+        XCTAssertEqual(home.themesCollectionService.displayedThemes.map(\.isFavorite), [true, true, true, true, false])
+        selection.select(["music", "technology", "history_culture", "politics_business"])
+        await coordinator.refreshAccountData()
+        XCTAssertEqual(selection.selectedIDs, ["music", "technology", "history_culture", "politics_business"])
+    }
+
+    func testFallingTopicsStartWithBaseThemesInEveryLocalization() throws {
+        let previousLanguage = AppLocalizationStore.shared.languagePreference
+        defer { AppLocalizationStore.shared.languagePreference = previousLanguage }
+        let baseThemeIDs = ["music", "technology", "history_culture", "politics_business"]
+
+        for language in AppLanguagePreference.allCases where language != .system {
+            AppLocalizationStore.shared.languagePreference = language
+            let localizedThemes = try LocalizedThemeDataLoader().load().themes.map {
+                OnboardingTheme(id: $0.id, title: $0.theme, sfSymbolName: $0.sfSymbolName)
+            }
+            let additionalThemes = [
+                OnboardingTheme(id: "cinema", title: "Cinema \(language.rawValue)"),
+                OnboardingTheme(id: "space", title: "Space \(language.rawValue)")
+            ]
+            // The backend may put additional or favorite themes before the base catalog.
+            let input = additionalThemes + Array(localizedThemes.reversed())
+
+            let descriptors = TopicsPhysicsDescriptor.make(from: input)
+
+            XCTAssertEqual(descriptors.map(\.theme.id), baseThemeIDs + ["cinema", "space"])
+            XCTAssertEqual(descriptors.map(\.theme), baseThemeIDs.compactMap { id in
+                localizedThemes.first { $0.id == id }
+            } + additionalThemes)
+            XCTAssertEqual(input.first?.id, "cinema", "Only the falling stage should reorder themes")
+        }
+    }
+
+    func testFallingTopicsKeepAdditionalOrderWhenBaseThemesAreMissing() {
+        let themes = [
+            OnboardingTheme(id: "space", title: "Space"),
+            OnboardingTheme(id: "technology", title: "Technology"),
+            OnboardingTheme(id: "cinema", title: "Cinema"),
+            OnboardingTheme(id: "music", title: "Music")
+        ]
+
+        XCTAssertEqual(
+            TopicsPhysicsDescriptor.make(from: themes).map(\.theme.id),
+            ["music", "technology", "space", "cinema"]
+        )
+        XCTAssertTrue(TopicsPhysicsDescriptor.make(from: []).isEmpty)
+    }
+
+    func testStaticTopicsAreImmediatelyVisibleAndKeepSelectionWithBaseThemesFirst() {
+        let themes = [
+            OnboardingTheme(id: "space", title: "Space"),
+            OnboardingTheme(id: "technology", title: "Technology"),
+            OnboardingTheme(id: "cinema", title: "Cinema"),
+            OnboardingTheme(id: "music", title: "Music")
+        ]
+        let stage = TopicsPhysicsView(frame: CGRect(x: 0, y: 0, width: 390, height: 500))
+        defer { stage.stop() }
+        stage.configure(
+            appearance: SnapshotSupport.appearance(designStyle: .clean),
+            themes: themes,
+            selectedThemeIDs: ["space"],
+            usesStaticLayout: true
+        )
+        stage.setActive(true)
+
+        let cards = stage.subviews.compactMap { $0 as? PhysicsTopicCardView }
+        XCTAssertEqual(cards.map(\.themeID), ["music", "technology", "space", "cinema"])
+        for card in cards {
+            XCTAssertTrue(stage.bounds.contains(card.frame), "\(card.themeID) should be visible without waiting")
+            XCTAssertEqual(card.accessibilityTraits.contains(.selected), card.themeID == "space")
+        }
+    }
+
     func testFallingTopicCardsSizeToBackendTitlesWithoutWrapping() throws {
         let themes = [
             "Музыка",
@@ -492,4 +623,241 @@ private final class OnboardingAnalyticsSpy: AnalyticsTracking {
     }
 
     func reportOperationalError(_ error: Error, context: AnalyticsErrorContext) {}
+}
+
+extension QuizFlowCoordinatorOnboardingTests {
+    func testQuestionStrategyBindingDefaultsToHideAnsweredWithoutWritingAChoice() {
+        withStrategyOnboarding { harness in
+            XCTAssertEqual(harness.controller.rootView.questionRepeatStrategy.wrappedValue, .hideAnswered)
+            XCTAssertEqual(QuestionRepeatStrategyStore(defaults: harness.defaults).strategy, .hideAnswered)
+            XCTAssertNil(harness.defaults.object(forKey: QuestionRepeatStrategyStore.defaultsKey))
+            XCTAssertTrue(harness.completion.selections.isEmpty)
+        }
+    }
+
+    func testQuestionStrategyBindingRespectsEverySavedChoiceDuringCompletedOnboardingReplay() {
+        for strategy in QuestionRepeatStrategy.allCases {
+            withStrategyOnboarding(savedStrategy: strategy, alreadyCompleted: true) { harness in
+                XCTAssertEqual(harness.controller.rootView.questionRepeatStrategy.wrappedValue, strategy)
+                XCTAssertEqual(harness.defaults.string(forKey: QuestionRepeatStrategyStore.defaultsKey), strategy.rawValue)
+                XCTAssertFalse(OnboardingProgressStore(userDefaults: harness.defaults).needsOnboarding)
+                XCTAssertTrue(harness.completion.selections.isEmpty)
+            }
+        }
+    }
+
+    func testQuestionStrategyBindingImmediatelyUpdatesSettingsWithoutCompletingOnboarding() {
+        withStrategyOnboarding { harness in
+            for strategy in [QuestionRepeatStrategy.showAll, .retryIncorrect, .hideAnswered] {
+                harness.controller.rootView.questionRepeatStrategy.wrappedValue = strategy
+
+                XCTAssertEqual(QuestionRepeatStrategyStore(defaults: harness.defaults).strategy, strategy)
+                XCTAssertEqual(harness.defaults.string(forKey: QuestionRepeatStrategyStore.defaultsKey), strategy.rawValue)
+                XCTAssertEqual(harness.controller.rootView.questionRepeatStrategy.wrappedValue, strategy)
+                XCTAssertTrue(harness.completion.selections.isEmpty)
+                XCTAssertTrue(OnboardingProgressStore(userDefaults: harness.defaults).needsOnboarding)
+            }
+        }
+    }
+
+    func testQuestionStrategyBindingSurvivesCompletionAndWelcomePageReopen() {
+        withStrategyOnboarding { harness in
+            harness.controller.rootView.questionRepeatStrategy.wrappedValue = .showAll
+            harness.controller.rootView.onComplete(["music"])
+            XCTAssertEqual(harness.completion.selections, [Set(["music"])])
+
+            let replay = makeStrategyOnboardingController(
+                defaults: harness.defaults, completion: harness.completion, initialPage: .welcome
+            )
+            harness.window.rootViewController = replay
+            replay.view.frame = harness.window.bounds
+            replay.view.layoutIfNeeded()
+            RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+
+            XCTAssertEqual(replay.rootView.questionRepeatStrategy.wrappedValue, .showAll)
+            XCTAssertEqual(QuestionRepeatStrategyStore(defaults: harness.defaults).strategy, .showAll)
+            XCTAssertEqual(harness.defaults.string(forKey: QuestionRepeatStrategyStore.defaultsKey), "showAll")
+            XCTAssertEqual(harness.completion.selections.count, 1)
+        }
+    }
+
+    func testQuestionStrategyBindingFallsBackWithoutOverwritingUnknownSavedValue() {
+        withStrategyOnboarding(rawStrategy: "unknown-future-strategy") { harness in
+            XCTAssertEqual(harness.controller.rootView.questionRepeatStrategy.wrappedValue, .hideAnswered)
+            XCTAssertEqual(harness.defaults.string(forKey: QuestionRepeatStrategyStore.defaultsKey), "unknown-future-strategy")
+
+            harness.controller.rootView.questionRepeatStrategy.wrappedValue = .retryIncorrect
+
+            XCTAssertEqual(QuestionRepeatStrategyStore(defaults: harness.defaults).strategy, .retryIncorrect)
+            XCTAssertEqual(harness.defaults.string(forKey: QuestionRepeatStrategyStore.defaultsKey), "retryIncorrect")
+            XCTAssertTrue(harness.completion.selections.isEmpty)
+        }
+    }
+
+    func testQuestionStrategyBindingObservesChangesMadeThroughSharedSettingsStore() {
+        withStrategyOnboarding(savedStrategy: .hideAnswered) { harness in
+            QuestionRepeatStrategyStore(defaults: harness.defaults).strategy = .retryIncorrect
+            RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+
+            XCTAssertEqual(harness.controller.rootView.questionRepeatStrategy.wrappedValue, .retryIncorrect)
+            XCTAssertTrue(harness.completion.selections.isEmpty)
+        }
+    }
+
+    private func withStrategyOnboarding(
+        savedStrategy: QuestionRepeatStrategy? = nil,
+        rawStrategy: String? = nil,
+        alreadyCompleted: Bool = false,
+        _ operation: (OnboardingStrategyHarness) -> Void
+    ) {
+        let animationsWereEnabled = UIView.areAnimationsEnabled
+        UIView.setAnimationsEnabled(false)
+        let suiteName = "QuizFlowCoordinatorOnboardingTests.Strategy.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        if let savedStrategy { QuestionRepeatStrategyStore(defaults: defaults).strategy = savedStrategy }
+        if let rawStrategy { defaults.set(rawStrategy, forKey: QuestionRepeatStrategyStore.defaultsKey) }
+        if alreadyCompleted {
+            OnboardingProgressStore(userDefaults: defaults).complete(preferredThemeIDs: ["music"])
+        }
+        let completion = OnboardingStrategyCompletionSpy()
+        let controller = makeStrategyOnboardingController(defaults: defaults, completion: completion)
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
+        window.rootViewController = controller
+        window.makeKeyAndVisible()
+        controller.view.frame = window.bounds
+        controller.view.layoutIfNeeded()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+        defer {
+            window.isHidden = true
+            window.rootViewController = nil
+            defaults.removePersistentDomain(forName: suiteName)
+            UIView.setAnimationsEnabled(animationsWereEnabled)
+        }
+        operation(OnboardingStrategyHarness(
+            defaults: defaults, controller: controller, window: window, completion: completion
+        ))
+    }
+
+    private func makeStrategyOnboardingController(
+        defaults: UserDefaults,
+        completion: OnboardingStrategyCompletionSpy,
+        initialPage: OnboardingPage = .tutorial
+    ) -> UIHostingController<QuizOnboardingView> {
+        UIHostingController(rootView: QuizOnboardingView(
+            appearance: SnapshotSupport.appearance(designStyle: .clean),
+            themes: [OnboardingTheme(id: "music", title: L10n.Onboarding.topicMusic)],
+            initialPage: initialPage,
+            preferredThemeIDs: ["music"],
+            strategyDefaults: defaults,
+            onComplete: { completion.selections.append($0) }
+        ))
+    }
+}
+
+@MainActor
+private struct OnboardingStrategyHarness {
+    let defaults: UserDefaults
+    let controller: UIHostingController<QuizOnboardingView>
+    let window: UIWindow
+    let completion: OnboardingStrategyCompletionSpy
+}
+
+private final class OnboardingStrategyCompletionSpy {
+    var selections: [Set<String>] = []
+}
+
+@MainActor
+private final class EndedOnboardingTap: UITapGestureRecognizer {
+    override var state: UIGestureRecognizer.State {
+        get { .ended }
+        set {}
+    }
+}
+
+extension QuizFlowCoordinatorOnboardingTests {
+    func testTopicsEdgeGestureNavigatesBothEdgesAndPreservesControls() {
+        var location = CGPoint(x: 380, y: 200)
+        var advances = 0
+        var backs = 0
+        let coordinator = OnboardingTopicsNavigationGesture.Coordinator(width: 390,
+            location: { location }, onAdvance: { advances += 1 }, onGoBack: { backs += 1 })
+        let recognizer = UITapGestureRecognizer()
+        XCTAssertTrue(coordinator.gestureRecognizerShouldBegin(recognizer))
+        for x in [CGFloat(-1), 200, 320, 400] {
+            location.x = x
+            XCTAssertFalse(coordinator.gestureRecognizerShouldBegin(recognizer))
+        }
+        coordinator.width = 834
+        location.x = 820
+        XCTAssertTrue(coordinator.gestureRecognizerShouldBegin(recognizer))
+        location.x = 380
+        XCTAssertFalse(coordinator.gestureRecognizerShouldBegin(recognizer))
+        let card = UIControl()
+        let label = UILabel()
+        card.addSubview(label)
+        XCTAssertFalse(OnboardingTopicsNavigationGesture.Coordinator.permitsNavigation(from: card))
+        XCTAssertFalse(OnboardingTopicsNavigationGesture.Coordinator.permitsNavigation(from: label))
+        XCTAssertTrue(OnboardingTopicsNavigationGesture.Coordinator.permitsNavigation(from: UIView()))
+        coordinator.navigate(recognizer)
+        XCTAssertEqual(advances, 0)
+        location.x = 820
+        coordinator.navigate(EndedOnboardingTap())
+        XCTAssertEqual(advances, 1)
+        location.x = 20
+        coordinator.navigate(EndedOnboardingTap())
+        XCTAssertEqual(backs, 1)
+        XCTAssertEqual(advances, 1)
+    }
+
+    func testTutorialShowsPersistentScrollIndicatorBeforeAnyDragging() {
+        withStrategyOnboarding { harness in
+            let indicator = harness.controller.view.descendant(withAccessibilityIdentifier: "onboardingTutorialScrollIndicator")
+            XCTAssertNotNil(indicator)
+            XCTAssertGreaterThan(indicator?.bounds.height ?? 0, 24)
+            XCTAssertEqual(indicator?.bounds.width, 3)
+            XCTAssertFalse(indicator?.isUserInteractionEnabled ?? true)
+            RunLoop.main.run(until: Date().addingTimeInterval(0.2))
+            XCTAssertGreaterThan(indicator?.bounds.height ?? 0, 24)
+        }
+    }
+
+    func testTutorialIndicatorMovesWithinViewportWhenPageScrolls() {
+        withStrategyOnboarding { harness in
+            guard let indicator = harness.controller.view.descendant(
+                withAccessibilityIdentifier: "onboardingTutorialScrollIndicator"
+            ) else { return XCTFail("Missing scroll indicator") }
+            var ancestor = indicator.superview
+            while ancestor != nil && !(ancestor is UIScrollView) { ancestor = ancestor?.superview }
+            guard let scroll = ancestor as? UIScrollView else { return XCTFail("Missing tutorial scroll view") }
+            let initialY = indicator.convert(indicator.bounds, to: scroll).minY - scroll.contentOffset.y
+            scroll.setContentOffset(CGPoint(x: 0, y: 200), animated: false)
+            scroll.layoutIfNeeded()
+            RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+            harness.controller.view.layoutIfNeeded()
+            let scrolledY = indicator.convert(indicator.bounds, to: scroll).minY - scroll.contentOffset.y
+            XCTAssertGreaterThan(scrolledY, initialY)
+            XCTAssertGreaterThanOrEqual(scrolledY, 0)
+            XCTAssertLessThanOrEqual(scrolledY + indicator.bounds.height, scroll.bounds.height)
+        }
+    }
+
+    func testSharedIndicatorHidesWhenContentFitsAndDetachesCleanly() {
+        let scroll = UIScrollView(frame: CGRect(x: 0, y: 0, width: 390, height: 600))
+        let indicator = PersistentScrollIndicatorView()
+        scroll.contentSize = CGSize(width: 390, height: 400)
+        indicator.attach(to: scroll)
+        XCTAssertTrue(indicator.isHidden)
+        scroll.contentSize.height = 1200
+        XCTAssertFalse(indicator.isHidden)
+        let firstY = indicator.frame.minY
+        scroll.contentOffset.y = 300
+        XCTAssertGreaterThan(indicator.frame.minY - scroll.contentOffset.y, firstY)
+        scroll.bounds.size.height = 1400
+        XCTAssertTrue(indicator.isHidden)
+        indicator.detach()
+        XCTAssertNil(indicator.superview)
+        scroll.contentSize.height = 2000
+        XCTAssertNil(indicator.superview)
+    }
 }

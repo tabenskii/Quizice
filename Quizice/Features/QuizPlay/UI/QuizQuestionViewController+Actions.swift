@@ -74,8 +74,18 @@ extension QuizQuestionViewController {
         }
 
         isQuestionExplanationVisible = isVisible
+        // The answers may have moved the outer scroll below the question. Both
+        // content modes must begin in view when switching between them.
+        questionBodyScrollView.setContentOffset(.zero, animated: false)
         if isVisible {
             questionExplanationScrollView.setContentOffset(.zero, animated: false)
+            view.layoutIfNeeded()
+            // A short explanation can be centered far down the space occupied
+            // by a long question. Reveal its first line, not just that space.
+            let textTop = questionExplanationLabel.convert(CGPoint.zero, to: questionBodyView).y
+            let maximumOffset = max(0, questionBodyScrollView.contentSize.height - questionBodyScrollView.bounds.height)
+            let offset = min(maximumOffset, max(0, textTop - Layout.questionSurroundingMinimumSpacing))
+            questionBodyScrollView.setContentOffset(CGPoint(x: 0, y: offset), animated: false)
         }
 
         let outgoingViews: [UIView]

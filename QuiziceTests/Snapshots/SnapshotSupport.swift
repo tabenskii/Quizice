@@ -12,6 +12,23 @@ enum SnapshotSupport {
         size: CGSize(width: 402, height: 874),
         traits: ViewImageConfig.iPhone13Pro.traits
     )
+    static let iPadPortrait = iPadConfiguration(size: CGSize(width: 834, height: 1_194))
+    static let iPadLandscape = iPadConfiguration(size: CGSize(width: 1_194, height: 834))
+    static let iPadNarrowWindow = iPadConfiguration(size: CGSize(width: 375, height: 1_024))
+    static let iPadShortWindow = iPadConfiguration(size: CGSize(width: 900, height: 430))
+
+    private static func iPadConfiguration(size: CGSize) -> ViewImageConfig {
+        ViewImageConfig(
+            safeArea: UIEdgeInsets(top: 24, left: 0, bottom: 20, right: 0),
+            size: size,
+            traits: UITraitCollection(traitsFrom: [
+                UITraitCollection(userInterfaceIdiom: .pad),
+                UITraitCollection(horizontalSizeClass: size.width < 600 ? .compact : .regular),
+                UITraitCollection(verticalSizeClass: .regular),
+                UITraitCollection(displayScale: 2)
+            ])
+        )
+    }
     private static var snapshotRecordMode: SnapshotTestingConfiguration.Record? {
         ProcessInfo.processInfo.environment["QUIZICE_RECORD_SNAPSHOTS"] == "1" ? .all : nil
     }
@@ -32,6 +49,7 @@ enum SnapshotSupport {
         UserDefaults.standard.removeObject(forKey: DebugSubscriptionPromoSettings.showPromoKey)
         SubscriptionEntitlementStore.shared.setDebugSubscriptionActive(false)
 #endif
+        UserDefaults.standard.removeObject(forKey: QuestionRepeatStrategyStore.defaultsKey)
         resetLocalizedThemePreferences()
     }
 
@@ -47,11 +65,13 @@ enum SnapshotSupport {
         UserDefaults.standard.removeObject(forKey: DebugSubscriptionPromoSettings.showPromoKey)
         SubscriptionEntitlementStore.shared.setDebugSubscriptionActive(false)
 #endif
+        UserDefaults.standard.removeObject(forKey: QuestionRepeatStrategyStore.defaultsKey)
         resetLocalizedThemePreferences()
         resetSharedQuizFactoryForTests()
     }
 
     private static func resetLocalizedThemePreferences() {
+        UserDefaults.standard.removeObject(forKey: "quizice.favorites.global.v2")
         UserDefaults.standard.removeObject(
             forKey: OnboardingProgressStore.Keys.legacyPreferencesMigrationLocale
         )
@@ -83,7 +103,8 @@ enum SnapshotSupport {
         viewController.view.layoutIfNeeded()
         let snapshotting: Snapshotting<UIViewController, UIImage>
         if let device {
-            let displayScale: CGFloat = device.size == ViewImageConfig.iPhone8.size ? 2 : 3
+            let displayScale: CGFloat = device.traits.userInterfaceIdiom == .pad
+                || device.size == ViewImageConfig.iPhone8.size ? 2 : 3
             let traits = device.traits.modifyingTraits {
                 $0.displayScale = displayScale
             }

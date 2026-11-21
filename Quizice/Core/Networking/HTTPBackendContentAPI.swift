@@ -10,12 +10,7 @@ final class HTTPBackendContentAPI: BackendContentAPI, StatisticsHistoryAPI {
     private let accessTokenProvider: BackendAccessTokenProviding
     private let authenticationRecoverer: BackendAuthenticationRecovering?
     private let clock = ContinuousClock()
-
-    // Content responses (themes, preferences, question batches) are a few
-    // kilobytes at most. Anything larger indicates a misbehaving upstream or
-    // an active attack; refuse the body before JSON decoding balloons memory.
     private static let maxResponseBytes = 10 * 1024 * 1024
-
     init(
         configuration: BackendConfiguration,
         session: URLSession = .shared,
@@ -31,11 +26,11 @@ final class HTTPBackendContentAPI: BackendContentAPI, StatisticsHistoryAPI {
         self.accessTokenProvider = accessTokenProvider
         self.authenticationRecoverer = authenticationRecoverer
         encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
         decoder = JSONDecoder()
     }
 
-    // An expired session still identifies the player. Send its token through
-    // the existing 401 recovery path instead of silently fetching as a guest.
+    // Recover expired sessions rather than silently requesting guest content.
     private var requestAccessToken: String? {
         accessTokenProvider.validAccessToken() ?? accessTokenProvider.currentSession()?.accessToken
     }
@@ -72,6 +67,31 @@ final class HTTPBackendContentAPI: BackendContentAPI, StatisticsHistoryAPI {
             accessToken: requestAccessToken,
             validate: { BackendContentResponseValidator.isValid($0, requestedLocale: locale) }
         )
+    }
+
+    func fetchFavorites() async throws -> BackendFavoritesSnapshot {
+        guard let token = requestAccessToken else { throw BackendContentError.unauthenticated }
+        return try await get(url: makeURL(pathComponents: ["v2", "me", "favorites"], queryItems: []),
+                             operation: .themePreferences, accessToken: token,
+                             validate: Self.validFavorites)
+    }
+
+    func patchFavorites(_ mutation: FavoriteMutation, session: AuthSession) async throws -> BackendFavoritesSnapshot {
+        guard accessTokenProvider.currentSession()?.userID == session.userID else { throw BackendContentError.unauthenticated }
+        guard mutation.addThemeIds.count <= 100, mutation.removeThemeIds.count <= 100,
+              BackendContentResponseValidator.normalizedThemeIDs(mutation.addThemeIds) == mutation.addThemeIds,
+              BackendContentResponseValidator.normalizedThemeIDs(mutation.removeThemeIds) == mutation.removeThemeIds,
+              Set(mutation.addThemeIds).isDisjoint(with: mutation.removeThemeIds) else { throw BackendContentError.invalidRequest }
+        return try await sendJSON(
+            method: "PATCH", url: makeURL(pathComponents: ["v2", "me", "favorites"], queryItems: []),
+            operation: .themePreferences, accessToken: session.accessToken, body: mutation,
+            expectedUserID: session.userID,
+            validate: { Self.validFavorites($0) && $0.mutationId == mutation.mutationId }
+        )
+    }
+
+    private static func validFavorites(_ response: BackendFavoritesSnapshot) -> Bool {
+        response.revision >= 0 && BackendContentResponseValidator.normalizedThemeIDs(response.favoriteThemeIds) == response.favoriteThemeIds
     }
 
     func fetchThemePreferences(locale: String) async throws -> BackendThemePreferencesResponse {
@@ -111,16 +131,47 @@ final class HTTPBackendContentAPI: BackendContentAPI, StatisticsHistoryAPI {
             pathComponents: ["v1", "me", "theme-preferences"],
             queryItems: []
         )
-        return try await put(
-            url: url,
+        return try await sendJSON(
+            method: "PUT", url: url,
             operation: .themePreferences,
             accessToken: accessToken,
             body: BackendThemePreferencesUpdate(
                 locale: locale,
                 favoriteThemeIds: normalizedIDs
             ),
+            expectedUserID: accessTokenProvider.currentSession()?.userID,
             validate: { BackendContentResponseValidator.isValid($0, requestedLocale: locale) }
         )
+    }
+
+    func resetQuestionProgress(
+        themeID: String, resetID: UUID, session: AuthSession
+    ) async throws -> BackendQuestionProgressResetResponse {
+        guard themeID == themeID.trimmingCharacters(in: .whitespacesAndNewlines),
+              themeID.range(of: "^[A-Za-z0-9_-]+$", options: .regularExpression) != nil,
+              resetID != UUID(uuidString: "00000000-0000-0000-0000-000000000000") else {
+            throw BackendContentError.invalidRequest
+        }
+        guard accessTokenProvider.currentSession()?.userID == session.userID else {
+            throw BackendContentError.unauthenticated
+        }
+        try Task.checkCancellation()
+        let url = try makeURL(
+            pathComponents: ["v1", "me", "themes", themeID, "question-progress", "reset"], queryItems: []
+        )
+        let response: BackendQuestionProgressResetResponse = try await sendJSON(
+            method: "POST", url: url, operation: .questionProgressReset, accessToken: session.accessToken,
+            body: BackendQuestionProgressResetRequest(resetId: resetID),
+            expectedUserID: session.userID,
+            validate: {
+                BackendContentResponseValidator.isValid($0, requestedThemeID: themeID, requestedResetID: resetID)
+            }
+        )
+        try Task.checkCancellation()
+        guard accessTokenProvider.currentSession()?.userID == session.userID else {
+            throw BackendContentError.unauthenticated
+        }
+        return response
     }
 
     func submitQuestionAnswers(_ events: [QuestionAnswerEvent], session: AuthSession) async throws -> QuestionAnswerBatchResponse {
@@ -129,8 +180,8 @@ final class HTTPBackendContentAPI: BackendContentAPI, StatisticsHistoryAPI {
             throw BackendContentError.unauthenticated
         }
         let url = try makeURL(pathComponents: ["v1", "me", "question-answers"], queryItems: [])
-        return try await post(
-            url: url, operation: .questionAnswers, accessToken: session.accessToken,
+        return try await sendJSON(
+            method: "POST", url: url, operation: .questionAnswers, accessToken: session.accessToken,
             body: QuestionAnswerBatchRequest(events: events),
             expectedUserID: session.userID,
             validate: { Set($0.processedEventIds).isSubset(of: Set(events.map(\.eventId))) }
@@ -146,8 +197,8 @@ final class HTTPBackendContentAPI: BackendContentAPI, StatisticsHistoryAPI {
             pathComponents: ["v1", "me", "question-answers"],
             queryItems: []
         )
-        return try await post(
-            url: url,
+        return try await sendJSON(
+            method: "POST", url: url,
             operation: .questionAnswers,
             accessToken: accessToken,
             body: QuestionAnswerBatchRequest(events: events),
@@ -278,7 +329,7 @@ final class HTTPBackendContentAPI: BackendContentAPI, StatisticsHistoryAPI {
                     requestedLocale: locale,
                     requestedSeed: normalizedSeed,
                     requestedCountry: country
-                )
+                ) && (!$0.isExhausted || $0.progressMode == strategy.progressMode)
             }
         )
     }
@@ -401,11 +452,20 @@ final class HTTPBackendContentAPI: BackendContentAPI, StatisticsHistoryAPI {
                     requestedLocale: locale,
                     requestedSeed: normalizedSeed,
                     requestedCountry: country
-                )
+                ) && (!$0.isExhausted || $0.progressMode == strategy.progressMode)
             }
         )
     }
 
+    func fetchOfflineQuestions(locale: String, userID: String) async throws -> OfflineQuestionPack {
+        guard let token = requestAccessToken, accessTokenProvider.currentSession()?.userID == userID
+        else { throw BackendContentError.unauthenticated }
+        let url = try makeURL(pathComponents: ["v1", "themes", "offline"],
+                              queryItems: [URLQueryItem(name: "locale", value: locale)])
+        return try await get(url: url, operation: .questions, accessToken: token) { (pack: OfflineQuestionPack) in
+            pack.isValid(locale: locale, userID: userID)
+        }
+    }
     private func get<Response: Decodable>(
         url: URL,
         operation: BackendOperation,
@@ -427,36 +487,8 @@ final class HTTPBackendContentAPI: BackendContentAPI, StatisticsHistoryAPI {
         )
     }
 
-    private func put<Response: Decodable, Body: Encodable>(
-        url: URL,
-        operation: BackendOperation,
-        accessToken: String,
-        body: Body,
-        validate: @escaping (Response) -> Bool
-    ) async throws -> Response {
-        let bodyData: Data
-        do {
-            bodyData = try encoder.encode(body)
-        } catch {
-            throw BackendContentError.encoding
-        }
-
-        var request = URLRequest(url: url, timeoutInterval: requestTimeout)
-        request.cachePolicy = .reloadIgnoringLocalCacheData
-        request.httpMethod = "PUT"
-        request.httpBody = bodyData
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: BackendConfiguration.authorizationHeader)
-        return try await perform(
-            request: request,
-            operation: operation,
-            validate: validate,
-            expectedUserID: accessTokenProvider.currentSession()?.userID
-        )
-    }
-
-    private func post<Response: Decodable, Body: Encodable>(
+    private func sendJSON<Response: Decodable, Body: Encodable>(
+        method: String,
         url: URL,
         operation: BackendOperation,
         accessToken: String,
@@ -464,16 +496,14 @@ final class HTTPBackendContentAPI: BackendContentAPI, StatisticsHistoryAPI {
         expectedUserID: String? = nil,
         validate: @escaping (Response) -> Bool
     ) async throws -> Response {
-        let bodyData: Data
+        var request = URLRequest(url: url, timeoutInterval: requestTimeout)
+        request.httpMethod = method
+        if method != "POST" { request.cachePolicy = .reloadIgnoringLocalCacheData }
         do {
-            encoder.dateEncodingStrategy = .iso8601
-            bodyData = try encoder.encode(body)
+            request.httpBody = try encoder.encode(body)
         } catch {
             throw BackendContentError.encoding
         }
-        var request = URLRequest(url: url, timeoutInterval: requestTimeout)
-        request.httpMethod = "POST"
-        request.httpBody = bodyData
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(accessToken)", forHTTPHeaderField: BackendConfiguration.authorizationHeader)
@@ -491,7 +521,7 @@ final class HTTPBackendContentAPI: BackendContentAPI, StatisticsHistoryAPI {
         do {
             let (data, response) = try await session.data(for: request)
             guard let httpResponse = response as? HTTPURLResponse else {
-                record(
+                metrics.record(
                     operation: operation,
                     result: .transportError,
                     startedAt: startedAt,
@@ -501,7 +531,7 @@ final class HTTPBackendContentAPI: BackendContentAPI, StatisticsHistoryAPI {
                 throw BackendContentError.invalidResponse
             }
             guard data.count <= Self.maxResponseBytes else {
-                record(
+                metrics.record(
                     operation: operation,
                     result: .contractError,
                     startedAt: startedAt,
@@ -516,7 +546,7 @@ final class HTTPBackendContentAPI: BackendContentAPI, StatisticsHistoryAPI {
             if (200..<300).contains(httpResponse.statusCode) {
                 let contentType = httpResponse.value(forHTTPHeaderField: "Content-Type")?.lowercased()
                 if let contentType, !contentType.contains("application/json") {
-                    record(
+                    metrics.record(
                         operation: operation,
                         result: .contractError,
                         startedAt: startedAt,
@@ -528,7 +558,7 @@ final class HTTPBackendContentAPI: BackendContentAPI, StatisticsHistoryAPI {
             }
             guard (200..<300).contains(httpResponse.statusCode) else {
                 let envelope = try? decoder.decode(BackendErrorEnvelope.self, from: data)
-                record(
+                metrics.record(
                     operation: operation,
                     result: .httpError,
                     startedAt: startedAt,
@@ -570,7 +600,7 @@ final class HTTPBackendContentAPI: BackendContentAPI, StatisticsHistoryAPI {
             do {
                 let decoded = try decoder.decode(Response.self, from: data)
                 guard validate(decoded) else {
-                    record(
+                    metrics.record(
                         operation: operation,
                         result: .contractError,
                         startedAt: startedAt,
@@ -579,7 +609,7 @@ final class HTTPBackendContentAPI: BackendContentAPI, StatisticsHistoryAPI {
                     )
                     throw BackendContentError.contractViolation
                 }
-                record(
+                metrics.record(
                     operation: operation,
                     result: .success,
                     startedAt: startedAt,
@@ -590,7 +620,7 @@ final class HTTPBackendContentAPI: BackendContentAPI, StatisticsHistoryAPI {
             } catch let error as BackendContentError {
                 throw error
             } catch {
-                record(
+                metrics.record(
                     operation: operation,
                     result: .decodingError,
                     startedAt: startedAt,
@@ -600,7 +630,7 @@ final class HTTPBackendContentAPI: BackendContentAPI, StatisticsHistoryAPI {
                 throw BackendContentError.decoding
             }
         } catch is CancellationError {
-            record(
+            metrics.record(
                 operation: operation,
                 result: .cancelled,
                 startedAt: startedAt,
@@ -611,7 +641,7 @@ final class HTTPBackendContentAPI: BackendContentAPI, StatisticsHistoryAPI {
         } catch let error as BackendContentError {
             throw error
         } catch let error as URLError where error.code == .cancelled {
-            record(
+            metrics.record(
                 operation: operation,
                 result: .cancelled,
                 startedAt: startedAt,
@@ -620,7 +650,7 @@ final class HTTPBackendContentAPI: BackendContentAPI, StatisticsHistoryAPI {
             )
             throw CancellationError()
         } catch let error as URLError {
-            record(
+            metrics.record(
                 operation: operation,
                 result: .transportError,
                 startedAt: startedAt,
@@ -629,7 +659,7 @@ final class HTTPBackendContentAPI: BackendContentAPI, StatisticsHistoryAPI {
             )
             throw BackendContentError.transport(error.code)
         } catch {
-            record(
+            metrics.record(
                 operation: operation,
                 result: .transportError,
                 startedAt: startedAt,
@@ -657,32 +687,7 @@ final class HTTPBackendContentAPI: BackendContentAPI, StatisticsHistoryAPI {
         return result
     }
 
-    private func record(
-        operation: BackendOperation,
-        result: BackendRequestResult,
-        startedAt: ContinuousClock.Instant,
-        statusCode: Int?,
-        responseBytes: Int
-    ) {
-        metrics.record(
-            BackendRequestMetric(
-                operation: operation,
-                result: result,
-                durationMilliseconds: Self.milliseconds(clock.now - startedAt),
-                statusCode: statusCode,
-                responseBytes: responseBytes
-            )
-        )
-    }
-
     private static func isSupported(locale: String) -> Bool {
         AppLanguagePreference.explicitPreference(for: locale) != nil
-    }
-
-    private static func milliseconds(_ duration: Duration) -> Int {
-        let components = duration.components
-        let seconds = components.seconds * 1_000
-        let milliseconds = components.attoseconds / 1_000_000_000_000_000
-        return max(Int(seconds + milliseconds), 0)
     }
 }

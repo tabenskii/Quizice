@@ -1,7 +1,259 @@
 import XCTest
+import GameKit
+import UIKit
 @testable import Quizice
 @MainActor
 final class GameCenterAuthenticationServiceTests: XCTestCase {
+#if DEBUG
+    func testProvisionedBackendSessionAuthenticatesWithoutGameCenterAndRejectsRevocation() async throws {
+        let configuration = BackendConfiguration(baseURL: URL(string: "https://example.com/api")!)
+        let store = DebugBackendSessionStore(client: InMemoryKeychainClient())
+        let payload = try JSONSerialization.data(withJSONObject: [
+            "backendBaseURL": configuration.baseURL.absoluteString,
+            "session": ["userID": "550e8400-e29b-41d4-a716-446655440001",
+                        "teamPlayerID": "dev:550e8400-e29b-41d4-a716-446655440000",
+                        "accessToken": "provisioned-test-token", "expiresAt": "2099-01-01T00:00:00Z"]
+        ])
+        _ = try store.load(configuration: configuration,
+                           environment: ["QUIZICE_DEBUG_SESSION_BASE64": payload.base64EncodedString()])
+        let oldSession = AuthSession(userID: "other-user", accessToken: "other-token",
+                                     expiresAt: .distantFuture, teamPlayerID: "dev:other-account")
+        let h = makeHarness(storedSession: oldSession)
+        h.service.configureDebugAuthentication(DebugBackendSessionProvider(store: store, configuration: configuration))
+        h.service.start { _ in XCTFail("No Game Center UI expected") }
+        await h.service.waitForDebugAuthentication()
+        XCTAssertEqual(h.service.accountAccessState, .authenticated)
+        await waitUntil { h.api.syncRequests.count == 1 }
+        XCTAssertEqual(h.gameCenter.startCount, 0)
+        XCTAssertEqual(h.api.syncAccessTokens, ["provisioned-test-token"])
+        XCTAssertEqual(h.service.authenticatedAccountID, "550e8400-e29b-41d4-a716-446655440001")
+        XCTAssertTrue(h.aiAccess.isAIQuizAvailable)
+
+        h.notificationCenter.post(name: .backendAuthenticationInvalidated, object: nil)
+        await waitUntil { h.service.accountAccessState == .signInRequired }
+        XCTAssertNil(try store.load(configuration: configuration))
+        XCTAssertNil(h.sessionStore.session)
+        XCTAssertEqual(h.gameCenter.startCount, 0)
+        XCTAssertFalse(h.service.usesDebugBackendAuthentication)
+
+        _ = try store.load(configuration: configuration,
+                           environment: ["QUIZICE_DEBUG_SESSION_BASE64": payload.base64EncodedString()])
+        let rejected = makeHarness()
+        rejected.api.syncErrors = [.unauthorized(nil)]
+        rejected.service.configureDebugAuthentication(DebugBackendSessionProvider(store: store, configuration: configuration))
+        rejected.service.start { _ in XCTFail("No Game Center UI expected") }
+        await waitUntil { rejected.service.accountAccessState == .signInRequired }
+        XCTAssertNil(try store.load(configuration: configuration))
+        XCTAssertEqual(rejected.api.syncRequests.count, 1)
+        XCTAssertEqual(rejected.gameCenter.startCount, 0)
+    }
+#endif
+    func testOfflineGameCenterFailureDoesNotPretendThePlayerNeedsSignIn() async {
+        let h = makeHarness()
+        h.service.start { _ in }
+        h.gameCenter.emit(.networkUnavailable)
+        await waitUntil { h.service.accountAccessState == .signInRequired }
+        XCTAssertFalse(h.service.needsGameCenterSignIn)
+        h.gameCenter.emit(.unavailable)
+        XCTAssertTrue(h.service.needsGameCenterSignIn)
+    }
+
+    func testManualConnectionRetryIgnoresThePreviousBackendResponse() async {
+        let h = makeHarness()
+        let started = expectation(description: "Original authentication waits")
+        let oldResponse = SuspendedAuthSessionResponse { started.fulfill() }
+        h.api.authenticationHandler = { _ in try await oldResponse.wait() }
+        h.service.start { _ in }
+        h.gameCenter.emit(.authenticated(teamPlayerID: "team-1"))
+        await fulfillment(of: [started], timeout: 1)
+        h.service.retryConnection { _ in }
+        h.api.authenticationHandler = nil
+        h.gameCenter.emit(.authenticated(teamPlayerID: "team-1"))
+        await waitUntil { h.service.accountAccessState == .authenticated }
+        let currentSession = h.sessionStore.session
+        await oldResponse.resume(with: AuthSession(userID: "old-user", accessToken: "old-token",
+            expiresAt: .distantFuture, teamPlayerID: "team-1"))
+        for _ in 0..<10 { await Task.yield() }
+        XCTAssertEqual(h.sessionStore.session, currentSession)
+        XCTAssertFalse(h.service.needsGameCenterSignIn)
+    }
+
+    func testInitialAuthenticationWaitsForBackendAndResolvesOnlyOnce() async {
+        let harness = makeHarness()
+        let backendStarted = expectation(description: "Backend authentication started")
+        let gate = SuspendedAuthSessionResponse { backendStarted.fulfill() }
+        harness.api.authenticationHandler = { _ in try await gate.wait() }
+        harness.service.start { _ in }
+        let finishedWaiting = expectation(description: "Startup waiter finished")
+        var waiterFinished = false
+        let waiter = Task {
+            await harness.service.waitForInitialAuthentication()
+            XCTAssertEqual(harness.service.state, .authenticated(userID: "user-1", teamPlayerID: "team-1"))
+            XCTAssertEqual(harness.sessionStore.session?.userID, "user-1")
+            XCTAssertEqual(harness.statistics.activeUserID, "user-1")
+            XCTAssertTrue(harness.aiAccess.isAIQuizAvailable)
+            waiterFinished = true
+            finishedWaiting.fulfill()
+        }
+        defer { waiter.cancel() }
+
+        harness.gameCenter.emit(.authenticated(teamPlayerID: "team-1"))
+        await fulfillment(of: [backendStarted], timeout: 1)
+        XCTAssertEqual(harness.service.state, .authenticating)
+        XCTAssertFalse(waiterFinished)
+
+        await gate.resume(with: startupSession)
+        await fulfillment(of: [finishedWaiting], timeout: 1)
+        harness.service.start { _ in }
+        harness.gameCenter.emit(.authenticated(teamPlayerID: "team-1"))
+        harness.gameCenter.emit(.unavailable)
+        XCTAssertEqual(harness.gameCenter.startCount, 1)
+
+        let refreshStarted = expectation(description: "Later authentication started")
+        let refreshGate = SuspendedAuthSessionResponse { refreshStarted.fulfill() }
+        harness.api.authenticationHandler = { _ in try await refreshGate.wait() }
+        harness.gameCenter.emit(.authenticated(teamPlayerID: "team-1"))
+        await fulfillment(of: [refreshStarted], timeout: 1)
+        XCTAssertEqual(harness.service.state, .authenticating)
+        let alreadyResolved = expectation(description: "Initial authentication remains resolved during refresh")
+        let laterWaiter = Task {
+            await harness.service.waitForInitialAuthentication()
+            alreadyResolved.fulfill()
+        }
+        defer { laterWaiter.cancel() }
+        await fulfillment(of: [alreadyResolved], timeout: 1)
+        await refreshGate.resume(with: startupSession)
+    }
+
+    func testInitialAuthenticationRestoresCachedSessionBeforeReleasingWaiter() async {
+        let harness = makeHarness(storedSession: startupSession)
+        let finishedWaiting = expectation(description: "Cached authentication resolved")
+        let waiter = Task {
+            await harness.service.waitForInitialAuthentication()
+            XCTAssertEqual(harness.service.state, .authenticated(userID: "user-1", teamPlayerID: "team-1"))
+            finishedWaiting.fulfill()
+        }
+        defer { waiter.cancel() }
+        harness.service.start { _ in }
+        harness.gameCenter.emit(.authenticated(teamPlayerID: "team-1"))
+
+        await fulfillment(of: [finishedWaiting], timeout: 1)
+        XCTAssertTrue(harness.api.authenticatedIdentities.isEmpty)
+    }
+
+    func testInitialAuthenticationResolvesGuestWhenGameCenterIsUnavailable() async {
+        let harness = makeHarness()
+        harness.service.start { _ in }
+        let finishedWaiting = expectation(description: "Guest startup resolved")
+        let waiter = Task {
+            await harness.service.waitForInitialAuthentication()
+            finishedWaiting.fulfill()
+        }
+        defer { waiter.cancel() }
+
+        harness.gameCenter.emit(.unavailable)
+        await fulfillment(of: [finishedWaiting], timeout: 1)
+        XCTAssertEqual(harness.service.state, .guest)
+        XCTAssertFalse(harness.aiAccess.isAIQuizAvailable)
+    }
+
+    func testInitialAuthenticationFailureReleasesWaiterInGuestMode() async {
+        let harness = makeHarness()
+        harness.api.authenticationErrors = [.transport(.notConnectedToInternet)]
+        harness.service.start { _ in }
+        let finishedWaiting = expectation(description: "Failed startup resolved")
+        let waiter = Task {
+            await harness.service.waitForInitialAuthentication()
+            finishedWaiting.fulfill()
+        }
+        defer { waiter.cancel() }
+        harness.gameCenter.emit(.authenticated(teamPlayerID: "team-1"))
+
+        await fulfillment(of: [finishedWaiting], timeout: 1)
+        XCTAssertEqual(harness.service.state, .guest)
+        XCTAssertNil(harness.sessionStore.session)
+    }
+
+    func testGameCenterPresentationDoesNotResolveInitialAuthentication() async {
+        let harness = makeHarness()
+        let controller = UIViewController()
+        var presentedController: UIViewController?
+        harness.service.start {
+            presentedController = $0
+        }
+        let finishedWaiting = expectation(description: "Game Center completed after presentation")
+        var waiterFinished = false
+        let waiter = Task {
+            await harness.service.waitForInitialAuthentication()
+            waiterFinished = true
+            finishedWaiting.fulfill()
+        }
+        defer { waiter.cancel() }
+
+        harness.gameCenter.requestPresentation(controller)
+        XCTAssertTrue(presentedController === controller)
+        XCTAssertEqual(harness.service.state, .initializing)
+        await Task.yield()
+        XCTAssertFalse(waiterFinished)
+
+        harness.gameCenter.emit(.unavailable)
+        await fulfillment(of: [finishedWaiting], timeout: 1)
+    }
+
+    func testCancellingStartupWaiterLeavesOtherWaitersAndBackendAuthenticationRunning() async {
+        let harness = makeHarness()
+        let backendStarted = expectation(description: "Backend authentication suspended")
+        let gate = SuspendedAuthSessionResponse { backendStarted.fulfill() }
+        harness.api.authenticationHandler = { _ in
+            let session = try await gate.wait()
+            try Task.checkCancellation()
+            return session
+        }
+        harness.service.start { _ in }
+        let cancelledWaiterFinished = expectation(description: "Cancelled waiter finished")
+        let cancelledWaiter = Task {
+            await harness.service.waitForInitialAuthentication()
+            cancelledWaiterFinished.fulfill()
+        }
+        let activeWaiterFinished = expectation(description: "Active waiter finished after authentication")
+        var activeWaiterDidFinish = false
+        let activeWaiter = Task {
+            await harness.service.waitForInitialAuthentication()
+            activeWaiterDidFinish = true
+            activeWaiterFinished.fulfill()
+        }
+        defer { activeWaiter.cancel() }
+        harness.gameCenter.emit(.authenticated(teamPlayerID: "team-1"))
+        await fulfillment(of: [backendStarted], timeout: 1)
+
+        cancelledWaiter.cancel()
+        await fulfillment(of: [cancelledWaiterFinished], timeout: 1)
+        XCTAssertFalse(activeWaiterDidFinish)
+        XCTAssertEqual(harness.service.state, .authenticating)
+
+        await gate.resume(with: startupSession)
+        await fulfillment(of: [activeWaiterFinished], timeout: 1)
+        XCTAssertEqual(harness.service.state, .authenticated(userID: "user-1", teamPlayerID: "team-1"))
+        XCTAssertEqual(harness.sessionStore.session, startupSession)
+        XCTAssertEqual(harness.api.authenticatedIdentities.count, 1)
+    }
+
+    func testPendingDeletionResolvesInitialAuthenticationWithoutWaitingForGameCenter() async {
+        let harness = makeHarness(pendingDeletion: true)
+        harness.service.start { _ in }
+        let finishedWaiting = expectation(description: "Pending deletion startup resolved")
+        let waiter = Task {
+            await harness.service.waitForInitialAuthentication()
+            finishedWaiting.fulfill()
+        }
+        defer { waiter.cancel() }
+
+        await fulfillment(of: [finishedWaiting], timeout: 1)
+        XCTAssertEqual(harness.service.state, .deletionPending)
+        XCTAssertEqual(harness.gameCenter.startCount, 1)
+        XCTAssertTrue(harness.api.authenticatedIdentities.isEmpty)
+    }
+
     func testAccountAccessObserverReplaysStateAndRequiresSignInAfterGameCenterCancellation() async {
         let h = makeHarness()
         var accessStates: [AppAccountAccessState] = []
@@ -22,6 +274,71 @@ final class GameCenterAuthenticationServiceTests: XCTestCase {
         await waitUntil { h.service.accountAccessState == .authenticated }
         XCTAssertEqual(accessStates.last, .authenticated)
         XCTAssertEqual(h.service.authenticatedAccountID, "user-1")
+    }
+
+    func testContinueTriggersSystemGameCenterUIWithoutAControllerCallback() async {
+        let player = StubGameCenterLocalPlayer()
+        player.providesSignInUI = false
+        let point = StubGameCenterAccessPoint()
+        let client = GameCenterClient(player: player, notificationCenter: NotificationCenter(), accessPoint: point)
+        let h = makeHarness(client: client)
+        h.service.start { _ in XCTFail("No controller should be provided") }
+        player.authenticateHandler?(nil, nil)
+        await waitUntil { h.service.accountAccessState == .signInRequired }
+        XCTAssertTrue(h.service.needsGameCenterSignIn)
+
+        h.service.signIn { _ in XCTFail("The access point presents system UI") }
+        XCTAssertEqual(point.triggerCount, 1)
+        XCTAssertEqual(h.service.accountAccessState, .signInRequired)
+        h.service.signIn { _ in }
+        XCTAssertEqual(point.triggerCount, 1)
+        XCTAssertEqual(player.resetCount, 0)
+    }
+
+    func testCancelledSystemGameCenterUICanBeTriggeredRepeatedlyAndThenAuthenticate() async {
+        let player = StubGameCenterLocalPlayer()
+        player.providesSignInUI = false
+        let point = StubGameCenterAccessPoint()
+        let client = GameCenterClient(player: player, notificationCenter: NotificationCenter(), accessPoint: point)
+        let h = makeHarness(client: client)
+        h.service.start { _ in }
+        player.authenticateHandler?(nil, NSError(domain: "GKErrorDomain", code: 2))
+        await waitUntil { h.service.accountAccessState == .signInRequired }
+
+        for expectedCount in 1...3 {
+            h.service.signIn { _ in }
+            XCTAssertEqual(point.triggerCount, expectedCount)
+            point.finish()
+            await waitUntil { h.service.accountAccessState == .signInRequired }
+        }
+        h.service.signIn { _ in }
+        XCTAssertEqual(point.triggerCount, 4)
+        player.isAuthenticated = true
+        player.teamPlayerID = "team-1"
+        point.finish()
+        await waitUntil { h.service.accountAccessState == .authenticated }
+        XCTAssertEqual(h.service.authenticatedAccountID, "user-1")
+        XCTAssertEqual(player.resetCount, 0)
+    }
+
+    func testBackendRetryForSignedInPlayerDoesNotOpenGameCenterUI() async {
+        let player = StubGameCenterLocalPlayer()
+        player.providesSignInUI = false
+        player.isAuthenticated = true
+        player.teamPlayerID = "team-1"
+        let point = StubGameCenterAccessPoint()
+        let client = GameCenterClient(player: player, notificationCenter: NotificationCenter(), accessPoint: point)
+        let h = makeHarness(client: client)
+        h.api.authenticationErrors = [.transport(.notConnectedToInternet)]
+        h.service.start { _ in }
+        player.authenticateHandler?(nil, nil)
+        await waitUntil { h.service.accountAccessState == .signInRequired }
+        XCTAssertFalse(h.service.needsGameCenterSignIn)
+
+        h.service.signIn { _ in }
+        await waitUntil { h.service.accountAccessState == .authenticated }
+        XCTAssertEqual(point.triggerCount, 0)
+        XCTAssertEqual(h.api.authenticatedIdentities.count, 2)
     }
 
     func testBackendAuthenticationFailureKeepsAccessBlockedUntilSignInSucceeds() async {
@@ -360,7 +677,62 @@ final class GameCenterAuthenticationServiceTests: XCTestCase {
         XCTAssertTrue(harness.aiAccess.isAIQuizAvailable)
     }
 
-    private func makeHarness(storedSession: AuthSession? = nil) -> (
+    func testColdOfflineLaunchRestoresValidAccountAndCancellationStillSignsOut() async {
+        let player = StubGameCenterLocalPlayer()
+        player.providesSignInUI = false
+        let client = GameCenterClient(player: player, notificationCenter: NotificationCenter(),
+            accessPoint: StubGameCenterAccessPoint(), isNetworkUnavailable: { true })
+        let cached = startupSession
+        let h = makeHarness(storedSession: cached, client: client)
+        h.api.syncHandler = { _, _ in throw BackendAPIError.transport(.notConnectedToInternet) }
+        h.service.start { _ in XCTFail("Offline restoration must not show system sign-in") }
+        player.authenticateHandler?(nil, NSError(domain: GKErrorDomain, code: GKError.Code.communicationsFailure.rawValue))
+        await waitUntil { h.service.accountAccessState == .authenticated }
+        XCTAssertEqual(h.service.authenticatedAccountID, cached.userID)
+        XCTAssertEqual(h.statistics.activeUserID, cached.userID)
+        XCTAssertEqual(h.sessionStore.session, cached)
+        XCTAssertTrue(h.api.authenticatedIdentities.isEmpty)
+        player.authenticateHandler?(nil, NSError(domain: GKErrorDomain, code: GKError.Code.cancelled.rawValue))
+        await waitUntil { h.service.accountAccessState == .signInRequired }
+        XCTAssertNil(h.sessionStore.session)
+    }
+
+    func testOfflineLaunchCannotCreateAnAccountOrUseExpiredOrEmptyCredentials() {
+        let expired = AuthSession(userID: "A", accessToken: "token", expiresAt: Date(timeIntervalSince1970: 900), teamPlayerID: "team-1")
+        let blank = AuthSession(userID: "A", accessToken: " ", expiresAt: .distantFuture, teamPlayerID: "team-1")
+        for cached in [nil, expired, blank] {
+            let h = makeHarness(storedSession: cached)
+            h.service.start { _ in }
+            h.gameCenter.emit(.networkUnavailable)
+            XCTAssertEqual(h.service.accountAccessState, .signInRequired)
+            XCTAssertTrue(h.api.authenticatedIdentities.isEmpty)
+            XCTAssertNil(h.sessionStore.session)
+        }
+    }
+
+    func testGameCenterNetworkClassificationDoesNotTreatDenialAsOffline() {
+        for code in [GKError.Code.cancelled, .userDenied, .invalidCredentials, .parentalControlsBlocked] {
+            let error = NSError(domain: GKErrorDomain, code: code.rawValue,
+                userInfo: [NSUnderlyingErrorKey: URLError(.notConnectedToInternet)])
+            XCTAssertFalse(GameCenterClient.isNetworkFailure(error, isOffline: true))
+        }
+        let unsigned = NSError(domain: GKErrorDomain, code: GKError.Code.notAuthenticated.rawValue)
+        XCTAssertFalse(GameCenterClient.isNetworkFailure(unsigned, isOffline: false))
+        XCTAssertTrue(GameCenterClient.isNetworkFailure(unsigned, isOffline: true))
+        let nested = NSError(domain: GKErrorDomain, code: GKError.Code.notAuthenticated.rawValue,
+            userInfo: [NSUnderlyingErrorKey: URLError(.notConnectedToInternet)])
+        XCTAssertTrue(GameCenterClient.isNetworkFailure(nested, isOffline: false))
+        XCTAssertFalse(GameCenterClient.isNetworkFailure(nil, isOffline: true))
+    }
+
+    private var startupSession: AuthSession {
+        AuthSession(
+            userID: "user-1", accessToken: "access-token",
+            expiresAt: Date(timeIntervalSince1970: 4_000_000_000), teamPlayerID: "team-1"
+        )
+    }
+
+    private func makeHarness(storedSession: AuthSession? = nil, pendingDeletion: Bool = false, client: GameCenterAuthenticating? = nil) -> (
         service: GameCenterAuthenticationService,
         gameCenter: FakeGameCenterClient,
         api: FakeAuthAPI,
@@ -382,15 +754,23 @@ final class GameCenterAuthenticationServiceTests: XCTestCase {
         let api = FakeAuthAPI()
         let sessionStore = MemorySessionStore(session: storedSession)
         let aiAccess = AIQuizAccessStore()
+        let deletionStateStore = AccountDeletionStateStore(defaults: defaults)
+        if pendingDeletion {
+            deletionStateStore.save(.init(
+                userID: "user-1", teamPlayerID: "team-1", idempotencyKey: "pending-deletion",
+                serverConfirmed: false, cleanupCompleted: false
+            ))
+        }
         let service = GameCenterAuthenticationService(
-            gameCenter: gameCenter,
+            gameCenter: client ?? gameCenter,
             api: api,
             sessionStore: sessionStore,
             statisticsStore: statistics,
             bundleIdentifier: "ru.avtabenskiy.Quizice",
             now: { Date(timeIntervalSince1970: 1_000) },
             notificationCenter: notificationCenter,
-            aiQuizAccessStore: aiAccess
+            aiQuizAccessStore: aiAccess,
+            deletionStateStore: deletionStateStore
         )
         return (
             service,
@@ -517,6 +897,24 @@ final class HTTPAuthAPITests: XCTestCase {
     }
 
 #if DEBUG
+    func testTestAccountAuthenticationUsesPrivateHeaderAndServerSelectedIdentity() async throws {
+        AuthURLProtocol.requestHandler = { request in
+            XCTAssertEqual(request.url?.path, "/api/v1/auth/test-account")
+            XCTAssertEqual(request.value(forHTTPHeaderField: "X-Test-Account-Key"), "private-test-key")
+            XCTAssertNil(request.value(forHTTPHeaderField: BackendConfiguration.authorizationHeader))
+            let body = try XCTUnwrap(Self.bodyData(from: request))
+            let json = try XCTUnwrap(JSONSerialization.jsonObject(with: body) as? [String: String])
+            XCTAssertTrue(json.isEmpty)
+            return (
+                HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!,
+                Data(#"{"userId":"018f4f5e-7b6a-7c8d-9e0f-123456789abc","developerUserId":"550e8400-e29b-41d4-a716-446655440000","accessToken":"test-token","expiresAt":"2030-01-01T00:00:00Z"}"#.utf8)
+            )
+        }
+        let session = try await makeAPI().authenticateTestAccount(secret: "private-test-key")
+        XCTAssertEqual(session.teamPlayerID, "dev:550e8400-e29b-41d4-a716-446655440000")
+        XCTAssertEqual(session.accessToken, "test-token")
+    }
+
     func testDeveloperAuthenticationUsesDevEndpointUUIDBodyAndSecretHeader() async throws {
         let developerUserID = UUID(uuidString: "550e8400-e29b-41d4-a716-446655440000")!
         let api = makeAPI()
@@ -1011,7 +1409,7 @@ final class AccountDeletionServiceTests: XCTestCase {
     }
 
     func testPendingDeletionSurvivesUnavailableOrDifferentGameCenterOnRestart() async throws {
-        for playerState in [GameCenterPlayerState.unavailable, .authenticated(teamPlayerID: "other-player")] {
+        for playerState in [GameCenterPlayerState.unavailable, .networkUnavailable, .authenticated(teamPlayerID: "other-player")] {
             let h = Harness()
             await h.signIn()
             h.api.deletionHandler = { throw BackendAPIError.transport(.timedOut) }
@@ -1411,5 +1809,82 @@ extension HTTPAuthAPITests {
                     Data(#"{"userId":"new-user","accessToken":"new-token","expiresAt":"2030-01-01T00:00:00Z"}"#.utf8))
         }
         _ = try await makeAPI().authenticate(identity: Self.identity, recreateDeletedAccount: true)
+    }
+}
+
+@MainActor
+final class AccountDataSynchronizerTests: XCTestCase {
+    func testConcurrentLifecycleAndScreenRefreshesShareOneFlight() async {
+        let started = expectation(description: "Statistics started")
+        var resume: CheckedContinuation<Void, Never>?
+        var calls = [0, 0, 0]
+        let sync = AccountDataSynchronizer(statistics: {
+            calls[0] += 1
+            if calls[0] == 1 {
+                await withCheckedContinuation { continuation in resume = continuation; started.fulfill() }
+            }
+        }, answers: { calls[1] += 1 }, favorites: { calls[2] += 1 })
+        let first = Task { await sync.refresh() }
+        await fulfillment(of: [started], timeout: 1)
+        let secondRequested = expectation(description: "Second refresh requested")
+        let second = Task { secondRequested.fulfill(); await sync.refresh() }
+        await fulfillment(of: [secondRequested], timeout: 1)
+        resume?.resume()
+        await first.value
+        await second.value
+        XCTAssertEqual(calls, [1, 1, 1])
+        await sync.refresh()
+        XCTAssertEqual(calls, [2, 2, 2])
+    }
+
+    func testCancelledFlightCannotClearReplacementAccountRefresh() async {
+        let firstStarted = expectation(description: "First account")
+        let secondStarted = expectation(description: "Second account")
+        var continuations: [CheckedContinuation<Void, Never>] = []
+        var calls = 0
+        let sync = AccountDataSynchronizer(statistics: {
+            calls += 1
+            await withCheckedContinuation { continuation in
+                continuations.append(continuation)
+                if calls == 1 { firstStarted.fulfill() } else if calls == 2 { secondStarted.fulfill() }
+            }
+        }, answers: {}, favorites: {})
+        let first = Task { await sync.refresh() }
+        await fulfillment(of: [firstStarted], timeout: 1)
+        sync.cancel()
+        let second = Task { await sync.refresh() }
+        await fulfillment(of: [secondStarted], timeout: 1)
+        continuations[0].resume()
+        await first.value
+        let sharedRequested = expectation(description: "Shared refresh requested")
+        let shared = Task { sharedRequested.fulfill(); await sync.refresh() }
+        await fulfillment(of: [sharedRequested], timeout: 1)
+        XCTAssertEqual(calls, 2)
+        continuations[1].resume()
+        await second.value
+        await shared.value
+    }
+}
+
+extension AccountDataSynchronizerTests {
+    func testAuthenticationDuringRefreshRequestsOneFreshPass() async {
+        let started = expectation(description: "Refresh in flight")
+        let loginRequested = expectation(description: "Login notification")
+        var continuation: CheckedContinuation<Void, Never>?
+        var favoritesCalls = 0
+        let sync = AccountDataSynchronizer(statistics: {}, answers: {}, favorites: {
+            favoritesCalls += 1
+            if favoritesCalls == 1 {
+                await withCheckedContinuation { continuation = $0; started.fulfill() }
+            }
+        })
+        let first = Task { await sync.refresh() }
+        await fulfillment(of: [started], timeout: 1)
+        let login = Task { loginRequested.fulfill(); await sync.refresh(requiringNewPass: true) }
+        await fulfillment(of: [loginRequested], timeout: 1)
+        continuation?.resume()
+        await first.value
+        await login.value
+        XCTAssertEqual(favoritesCalls, 2)
     }
 }

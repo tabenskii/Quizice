@@ -31,6 +31,34 @@ struct OnboardingTheme: Identifiable, Equatable {
     }
 }
 
+@MainActor
+final class OnboardingThemeSelection: ObservableObject {
+    @Published private(set) var selectedIDs: Set<String>
+    private(set) var savedIDs: Set<String>
+    private var edits: [String: Bool] = [:]
+
+    init(savedIDs: Set<String>) {
+        self.savedIDs = savedIDs
+        selectedIDs = savedIDs
+    }
+
+    func select(_ ids: Set<String>) {
+        for id in selectedIDs.symmetricDifference(ids) {
+            edits[id] = ids.contains(id)
+        }
+        selectedIDs = ids
+    }
+
+    func applySavedIDs(_ ids: Set<String>) {
+        savedIDs = ids
+        var selection = ids
+        for (id, isSelected) in edits {
+            if isSelected { selection.insert(id) } else { selection.remove(id) }
+        }
+        if selectedIDs != selection { selectedIDs = selection }
+    }
+}
+
 struct QuizOnboardingView: View {
     private enum Layout {
         static let horizontalInset: CGFloat = 20
@@ -50,8 +78,9 @@ struct QuizOnboardingView: View {
     let catalogOrigin: QuizCatalogOrigin
     let onComplete: (Set<String>) -> Void
 
+    @AppStorage(QuestionRepeatStrategyStore.defaultsKey) private var repeatStrategyID = QuestionRepeatStrategy.defaultStrategy.rawValue
     @State private var selectedPage: OnboardingPage
-    @State private var selectedThemeIDs: Set<String>
+    @ObservedObject private(set) var selection: OnboardingThemeSelection
     @AccessibilityFocusState private var focusedHeaderPage: OnboardingPage?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -61,16 +90,21 @@ struct QuizOnboardingView: View {
         catalogOrigin: QuizCatalogOrigin = .bundled,
         initialPage: OnboardingPage = .welcome,
         preferredThemeIDs: Set<String> = [],
+        selection: OnboardingThemeSelection? = nil,
+        strategyDefaults: UserDefaults = .standard,
         onComplete: @escaping (Set<String>) -> Void
     ) {
         self.appearance = appearance
         self.themes = themes
         self.catalogOrigin = catalogOrigin
         self.onComplete = onComplete
-        _selectedPage = State(initialValue: initialPage)
-        _selectedThemeIDs = State(
-            initialValue: preferredThemeIDs.intersection(Set(themes.map(\.id)))
+        _repeatStrategyID = AppStorage(
+            wrappedValue: QuestionRepeatStrategy.defaultStrategy.rawValue,
+            QuestionRepeatStrategyStore.defaultsKey,
+            store: strategyDefaults
         )
+        _selectedPage = State(initialValue: initialPage)
+        self.selection = selection ?? OnboardingThemeSelection(savedIDs: preferredThemeIDs.intersection(themes.map(\.id)))
     }
 
     var body: some View {
@@ -92,40 +126,48 @@ struct QuizOnboardingView: View {
                     OnboardingTopicsPage(
                         themes: themes,
                         catalogOrigin: catalogOrigin,
-                        selectedThemeIDs: $selectedThemeIDs,
+                        selectedThemeIDs: Binding(get: { selection.selectedIDs }, set: selection.select),
                         isActive: selectedPage == .topics,
-                        focusedHeaderPage: $focusedHeaderPage
+                        focusedHeaderPage: $focusedHeaderPage,
+                        onAdvance: advance,
+                        onGoBack: goBack
                     )
                     .tag(OnboardingPage.topics)
 
                     OnboardingTutorialPage(
                         themePreview: themes.first,
+                        repeatStrategy: questionRepeatStrategy,
                         isActive: selectedPage == .tutorial,
-                        focusedHeaderPage: $focusedHeaderPage
+                        focusedHeaderPage: $focusedHeaderPage,
+                        onGoBack: goBack
                     )
                         .tag(OnboardingPage.tutorial)
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
                 .indexViewStyle(.page(backgroundDisplayMode: .never))
                 .overlay(alignment: .leading) {
-                    Color.clear
-                        .frame(width: Layout.storyTapWidth)
-                        .contentShape(Rectangle())
-                        .onTapGesture(perform: goBack)
-                        .accessibilityHidden(true)
+                    if selectedPage == .welcome {
+                        Color.clear
+                            .frame(width: Layout.storyTapWidth)
+                            .contentShape(Rectangle())
+                            .onTapGesture(perform: goBack)
+                            .accessibilityHidden(true)
+                    }
                 }
                 .overlay(alignment: .trailing) {
-                    Color.clear
-                        .frame(width: Layout.storyTapWidth)
-                        .contentShape(Rectangle())
-                        .onTapGesture(perform: advance)
-                        .accessibilityHidden(true)
+                    if selectedPage == .welcome {
+                        Color.clear
+                            .frame(width: Layout.storyTapWidth)
+                            .contentShape(Rectangle())
+                            .onTapGesture(perform: advance)
+                            .accessibilityHidden(true)
+                    }
                 }
 
                 footer
                     .padding(.horizontal, Layout.horizontalInset)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .frame(maxWidth: 560, maxHeight: .infinity)
             .safeAreaPadding(.top, Layout.topPadding)
             .safeAreaPadding(.bottom, Layout.bottomPadding)
         }
@@ -145,6 +187,13 @@ struct QuizOnboardingView: View {
             )
             focusedHeaderPage = page
         }
+    }
+
+    var questionRepeatStrategy: Binding<QuestionRepeatStrategy> {
+        Binding(
+            get: { QuestionRepeatStrategy(rawValue: repeatStrategyID) ?? .defaultStrategy },
+            set: { repeatStrategyID = $0.rawValue }
+        )
     }
 
     private var chrome: some View {
@@ -291,12 +340,140 @@ struct QuizOnboardingView: View {
     }
 
     private func complete() {
-        onComplete(selectedThemeIDs)
+        onComplete(selection.selectedIDs)
     }
 
     private var pageAnimation: Animation? {
         guard !reduceMotion else { return nil }
         return .timingCurve(0.32, 0.72, 0, 1, duration: 0.32)
+    }
+}
+
+struct OnboardingTopicsNavigationGesture: UIGestureRecognizerRepresentable {
+    let width: CGFloat
+    let isActive: Bool
+    let onAdvance: () -> Void
+    let onGoBack: () -> Void
+
+    func makeCoordinator(converter: CoordinateSpaceConverter) -> Coordinator {
+        Coordinator(width: width, location: { converter.localLocation }, onAdvance: onAdvance, onGoBack: onGoBack)
+    }
+
+    func makeUIGestureRecognizer(context: Context) -> UITapGestureRecognizer {
+        let recognizer = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.navigate(_:)))
+        recognizer.name = "onboardingTopicsNavigation"
+        recognizer.cancelsTouchesInView = false
+        recognizer.delegate = context.coordinator
+        recognizer.isEnabled = isActive
+        return recognizer
+    }
+
+    func updateUIGestureRecognizer(_ recognizer: UITapGestureRecognizer, context: Context) {
+        context.coordinator.width = width
+        context.coordinator.onAdvance = onAdvance
+        context.coordinator.onGoBack = onGoBack
+        recognizer.isEnabled = isActive
+    }
+
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        let location: () -> CGPoint
+        var width: CGFloat
+        var onAdvance: () -> Void
+        var onGoBack: () -> Void
+
+        init(width: CGFloat, location: @escaping () -> CGPoint,
+             onAdvance: @escaping () -> Void, onGoBack: @escaping () -> Void = {}) {
+            self.location = location
+            self.width = width
+            self.onAdvance = onAdvance
+            self.onGoBack = onGoBack
+        }
+
+        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+            Self.permitsNavigation(from: touch.view)
+        }
+
+        static func permitsNavigation(from view: UIView?) -> Bool {
+            var current = view
+            while let candidate = current {
+                if candidate is UIControl { return false }
+                current = candidate.superview
+            }
+            return true
+        }
+
+        func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+            let x = location().x
+            return width > 0 && x >= 0 && x <= width && (x <= 64 || x >= max(0, width - 64))
+        }
+
+        @objc func navigate(_ recognizer: UITapGestureRecognizer) {
+            guard recognizer.state == .ended, gestureRecognizerShouldBegin(recognizer) else { return }
+            if location().x <= 64 { onGoBack() } else { onAdvance() }
+        }
+    }
+}
+
+struct OnboardingQuestionStrategyPicker: View {
+    @Binding var selection: QuestionRepeatStrategy
+    @Environment(\.appAppearance) private var appearance
+
+    private let strategies: [QuestionRepeatStrategy] = [.hideAnswered, .retryIncorrect, .showAll]
+
+    var body: some View {
+        VStack(spacing: 10) {
+            ForEach(strategies, id: \.rawValue) { strategy in
+                strategyButton(strategy)
+            }
+        }
+        .accessibilityIdentifier("onboardingQuestionStrategyPicker")
+    }
+
+    private func strategyButton(_ strategy: QuestionRepeatStrategy) -> some View {
+        let isSelected = selection == strategy
+        let title = L10n.Settings.QuestionStrategy.title(for: strategy)
+        let detail = L10n.Onboarding.QuestionStrategy.detail(for: strategy)
+        return Button {
+            selection = strategy
+        } label: {
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(title)
+                        .font(appearance.typography.swiftUIFont(size: 17, weight: .semibold))
+                        .foregroundStyle(Color(uiColor: appearance.surfaceTextColor))
+                    Text(detail)
+                        .font(appearance.typography.swiftUIFont(size: 14, weight: .regular))
+                        .foregroundStyle(Color(uiColor: appearance.secondarySurfaceTextColor))
+                }
+                .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .font(appearance.typography.swiftUIFont(size: 22, weight: .semibold))
+                    .foregroundStyle(Color(uiColor: isSelected ? appearance.surfaceTextColor : appearance.secondarySurfaceTextColor))
+                    .accessibilityHidden(true)
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, minHeight: 64, alignment: .leading)
+            .background(
+                Color(uiColor: appearance.card.backgroundColor),
+                in: RoundedRectangle(cornerRadius: appearance.card.cornerRadius, style: .continuous)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: appearance.card.cornerRadius, style: .continuous)
+                    .stroke(
+                        Color(uiColor: isSelected ? appearance.surfaceTextColor : appearance.card.borderColor),
+                        lineWidth: isSelected ? 2 : max(appearance.card.borderWidth, 1)
+                    )
+            }
+            .contentShape(RoundedRectangle(cornerRadius: appearance.card.cornerRadius, style: .continuous))
+        }
+        .buttonStyle(QuizPressButtonStyle())
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(title). \(detail)")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .accessibilityIdentifier("onboardingQuestionStrategy-\(strategy.rawValue)")
     }
 }
 

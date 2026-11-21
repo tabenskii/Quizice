@@ -99,6 +99,13 @@ final class TwoSidedCardTransitionDriver {
         beginAnimation(to: targetFace, configuration: configuration(), completion: completion)
     }
 
+    func finishAtRequestedFace() {
+        guard let animator = activeAnimator else { return }
+        let position: UIViewAnimatingPosition = animator.isReversed ? .start : .end
+        animator.stopAnimation(false)
+        animator.finishAnimation(at: position)
+    }
+
     func reset(to face: HomeThemeCardFace) {
         activeAnimator?.stopAnimation(true)
         clearAnimationState()

@@ -3,11 +3,13 @@ protocol HomeRouting: AnyObject {
     func showSettings()
     func showOnboarding()
     func showSubscription()
+    @MainActor func refreshAccountData() async
 }
 
 extension HomeRouting {
     func showOnboarding() {}
     func showSubscription() {}
+    @MainActor func refreshAccountData() async {}
 }
 
 protocol QuizPlayRouting: AnyObject {

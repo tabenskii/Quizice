@@ -55,7 +55,7 @@ extension QuizQuestionViewController {
         guard contentWidth > .zero else { return false }
 
         let text = questionLabel.text ?? ""
-        let fittedPointSize = fontFitter.fittedPointSize(
+        let fittedPointSize = usesScrollableQuestionBody ? baseFont.pointSize : fontFitter.fittedPointSize(
             for: text,
             baseFont: baseFont,
             minimumScaleFactor: Typography.questionMinimumScaleFactor,
@@ -104,7 +104,7 @@ extension QuizQuestionViewController {
                 continue
             }
 
-            var fittedPointSize = fontFitter.fittedPointSize(
+            var fittedPointSize = usesScrollableQuestionBody ? baseFont.pointSize : fontFitter.fittedPointSize(
                 for: text,
                 baseFont: baseFont,
                 minimumScaleFactor: Typography.answerMinimumScaleFactor,
@@ -113,7 +113,7 @@ extension QuizQuestionViewController {
             )
 
             let maximumContentHeight = maximumHeight - Layout.answerContentVerticalInset * 2
-            if fontFitter.height(of: text, font: baseFont.withSize(fittedPointSize), contentWidth: contentWidth) > maximumContentHeight {
+            if !usesScrollableQuestionBody, fontFitter.height(of: text, font: baseFont.withSize(fittedPointSize), contentWidth: contentWidth) > maximumContentHeight {
                 fittedPointSize = fontFitter.fittedPointSize(
                     for: text,
                     baseFont: baseFont,
@@ -148,6 +148,19 @@ extension QuizQuestionViewController {
             view.setNeedsLayout()
         }
         return requiresLayout
+    }
+
+    var usesScrollableQuestionBody: Bool {
+        if view.safeAreaLayoutGuide.layoutFrame.height < 600
+            || traitCollection.preferredContentSizeCategory.isAccessibilityCategory { return true }
+        let typography = currentAppearance().typography
+        let questionFont = typography.font(size: Typography.questionFontSize, weight: .bold, compatibleWith: traitCollection)
+        let answerFont = typography.font(size: Typography.answerButtonFontSize, weight: .semibold, compatibleWith: traitCollection)
+        let questionHeight = fontFitter.height(of: questionLabel.text ?? "", font: questionFont.withSize(questionFont.pointSize * Typography.questionMinimumScaleFactor), contentWidth: max(1, questionLabel.bounds.width))
+        let answerHeight = answerButtons.reduce(CGFloat.zero) { height, button in
+            height + max(minimumAnswerHeight, fontFitter.height(of: button.title(for: .normal) ?? "", font: answerFont.withSize(answerFont.pointSize * Typography.answerMinimumScaleFactor), contentWidth: max(1, button.bounds.width - Layout.answerContentHorizontalInset * 2)) + Layout.answerContentVerticalInset * 2)
+        }
+        return questionHeight + answerHeight > questionContentHeight
     }
 
     private var availableQuestionHeight: CGFloat {

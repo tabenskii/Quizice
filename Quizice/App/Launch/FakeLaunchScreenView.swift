@@ -88,6 +88,7 @@ struct FakeLaunchScreenView: View {
     let appearance: AppAppearance
     private let holdDuration: TimeInterval
     private let motion: FakeLaunchMotion
+    private let showsBackground: Bool
     @ObservedObject private var readiness: FakeLaunchReadiness
     private let onFinished: (FakeLaunchCompletionStyle) -> Void
 
@@ -101,6 +102,7 @@ struct FakeLaunchScreenView: View {
         appearance: AppAppearance,
         holdDuration: TimeInterval = 1.15,
         motion: FakeLaunchMotion = .standard,
+        showsBackground: Bool = true,
         onFinished: @escaping (FakeLaunchCompletionStyle) -> Void = { _ in }
     ) {
         self.init(
@@ -108,6 +110,7 @@ struct FakeLaunchScreenView: View {
             holdDuration: holdDuration,
             motion: motion,
             readiness: FakeLaunchReadiness(isReady: true),
+            showsBackground: showsBackground,
             onFinished: onFinished
         )
     }
@@ -117,12 +120,14 @@ struct FakeLaunchScreenView: View {
         holdDuration: TimeInterval = 1.15,
         motion: FakeLaunchMotion = .standard,
         readiness: FakeLaunchReadiness,
+        showsBackground: Bool = true,
         onFinished: @escaping (FakeLaunchCompletionStyle) -> Void = { _ in }
     ) {
         self.appearance = appearance
         self.holdDuration = holdDuration
         self.motion = motion
         self.readiness = readiness
+        self.showsBackground = showsBackground
         self.onFinished = onFinished
     }
 
@@ -136,11 +141,12 @@ struct FakeLaunchScreenView: View {
             let logoHeight = logoWidth * Layout.logoAspectRatio
 
             ZStack {
-                Color(uiColor: visualStyle.backgroundColor)
-
-                if visualStyle.revealsAppBackground {
-                    AppBackgroundView(appearance: appearance)
-                        .opacity(isRevealed ? 1 : 0)
+                if showsBackground {
+                    Color(uiColor: visualStyle.backgroundColor)
+                    if visualStyle.revealsAppBackground {
+                        AppBackgroundView(appearance: appearance)
+                            .opacity(isRevealed ? 1 : 0)
+                    }
                 }
 
                 launchMark(

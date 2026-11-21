@@ -2,6 +2,19 @@ import Foundation
 
 enum BackendContentResponseValidator {
     static func isValid(
+        _ response: BackendQuestionProgressResetResponse,
+        requestedThemeID: String,
+        requestedResetID: UUID
+    ) -> Bool {
+        guard response.themeId == requestedThemeID, response.resetId == requestedResetID else { return false }
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if formatter.date(from: response.resetAt) != nil { return true }
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter.date(from: response.resetAt) != nil
+    }
+
+    static func isValid(
         _ response: BackendThemeCatalogResponse,
         requestedLocale: String
     ) -> Bool {
@@ -57,6 +70,10 @@ enum BackendContentResponseValidator {
             response.questions.count <= requestedCount,
             response.availableCount >= response.questions.count
         else { return false }
+
+        guard !response.isExhausted || (
+            response.progressMode != nil && response.questions.isEmpty && response.availableCount == 0
+        ) else { return false }
 
         var prompts = Set<String>()
         var questionIDs = Set<String>()

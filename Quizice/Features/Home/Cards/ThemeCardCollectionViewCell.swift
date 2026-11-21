@@ -22,18 +22,16 @@ enum ThemeCardLayoutMetrics {
             return max(cardWidth - leadingInset - horizontalInset - (stacksContent ? 0 : iconSize + iconTitleSpacing), 1)
         }
 
-        func rowHeight(titles: [String]) -> CGFloat {
+        func cardHeight(title: String) -> CGFloat {
             let measuringLabel = UILabel()
             measuringLabel.font = font
             measuringLabel.numberOfLines = maximumTitleLines
             measuringLabel.lineBreakMode = .byWordWrapping
             measuringLabel.allowsDefaultTighteningForTruncation = false
-            let textHeight = titles.map {
-                measuringLabel.text = $0
-                return ceil(measuringLabel.sizeThatFits(
-                    CGSize(width: textWidth, height: .greatestFiniteMagnitude)
-                ).height)
-            }.max() ?? font.lineHeight
+            measuringLabel.text = title
+            let textHeight = ceil(measuringLabel.sizeThatFits(
+                CGSize(width: textWidth, height: .greatestFiniteMagnitude)
+            ).height)
             let contentHeight = stacksContent
                 ? iconSize + iconTitleSpacing + textHeight
                 : max(iconSize, textHeight)
@@ -43,15 +41,21 @@ enum ThemeCardLayoutMetrics {
 
     static func grid(
         titles: [String], width: CGFloat, spacing: CGFloat,
-        font: UIFont, traitCollection: UITraitCollection
+        font: UIFont, traitCollection: UITraitCollection, preferredColumnCount: Int = 2
     ) -> Grid {
         let widestWord = titles.flatMap { $0.split(whereSeparator: \.isWhitespace) }
             .map { ceil((String($0) as NSString).size(withAttributes: [.font: font]).width) }
             .max() ?? 0
-        let twoColumnWidth = floor((width - spacing) / 2)
-        let columnCount = traitCollection.preferredContentSizeCategory.isAccessibilityCategory
-            || widestWord > twoColumnWidth - stackedLeadingInset - horizontalInset ? 1 : 2
-        let cardWidth = columnCount == 1 ? width : twoColumnWidth
+        var columnCount = traitCollection.preferredContentSizeCategory.isAccessibilityCategory
+            ? 1 : max(1, preferredColumnCount)
+        func widthForColumns(_ count: Int) -> CGFloat {
+            floor((width - spacing * CGFloat(count - 1)) / CGFloat(count))
+        }
+        while columnCount > 1,
+              widestWord > widthForColumns(columnCount) - stackedLeadingInset - horizontalInset {
+            columnCount -= 1
+        }
+        let cardWidth = widthForColumns(columnCount)
         let stacksContent = widestWord > cardWidth - horizontalInset * 2 - iconSize - iconTitleSpacing
         let leadingInset = stacksContent ? stackedLeadingInset : horizontalInset
         let textWidth = max(cardWidth - leadingInset - horizontalInset - (stacksContent ? 0 : iconSize + iconTitleSpacing), 1)

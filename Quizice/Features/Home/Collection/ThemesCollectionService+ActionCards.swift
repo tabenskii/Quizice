@@ -127,7 +127,7 @@ extension ThemesCollectionService {
         action: Selector,
         appearance: AppAppearance
     ) -> UIButton {
-        let button = UIButton(type: .system)
+        let button = HomeActionButton(type: .system)
         button.accessibilityIdentifier = accessibilityIdentifier
         button.accessibilityLabel = accessibilityLabel
         button.accessibilityHint = accessibilityHint
@@ -176,18 +176,14 @@ extension ThemesCollectionService {
         button.layer.shadowOpacity = Appearance.radarAIThemeGlowOpacity
         button.layer.shadowRadius = Appearance.radarAIThemeGlowRadius
         button.layer.shadowOffset = Appearance.radarAIThemeGlowOffset
-        button.layer.shadowPath = UIBezierPath(
-            roundedRect: button.bounds,
-            cornerRadius: button.layer.cornerRadius
-        ).cgPath
+        button.setNeedsLayout()
     }
 
     func pin(_ view: UIView, to container: UIView, bottomInset: CGFloat = .zero) {
         container.addSubview(view)
+        view.constrainHomeActionWidth(in: container)
 
         NSLayoutConstraint.activate([
-            view.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            view.trailingAnchor.constraint(equalTo: container.trailingAnchor),
             view.topAnchor.constraint(equalTo: container.topAnchor),
             view.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -bottomInset)
         ])

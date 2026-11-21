@@ -59,5 +59,6 @@ struct QuestionModel {
 
     var questionID: String? { quizQuestion.questionID }
     var questionVersion: Int? { quizQuestion.questionVersion }
+    var progressGeneration: UUID? { quizQuestion.progressGeneration }
     var locale: String? { quizQuestion.locale }
 }

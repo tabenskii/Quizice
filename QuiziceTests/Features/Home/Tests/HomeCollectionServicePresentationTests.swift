@@ -31,6 +31,24 @@ final class HomeCollectionServicePresentationTests: HomeScreenVisualStateTestCas
         XCTAssertGreaterThan(narrowPlusSize.height, narrowFreeSize.height, "Plus must reserve room for its visible subtitle")
     }
 
+    func testRadarAIShadowTracksFinalCardBoundsAfterResizing() throws {
+        useDesignStyle(.radar)
+        let (cell, _) = try makeAIActionCard(width: 375, category: .large, hasPlus: false)
+        let button = try XCTUnwrap(cell.contentView.descendant(
+            withAccessibilityIdentifier: "homeCreateWithAIButton"
+        ) as? UIButton)
+        for size in [CGSize(width: 600, height: 110), CGSize(width: 280, height: 72)] {
+            cell.frame.size = size
+            cell.contentView.frame = cell.bounds
+            cell.setNeedsLayout()
+            cell.layoutIfNeeded()
+            cell.contentView.layoutIfNeeded()
+            button.layoutIfNeeded()
+            XCTAssertEqual(button.layer.shadowPath?.boundingBoxOfPath, button.bounds)
+            XCTAssertNil(button.layer.animation(forKey: "shadowPath"))
+        }
+    }
+
     func testAIActionCardSizingUsesExplicitTraitsInsteadOfAmbientCategory() {
         let service = ThemesCollectionService()
         service.hasActivePlusSubscription = true

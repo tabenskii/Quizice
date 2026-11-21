@@ -1,6 +1,13 @@
 import Foundation
 
 protocol BackendContentAPI {
+    func fetchOfflineQuestions(locale: String, userID: String) async throws -> OfflineQuestionPack
+    func fetchFavorites() async throws -> BackendFavoritesSnapshot
+    func patchFavorites(_ mutation: FavoriteMutation, session: AuthSession) async throws -> BackendFavoritesSnapshot
+    func resetQuestionProgress(
+        themeID: String, resetID: UUID, session: AuthSession
+    ) async throws -> BackendQuestionProgressResetResponse
+
     func fetchRandomQuestions(
         selectionMode: CrossThemeQuestionSelectionMode, count: Int, locale: String,
         difficulty: AIQuizDifficulty, seed: String,
@@ -66,6 +73,21 @@ protocol BackendContentAPI {
 }
 
 extension BackendContentAPI {
+    func fetchOfflineQuestions(locale: String, userID: String) async throws -> OfflineQuestionPack {
+        throw BackendContentError.invalidRequest
+    }
+
+    func fetchFavorites() async throws -> BackendFavoritesSnapshot { throw BackendContentError.unauthenticated }
+    func patchFavorites(_ mutation: FavoriteMutation, session: AuthSession) async throws -> BackendFavoritesSnapshot {
+        throw BackendContentError.unauthenticated
+    }
+
+    func resetQuestionProgress(
+        themeID: String, resetID: UUID, session: AuthSession
+    ) async throws -> BackendQuestionProgressResetResponse {
+        throw BackendContentError.unauthenticated
+    }
+
     func fetchQuestions(
         themeID: String, count: Int, locale: String,
         difficulty: AIQuizDifficulty, seed: String,

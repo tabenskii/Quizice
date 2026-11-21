@@ -11,8 +11,9 @@ extension QuizViewController {
         configureInitialStartupVisibilityIfNeeded()
         registerForTraitChanges([UITraitPreferredContentSizeCategory.self]) {
             (viewController: QuizViewController, _: UITraitCollection) in
+            viewController.themesCollectionService.captureScrollAnchor()
             viewController.themesCollectionView.collectionViewLayout.invalidateLayout()
-            viewController.updateCollectionScrollAvailability()
+            viewController.view.setNeedsLayout()
         }
 
         rootView.addSubview(headerStackView)
@@ -222,18 +223,22 @@ extension QuizViewController {
     }
 
     func activateLayoutConstraints(in rootView: UIView) {
+        let preferredWidth = screenStackView.widthAnchor.constraint(equalTo: rootView.safeAreaLayoutGuide.widthAnchor)
+        preferredWidth.priority = .defaultHigh
         NSLayoutConstraint.activate([
+            screenStackView.centerXAnchor.constraint(equalTo: rootView.safeAreaLayoutGuide.centerXAnchor),
+            screenStackView.widthAnchor.constraint(lessThanOrEqualTo: rootView.safeAreaLayoutGuide.widthAnchor),
+            screenStackView.widthAnchor.constraint(lessThanOrEqualToConstant: 1_180),
+            preferredWidth,
             screenStackView.topAnchor.constraint(equalTo: rootView.safeAreaLayoutGuide.topAnchor),
-            screenStackView.leadingAnchor.constraint(equalTo: rootView.leadingAnchor),
-            screenStackView.trailingAnchor.constraint(equalTo: rootView.trailingAnchor),
             screenStackView.bottomAnchor.constraint(equalTo: rootView.bottomAnchor),
 
             headerStackView.topAnchor.constraint(equalTo: rootView.safeAreaLayoutGuide.topAnchor, constant: Layout.screenTopInset),
-            headerStackView.leadingAnchor.constraint(equalTo: rootView.leadingAnchor),
-            headerStackView.trailingAnchor.constraint(equalTo: rootView.trailingAnchor),
+            headerStackView.leadingAnchor.constraint(equalTo: screenStackView.leadingAnchor),
+            headerStackView.trailingAnchor.constraint(equalTo: screenStackView.trailingAnchor),
 
             settingsButton.topAnchor.constraint(equalTo: rootView.safeAreaLayoutGuide.topAnchor, constant: Layout.settingsButtonTopInset),
-            settingsButton.trailingAnchor.constraint(equalTo: rootView.trailingAnchor, constant: -Layout.settingsButtonTrailingInset),
+            settingsButton.trailingAnchor.constraint(equalTo: screenStackView.trailingAnchor, constant: -Layout.settingsButtonTrailingInset),
             settingsButton.widthAnchor.constraint(equalToConstant: Layout.settingsButtonSize),
             settingsButton.heightAnchor.constraint(equalToConstant: Layout.settingsButtonSize),
 
@@ -266,9 +271,10 @@ extension QuizViewController {
     }
 
     func updateCollectionScrollAvailability() {
-        themesCollectionView.isScrollEnabled = false
-        themesCollectionView.alwaysBounceVertical = false
-        themesCollectionView.bounces = false
+        let canScroll = themesCollectionService.usesOuterScrolling && themesCollectionView.isUserInteractionEnabled
+        themesCollectionView.isScrollEnabled = canScroll
+        themesCollectionView.alwaysBounceVertical = canScroll
+        themesCollectionView.bounces = canScroll
     }
 
     func updateCollectionTopInset() {

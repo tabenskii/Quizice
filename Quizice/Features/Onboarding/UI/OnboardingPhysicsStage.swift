@@ -71,6 +71,8 @@ final class TopicsPhysicsView: UIView {
 
     private enum Animation {
         static let replayFadeDuration: TimeInterval = 0.5
+        static let regularDropInterval: TimeInterval = 0.12
+        static let denseDropInterval: TimeInterval = 0.22
     }
 
     private enum Motion {
@@ -330,7 +332,9 @@ final class TopicsPhysicsView: UIView {
         collisionBehavior = collisions
         itemBehavior = bodyProperties
 
-        let dropInterval = themes.count > 10 ? 0.16 : 0.075
+        let dropInterval = themes.count > 10
+            ? Animation.denseDropInterval
+            : Animation.regularDropInterval
         for (index, pair) in zip(descriptors.indices, zip(descriptors, bodyViews)) {
             let (descriptor, view) = pair
             placeForDrop(view, descriptor: descriptor, index: index)
@@ -516,17 +520,8 @@ final class TopicsPhysicsView: UIView {
     }
 
     private func applyDeviceGravity(_ gravity: CMAcceleration) {
-        let target = CGVector(
-            dx: CGFloat(gravity.x) * Motion.horizontalSensitivity,
-            dy: -CGFloat(gravity.y)
-        )
-        let targetMagnitude = hypot(target.dx, target.dy)
-        guard targetMagnitude >= Motion.minimumPlanarGravity else { return }
-
-        let normalizedTarget = CGVector(
-            dx: target.dx / targetMagnitude,
-            dy: target.dy / targetMagnitude
-        )
+        let orientation = window?.windowScene?.effectiveGeometry.interfaceOrientation ?? .unknown
+        let normalizedTarget = Self.motionGravityTarget(gravity, orientation: orientation)
         filteredMotionGravity = CGVector(
             dx: filteredMotionGravity.dx
                 + (normalizedTarget.dx - filteredMotionGravity.dx) * Motion.smoothingFactor,
@@ -541,6 +536,23 @@ final class TopicsPhysicsView: UIView {
             dx: filteredMotionGravity.dx / filteredMagnitude,
             dy: filteredMotionGravity.dy / filteredMagnitude
         )
+    }
+
+    static func motionGravityTarget(_ gravity: CMAcceleration, orientation: UIInterfaceOrientation) -> CGVector {
+        let x = CGFloat(gravity.x)
+        let y = CGFloat(gravity.y)
+        let planar: CGVector
+        switch orientation {
+        case .portrait: planar = CGVector(dx: x, dy: -y)
+        case .portraitUpsideDown: planar = CGVector(dx: -x, dy: y)
+        case .landscapeLeft: planar = CGVector(dx: y, dy: x)
+        case .landscapeRight: planar = CGVector(dx: -y, dy: -x)
+        default: return CGVector(dx: 0, dy: 1)
+        }
+        let horizontal = planar.dx * Motion.horizontalSensitivity
+        let magnitude = hypot(horizontal, planar.dy)
+        guard magnitude >= Motion.minimumPlanarGravity else { return CGVector(dx: 0, dy: 1) }
+        return CGVector(dx: horizontal / magnitude, dy: planar.dy / magnitude)
     }
 
     private func updateSelectionAppearance() {

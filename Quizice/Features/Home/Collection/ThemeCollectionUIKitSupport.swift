@@ -219,15 +219,9 @@ final class ThemesViewportCollectionViewCell: UICollectionViewCell {
     private var lastCatalogWidth: CGFloat = 0
 
     override init(frame: CGRect) {
-        let layout = HomeThemesCollectionViewFlowLayout()
-        layout.scrollDirection = .vertical
-        layout.minimumLineSpacing = 16
-        layout.minimumInteritemSpacing = 16
-        layout.sectionInset = .zero
-
         themesCollectionView = HomeThemesCollectionView(
             frame: .zero,
-            collectionViewLayout: layout
+            collectionViewLayout: HomeThemeMasonryLayout()
         )
         super.init(frame: frame)
 
@@ -258,6 +252,11 @@ final class ThemesViewportCollectionViewCell: UICollectionViewCell {
             ThemeCardCollectionViewCell.self,
             forCellWithReuseIdentifier: ThemeCardCollectionViewCell.reuseIdentifier
         )
+        themesCollectionView.registerForTraitChanges([UITraitPreferredContentSizeCategory.self]) {
+            (catalog: HomeThemesCollectionView, _: UITraitCollection) in
+            catalog.collectionViewLayout.invalidateLayout()
+            catalog.reloadData()
+        }
 
         contentView.addSubview(themesCollectionView)
         NSLayoutConstraint.activate([
@@ -275,6 +274,7 @@ final class ThemesViewportCollectionViewCell: UICollectionViewCell {
 
     override func layoutSubviews() {
         super.layoutSubviews()
+        contentView.layoutIfNeeded()
         let width = themesCollectionView.bounds.width
         guard width > 0, width != lastCatalogWidth else { return }
         lastCatalogWidth = width
@@ -292,5 +292,30 @@ final class ThemesViewportCollectionViewCell: UICollectionViewCell {
         themesCollectionView.alwaysBounceVertical = canScroll
         themesCollectionView.bounces = canScroll
         themesCollectionView.reloadData()
+    }
+}
+
+// Keep the row full-width so the outer flow layout never places actions side by side.
+extension UIView {
+    func constrainHomeActionWidth(in container: UIView) {
+        let preferredWidth = widthAnchor.constraint(equalTo: container.widthAnchor)
+        preferredWidth.priority = .defaultHigh
+        NSLayoutConstraint.activate([
+            centerXAnchor.constraint(equalTo: container.centerXAnchor),
+            widthAnchor.constraint(lessThanOrEqualTo: container.widthAnchor),
+            widthAnchor.constraint(lessThanOrEqualToConstant: 640),
+            preferredWidth
+        ])
+    }
+}
+
+final class HomeActionButton: UIButton {
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        guard layer.shadowOpacity > 0 else { return }
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        layer.shadowPath = UIBezierPath(roundedRect: bounds, cornerRadius: layer.cornerRadius).cgPath
+        CATransaction.commit()
     }
 }

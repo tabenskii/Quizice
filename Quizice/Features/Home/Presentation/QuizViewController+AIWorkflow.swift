@@ -1,6 +1,41 @@
 import UIKit
 
 extension QuizViewController {
+    func refreshAIServiceNotice() {
+        aiServiceNoticeTask?.cancel()
+        aiServiceNoticeTask = nil
+        pendingAIServiceNoticeUpdate = nil
+        guard let cardView = expandedAIThemeCardView else { return }
+        cardView.setServiceNotice(nil)
+        guard let api = aiServiceStatusAPI else { return }
+        let locale = AppLocalizationStore.shared.resolvedLanguageCode
+        aiServiceNoticeTask = Task { @MainActor [weak self, weak cardView] in
+            // Failure (including an older backend's 404) leaves this optional text hidden.
+            let notice = try? await api.fetchNotice(locale: locale)
+            guard !Task.isCancelled,
+                  let self, let cardView,
+                  self.expandedAIThemeCardView === cardView,
+                  AppLocalizationStore.shared.resolvedLanguageCode == locale else { return }
+            self.pendingAIServiceNoticeUpdate = { [weak self, weak cardView] in
+                guard let self, let cardView,
+                      self.expandedAIThemeCardView === cardView,
+                      AppLocalizationStore.shared.resolvedLanguageCode == locale else { return }
+                cardView.setServiceNotice(notice, animated: true)
+            }
+            self.applyPendingAIServiceNotice()
+            self.aiServiceNoticeTask = nil
+        }
+    }
+
+    func applyPendingAIServiceNotice() {
+        guard homeCardState.presentedCard == .ai,
+              homeCardState.phase == .expandedFront || homeCardState.phase == .expandedBack
+        else { return }
+        let update = pendingAIServiceNoticeUpdate
+        pendingAIServiceNoticeUpdate = nil
+        update?()
+    }
+
     func sendAIThemeCardAction(_ action: HomeAIThemeCardAction) {
         let effect = homeStore.sendAI(action)
         refreshExpandedAIThemeCard()

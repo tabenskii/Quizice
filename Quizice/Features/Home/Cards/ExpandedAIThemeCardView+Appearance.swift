@@ -73,6 +73,14 @@ extension ExpandedAIThemeCardView {
             weight: .medium
         )
         progressLabel.textColor = appearance.secondarySurfaceTextColor
+        [frontServiceNoticeLabel, backServiceNoticeLabel].forEach { label in
+            label.font = appearance.typography.font(
+                size: Typography.serviceNoticeSize,
+                weight: .regular,
+                compatibleWith: traitCollection
+            )
+            label.textColor = appearance.secondarySurfaceTextColor
+        }
 
         [closeButton, playButton, backButton].forEach { button in
             button.applyActionAppearance(

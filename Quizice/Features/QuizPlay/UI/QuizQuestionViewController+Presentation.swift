@@ -69,6 +69,7 @@ extension QuizQuestionViewController {
         questionInfoButton.alpha = 1
         questionExplanationLabel.text = viewModel.explanation
         questionExplanationScrollView.setContentOffset(.zero, animated: false)
+        questionBodyScrollView.setContentOffset(.zero, animated: false)
         resetAllColors()
 
         // The incoming card is prepared off-screen. Put its timer in the initial
@@ -183,7 +184,20 @@ extension QuizQuestionViewController {
         presenter?.startTimer()
     }
 
+    func finishQuestionAnimationForResize() {
+        guard isQuestionTransitionInProgress else { return }
+        // The incoming question is already applied. Complete it once, even if
+        // removing UIKit animations synchronously invokes their completion.
+        completeQuestionTransition()
+        outgoingQuestionCardSnapshot?.layer.removeAllAnimations()
+        outgoingQuestionCardSnapshot?.removeFromSuperview()
+        outgoingQuestionCardSnapshot = nil
+        questionCardView.layer.removeAllAnimations()
+        questionCardView.transform = .identity
+    }
+
     func completeQuestionTransition() {
+        guard isQuestionTransitionInProgress else { return }
         isQuestionTransitionInProgress = false
         questionCardView.isUserInteractionEnabled = true
         presenter?.startTimer()

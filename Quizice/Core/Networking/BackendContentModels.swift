@@ -9,6 +9,7 @@ enum BackendOperation: String, Equatable {
     case themePreferences = "theme_preferences"
     case questions
     case questionAnswers = "question_answers"
+    case questionProgressReset = "question_progress_reset"
     case aiGeneration = "ai_generation"
 }
 
@@ -21,6 +22,8 @@ enum QuestionRepeatStrategy: String, Codable, CaseIterable {
     case showAll
     case hideAnswered
     case retryIncorrect
+
+    static let defaultStrategy: QuestionRepeatStrategy = .hideAnswered
 
     var progressMode: QuestionProgressMode? {
         switch self {
@@ -43,7 +46,7 @@ final class QuestionRepeatStrategyStore {
     init(defaults: UserDefaults = .standard) { self.defaults = defaults }
 
     var strategy: QuestionRepeatStrategy {
-        get { QuestionRepeatStrategy(rawValue: defaults.string(forKey: Self.defaultsKey) ?? "") ?? .showAll }
+        get { QuestionRepeatStrategy(rawValue: defaults.string(forKey: Self.defaultsKey) ?? "") ?? .defaultStrategy }
         set { defaults.set(newValue.rawValue, forKey: Self.defaultsKey) }
     }
 }
@@ -67,6 +70,33 @@ struct BackendRequestMetric: Equatable {
 
 protocol BackendRequestMetricRecording {
     func record(_ metric: BackendRequestMetric)
+}
+
+extension BackendRequestMetricRecording {
+    func record(
+        operation: BackendOperation,
+        result: BackendRequestResult,
+        startedAt: ContinuousClock.Instant,
+        statusCode: Int?,
+        responseBytes: Int
+    ) {
+        record(
+            BackendRequestMetric(
+                operation: operation,
+                result: result,
+                durationMilliseconds: milliseconds(ContinuousClock().now - startedAt),
+                statusCode: statusCode,
+                responseBytes: responseBytes
+            )
+        )
+    }
+
+    private func milliseconds(_ duration: Duration) -> Int {
+        let components = duration.components
+        let seconds = components.seconds * 1_000
+        let milliseconds = components.attoseconds / 1_000_000_000_000_000
+        return max(Int(seconds + milliseconds), 0)
+    }
 }
 
 struct NoopBackendRequestMetricRecorder: BackendRequestMetricRecording {
@@ -227,39 +257,47 @@ struct StoredBackendAccessTokenProvider: BackendAccessTokenProviding {
     }
 }
 
-struct BackendQuestionDTO: Decodable, Equatable {
+struct BackendQuestionDTO: Codable, Equatable {
     let questionId: String?
     let questionVersion: Int?
+    let progressGeneration: UUID?
     let question: String
     let answers: [String]
     let correctAnswer: String
     let explanation: String?
+    let themeName: String?
 
     init(
         questionId: String? = nil,
         questionVersion: Int? = nil,
+        progressGeneration: UUID? = nil,
         question: String,
         answers: [String],
         correctAnswer: String,
-        explanation: String?
+        explanation: String?,
+        themeName: String? = nil
     ) {
         self.questionId = questionId
         self.questionVersion = questionVersion
+        self.progressGeneration = progressGeneration
         self.question = question
         self.answers = answers
         self.correctAnswer = correctAnswer
         self.explanation = explanation
+        self.themeName = themeName
     }
 
     func makeModel(locale: String? = nil) -> QuizQuestion {
         QuizQuestion(
             questionID: questionId,
             questionVersion: questionVersion,
+            progressGeneration: progressGeneration,
             locale: locale,
             question: question,
             answers: answers,
             correctAnswer: correctAnswer,
-            explanation: explanation
+            explanation: explanation,
+            sourceThemeName: themeName
         )
     }
 }
@@ -270,10 +308,11 @@ struct BackendQuestionBatchResponse: Decodable, Equatable {
     let progressMode: QuestionProgressMode?
     let country: String?
     let availableCount: Int
+    let isExhausted: Bool
     let questions: [BackendQuestionDTO]
 
     enum CodingKeys: String, CodingKey {
-        case locale, seed, progressMode, country, availableCount, questions
+        case locale, seed, progressMode, country, availableCount, isExhausted, questions
     }
 
     init(
@@ -282,6 +321,7 @@ struct BackendQuestionBatchResponse: Decodable, Equatable {
         progressMode: QuestionProgressMode? = nil,
         country: String? = nil,
         availableCount: Int? = nil,
+        isExhausted: Bool = false,
         questions: [BackendQuestionDTO]
     ) {
         self.locale = locale
@@ -289,6 +329,7 @@ struct BackendQuestionBatchResponse: Decodable, Equatable {
         self.progressMode = progressMode
         self.country = country
         self.availableCount = availableCount ?? questions.count
+        self.isExhausted = isExhausted
         self.questions = questions
     }
 
@@ -300,6 +341,7 @@ struct BackendQuestionBatchResponse: Decodable, Equatable {
         country = try values.decodeIfPresent(String.self, forKey: .country)
         questions = try values.decode([BackendQuestionDTO].self, forKey: .questions)
         availableCount = try values.decodeIfPresent(Int.self, forKey: .availableCount) ?? questions.count
+        isExhausted = try values.decodeIfPresent(Bool.self, forKey: .isExhausted) ?? false
     }
 }
 
@@ -310,11 +352,12 @@ struct QuestionAnswerEvent: Codable, Equatable, Identifiable {
     let locale: String
     let answer: String?
     let answeredAt: Date
+    var progressGeneration: UUID?
 
     var id: UUID { eventId }
 
     enum CodingKeys: String, CodingKey {
-        case eventId, questionId, questionVersion, locale, answer, answeredAt
+        case eventId, questionId, questionVersion, locale, answer, answeredAt, progressGeneration
     }
 
     func encode(to encoder: Encoder) throws {
@@ -329,7 +372,18 @@ struct QuestionAnswerEvent: Codable, Equatable, Identifiable {
             try values.encodeNil(forKey: .answer)
         }
         try values.encode(answeredAt, forKey: .answeredAt)
+        try values.encodeIfPresent(progressGeneration, forKey: .progressGeneration)
     }
+}
+
+struct BackendQuestionProgressResetRequest: Encodable {
+    let resetId: UUID
+}
+
+struct BackendQuestionProgressResetResponse: Decodable, Equatable {
+    let themeId: String
+    let resetId: UUID
+    let resetAt: String
 }
 
 struct QuestionAnswerBatchRequest: Encodable, Equatable {
