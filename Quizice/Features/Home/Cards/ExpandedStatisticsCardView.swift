@@ -110,6 +110,23 @@ final class ExpandedStatisticsCardView: UIView {
         applyShadow(isHidden ? .none : configuredShadow)
     }
 
+    func configureHistory(
+        state: StatisticsHistoryStore.State,
+        period: StatisticsPeriod,
+        appearance: AppAppearance
+    ) {
+        var minimumHeight: CGFloat = 0
+        if scrollView.contentOffset.y > -scrollView.adjustedContentInset.top {
+            let visibleBottom = min(
+                scrollView.bounds.maxY - scrollView.adjustedContentInset.bottom,
+                scrollView.contentSize.height
+            )
+            let chartsTop = chartsView.convert(chartsView.bounds.origin, to: scrollView).y
+            minimumHeight = max(0, visibleBottom - chartsTop)
+        }
+        chartsView.configure(state: state, period: period, appearance: appearance, minimumHeight: minimumHeight)
+    }
+
     func setTransitionSurfaceHidden(_ isHidden: Bool) {
         isTransitionSurfaceHidden = isHidden
         applyConfiguredSurfaceStyle()

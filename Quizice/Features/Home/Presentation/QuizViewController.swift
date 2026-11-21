@@ -354,7 +354,7 @@ final class QuizViewController: BaseQuizViewController, ThemeCollectionDelegate,
     }
 
     func refreshStatisticsCharts() {
-        expandedStatisticsCardView?.chartsView.configure(state: statisticsHistoryStore.state,
+        expandedStatisticsCardView?.configureHistory(state: statisticsHistoryStore.state,
             period: statisticsHistoryStore.period, appearance: currentAppearance())
     }
 

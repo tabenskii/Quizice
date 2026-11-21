@@ -74,7 +74,7 @@ final class HomeExpandedCardTransitionTests: HomeScreenVisualStateTestCase {
         ).timeline(requestedPeriod: .week, timeZone: TimeZone(identifier: "Europe/Moscow")!)
         let card = ExpandedStatisticsCardView(frame: CGRect(x: 20, y: 150, width: 335, height: 500))
         card.configure(summary: summary, appearance: appearance)
-        card.chartsView.configure(state: .loading, period: .week, appearance: appearance)
+        card.configureHistory(state: .loading, period: .week, appearance: appearance)
         let host = UIViewController()
         host.view.addSubview(card)
         let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 375, height: 812))
@@ -89,7 +89,7 @@ final class HomeExpandedCardTransitionTests: HomeScreenVisualStateTestCase {
         let loadingChartFrame = card.chartsView.convert(card.chartsView.bounds, to: scroll)
         let loadingContentHeight = scroll.contentSize.height
 
-        card.chartsView.configure(state: .loaded(timeline), period: .week, appearance: appearance)
+        card.configureHistory(state: .loaded(timeline), period: .week, appearance: appearance)
         window.layoutIfNeeded()
         drainAnimations(0.05)
         card.layoutIfNeeded()
@@ -111,6 +111,39 @@ final class HomeExpandedCardTransitionTests: HomeScreenVisualStateTestCase {
         XCTAssertGreaterThan(finalOffset, 0)
         scroll.setContentOffset(CGPoint(x: 0, y: finalOffset), animated: false)
         XCTAssertEqual(scroll.bounds.maxY, chartFrame.maxY, accuracy: 1)
+
+        let loadedContentHeight = scroll.contentSize.height
+        let pickerOffset = min(finalOffset, chartFrame.minY)
+        scroll.setContentOffset(CGPoint(x: 0, y: pickerOffset), animated: false)
+        let emptyTimeline = StatisticsTimeline(
+            days: [],
+            interval: timeline.interval,
+            timeZone: timeline.timeZone,
+            undatedPlayedQuizzes: 0
+        )
+        let updates: [(StatisticsPeriod, StatisticsHistoryStore.State)] = [
+            (.month, .loading),
+            (.allTime, .loading),
+            (.allTime, .loaded(timeline)),
+            (.month, .loading),
+            (.month, .loaded(emptyTimeline)),
+            (.week, .loading),
+            (.week, .failed)
+        ]
+        for (period, state) in updates {
+            card.configureHistory(state: state, period: period, appearance: appearance)
+            window.layoutIfNeeded()
+            drainAnimations(0.05)
+            card.layoutIfNeeded()
+
+            XCTAssertEqual(scroll.contentOffset.y, pickerOffset, accuracy: 1)
+            XCTAssertEqual(
+                card.chartsView.convert(card.chartsView.bounds.origin, to: card).y,
+                scroll.frame.minY + chartFrame.minY - pickerOffset,
+                accuracy: 1
+            )
+        }
+        XCTAssertLessThan(scroll.contentSize.height, loadedContentHeight)
     }
 
     func testExpandedStatisticsCardKeepsLargeHistoryValueVisibleAtNarrowWidths() throws {

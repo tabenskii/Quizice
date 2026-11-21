@@ -9,6 +9,7 @@ final class StatisticsChartsView: UIView {
     private var appearance: AppAppearance?
     private var measuredWidth: CGFloat?
     private var measuredHeight: CGFloat = 0
+    private var minimumHeight: CGFloat = 0
     private var fadeInCharts = false
     private(set) var selectedPeriod = StatisticsPeriod.week
     var onPeriodChange: ((StatisticsPeriod) -> Void)?
@@ -40,13 +41,19 @@ final class StatisticsChartsView: UIView {
         measureContentHeight()
     }
 
-    func configure(state: StatisticsHistoryStore.State, period: StatisticsPeriod, appearance: AppAppearance) {
+    func configure(
+        state: StatisticsHistoryStore.State,
+        period: StatisticsPeriod,
+        appearance: AppAppearance,
+        minimumHeight: CGFloat = 0
+    ) {
         if state != self.state {
             fadeInCharts = window != nil && UIView.areAnimationsEnabled
         }
         self.state = state
         self.selectedPeriod = period
         self.appearance = appearance
+        self.minimumHeight = state == .loading ? max(minimumHeight, measuredHeight) : minimumHeight
         updateContent()
     }
 
@@ -59,6 +66,7 @@ final class StatisticsChartsView: UIView {
             period: selectedPeriod,
             appearance: appearance,
             fadeInCharts: fadeInCharts,
+            minimumHeight: minimumHeight,
             selectPeriod: { [weak self] in self?.onPeriodChange?($0) },
             retry: { [weak self] in self?.onRetry?() }
         )
@@ -105,6 +113,7 @@ private struct StatisticsChartsContent: View {
     let period: StatisticsPeriod
     let appearance: AppAppearance
     let fadeInCharts: Bool
+    let minimumHeight: CGFloat
     let selectPeriod: (StatisticsPeriod) -> Void
     let retry: () -> Void
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -140,6 +149,7 @@ private struct StatisticsChartsContent: View {
         .font(appearance.typography.swiftUIFont(size: 16, weight: .regular))
         .foregroundStyle(foreground)
         .padding(16)
+        .frame(minHeight: minimumHeight, alignment: .topLeading)
         .background(Color(uiColor: appearance.row.backgroundColor), in: RoundedRectangle(cornerRadius: appearance.row.cornerRadius))
         .overlay {
             RoundedRectangle(cornerRadius: appearance.row.cornerRadius)
