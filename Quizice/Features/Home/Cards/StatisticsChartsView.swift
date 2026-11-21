@@ -199,18 +199,25 @@ private struct StatisticsChartsContent: View {
             let visibleBounds = viewport.visibleBounds ?? CGRect(origin: .zero, size: geometry.size)
             let top = max(geometry[picker].maxY, visibleBounds.minY)
             let bottom = min(geometry.size.height, visibleBounds.maxY)
-            ProgressView {
-                Text(L10n.Statistics.historyLoading)
-                    .foregroundStyle(secondary)
-                    .multilineTextAlignment(.center)
-            }
-                .tint(accent)
+            ViewThatFits(in: .vertical) {
+                ProgressView {
+                    Text(L10n.Statistics.historyLoading)
+                        .foregroundStyle(secondary)
+                        .multilineTextAlignment(.center)
+                }
                 .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: .infinity)
-                .padding(.horizontal, Self.panelPadding)
-                .frame(minHeight: max(0, bottom - top))
-                .offset(y: top)
-                .accessibilityIdentifier("statisticsHistoryLoading")
+                .padding(.vertical, 10)
+
+                ProgressView()
+                    .accessibilityLabel(L10n.Statistics.historyLoading)
+            }
+            .tint(accent)
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, Self.panelPadding)
+            .frame(height: max(0, bottom - top))
+            .clipped()
+            .offset(y: top)
+            .accessibilityIdentifier("statisticsHistoryLoading")
         }
         .allowsHitTesting(false)
     }
