@@ -141,6 +141,7 @@
 		A30000012F90000100A30001 /* AIQuizRuntimeDependencies.swift in Sources */ = {isa = PBXBuildFile; fileRef = A30000022F90000100A30002 /* AIQuizRuntimeDependencies.swift */; };
 		A40000042FA0000100A40004 /* OnboardingProgressStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40000012FA0000100A40001 /* OnboardingProgressStore.swift */; };
 		A40000052FA0000100A40005 /* QuizOnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40000022FA0000100A40002 /* QuizOnboardingView.swift */; };
+		A40000232FA0000100A40023 /* WhatsNewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40000222FA0000100A40022 /* WhatsNewView.swift */; };
 		A40000062FA0000100A40006 /* OnboardingPages.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40000032FA0000100A40003 /* OnboardingPages.swift */; };
 		A400000B2FA0000100A4000B /* OnboardingProgressStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40000092FA0000100A40009 /* OnboardingProgressStoreTests.swift */; };
 		A400000C2FA0000100A4000C /* QuizFlowCoordinatorOnboardingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A400000A2FA0000100A4000A /* QuizFlowCoordinatorOnboardingTests.swift */; };
@@ -386,6 +387,7 @@
 		A3E9F06229E7078F35E6031C /* HomeAIThemeCardTransitionTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeAIThemeCardTransitionTests.swift; sourceTree = "<group>"; };
 		A40000012FA0000100A40001 /* OnboardingProgressStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OnboardingProgressStore.swift; sourceTree = "<group>"; };
 		A40000022FA0000100A40002 /* QuizOnboardingView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = QuizOnboardingView.swift; sourceTree = "<group>"; };
+		A40000222FA0000100A40022 /* WhatsNewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhatsNewView.swift; sourceTree = "<group>"; };
 		A40000032FA0000100A40003 /* OnboardingPages.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OnboardingPages.swift; sourceTree = "<group>"; };
 		A40000092FA0000100A40009 /* OnboardingProgressStoreTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OnboardingProgressStoreTests.swift; sourceTree = "<group>"; };
 		A400000A2FA0000100A4000A /* QuizFlowCoordinatorOnboardingTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = QuizFlowCoordinatorOnboardingTests.swift; sourceTree = "<group>"; };
@@ -985,6 +987,7 @@
 				C10000000000000000000004 /* OnboardingPhysicsTopicCard.swift */,
 				A40000032FA0000100A40003 /* OnboardingPages.swift */,
 				A40000022FA0000100A40002 /* QuizOnboardingView.swift */,
+				A40000222FA0000100A40022 /* WhatsNewView.swift */,
 			);
 			path = UI;
 			sourceTree = "<group>";
@@ -1482,6 +1485,7 @@
 				A40000042FA0000100A40004 /* OnboardingProgressStore.swift in Sources */,
 				F01100000000000000000001 /* GlobalFavoritesStore.swift in Sources */,
 				A40000052FA0000100A40005 /* QuizOnboardingView.swift in Sources */,
+				A40000232FA0000100A40023 /* WhatsNewView.swift in Sources */,
 				D3B600022FE0000100D3B601 /* DebugMenuView.swift in Sources */,
 				3A8BE011ACEECD51866A1DF0 /* DebugYandexAIAPIKeyStore.swift in Sources */,
 				8872AB1B119A1A84B3BD2C60 /* FakeLaunchScreenView.swift in Sources */,

@@ -316,3 +316,9 @@
 "question.offline_unavailable.message" = "Nessuna domanda salvata corrisponde a queste impostazioni. Connettiti a internet e apri la schermata iniziale per scaricare le domande e giocare offline.";
 
 "account_start.connection.failed" = "Impossibile collegare il tuo account. Controlla la connessione Internet e riprova.";
+
+"whats_new.title" = "Novità di Quizice %@";
+"whats_new.statistics" = "Segui la percentuale di risposte corrette e il numero di partite giocate nei grafici delle statistiche.";
+"whats_new.more_themes" = "Apri il catalogo completo con «Altri argomenti».";
+"whats_new.launch" = "Il logo di Quizice torna a ingrandirsi all’avvio dell’app.";
+"whats_new.continue" = "Continua";

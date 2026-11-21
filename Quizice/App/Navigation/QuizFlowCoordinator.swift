@@ -13,6 +13,7 @@ final class QuizFlowCoordinator: NSObject, QuizRouting, UIViewControllerTransiti
     private let answerOutbox: QuestionAnswerOutboxing
     @MainActor private var dataSynchronizer: AccountDataSynchronizer?
     private let onboardingProgressStore: OnboardingProgressStoring
+    private let whatsNewPresentation: WhatsNewPresentation
     private let analytics: AnalyticsTracking
     private let notificationCenter: NotificationCenter
     private let randomQuestionsProvider: ([QuizQuestion]) -> [QuizQuestion]
@@ -45,6 +46,7 @@ final class QuizFlowCoordinator: NSObject, QuizRouting, UIViewControllerTransiti
         accountManager: AccountManaging? = nil,
         answerOutbox: QuestionAnswerOutboxing = PersistentQuestionAnswerOutbox.shared,
         onboardingProgressStore: OnboardingProgressStoring = OnboardingProgressStore.shared,
+        whatsNewPresentation: WhatsNewPresentation? = nil,
         analytics: AnalyticsTracking = AppMetricaAnalyticsTracker.shared,
         notificationCenter: NotificationCenter = .default,
         randomQuestionsProvider: @escaping ([QuizQuestion]) -> [QuizQuestion] = { $0.shuffled() },
@@ -67,6 +69,7 @@ final class QuizFlowCoordinator: NSObject, QuizRouting, UIViewControllerTransiti
         self.accountManager = accountManager
         self.answerOutbox = answerOutbox
         self.onboardingProgressStore = onboardingProgressStore
+        self.whatsNewPresentation = whatsNewPresentation ?? WhatsNewPresentation()
         self.analytics = analytics
         self.notificationCenter = notificationCenter
         self.randomQuestionsProvider = randomQuestionsProvider
@@ -168,13 +171,20 @@ final class QuizFlowCoordinator: NSObject, QuizRouting, UIViewControllerTransiti
         presentedViewController.present(viewController, animated: true)
     }
 
+    func presentInitialContentIfNeeded(completion: @escaping () -> Void) {
+        guard !whatsNewPresentation.presentIfNeeded(
+            from: presentedViewController, hasCompletedOnboarding: !onboardingProgressStore.needsOnboarding, completion: completion
+        ) else { return }
+        presentInitialOnboardingIfNeeded(completion: completion)
+    }
+
     func presentInitialOnboardingIfNeeded(completion: @escaping () -> Void = {}) {
         guard onboardingProgressStore.needsOnboarding else { completion(); return }
         presentOnboarding(animated: false, completion: completion)
     }
 
     func restoreInitialAccessibilityFocusAfterLaunch() {
-        guard activeOnboardingViewController == nil else { return }
+        guard activeOnboardingViewController == nil, !whatsNewPresentation.isPresented else { return }
         (navigationController.viewControllers.first as? QuizViewController)?
             .restoreAccessibilityFocusAfterLaunch()
     }

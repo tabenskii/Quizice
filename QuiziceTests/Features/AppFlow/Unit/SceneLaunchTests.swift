@@ -45,6 +45,27 @@ final class SceneLaunchTests: QuizFlowCoordinatorTestCase {
         XCTAssertNil(harness.navigationController.presentedViewController)
     }
 
+    func testSceneShowsWhatsNewWhenReturningUserUpdatesTo12() async throws {
+        UIView.setAnimationsEnabled(false)
+        let harness = try makeSceneLaunchHarness(whatsNewVersion: "1.2")
+        harness.scene.startLaunch(
+            in: harness.window, coordinator: harness.coordinator, authenticationService: harness.authentication,
+            appearance: makeLaunchAppearance(designStyle: .classic)
+        )
+        let overlay = try XCTUnwrap(launchOverlay(in: harness.window))
+        harness.gameCenter.emit(.authenticated(teamPlayerID: "team-1"))
+        try await waitForSceneLaunch {
+            overlay.isHidden && self.accountGate(in: harness.window) == nil
+        }
+
+        let releaseNotes = try XCTUnwrap(
+            harness.navigationController.presentedViewController as? UIHostingController<WhatsNewView>
+        )
+        XCTAssertTrue(releaseNotes.view.window === harness.window)
+        releaseNotes.rootView.onContinue()
+        try await waitForSceneLaunch { harness.navigationController.presentedViewController == nil }
+    }
+
     func testSceneImmediatelyRevealsRequiredGameCenterUIAboveLockedAccountGate() async throws {
         UIView.setAnimationsEnabled(false)
         let harness = try makeSceneLaunchHarness(needsOnboarding: true)
@@ -141,7 +162,10 @@ final class SceneLaunchTests: QuizFlowCoordinatorTestCase {
         }
     }
 
-    private func makeSceneLaunchHarness(needsOnboarding: Bool = false) throws -> (
+    private func makeSceneLaunchHarness(
+        needsOnboarding: Bool = false,
+        whatsNewVersion: String? = nil
+    ) throws -> (
         scene: SceneDelegate, window: UIWindow, coordinator: QuizFlowCoordinator,
         navigationController: UINavigationController, authentication: GameCenterAuthenticationService,
         gameCenter: FakeGameCenterClient, api: FakeAuthAPI, repository: LaunchCatalogRepository
@@ -169,7 +193,9 @@ final class SceneLaunchTests: QuizFlowCoordinatorTestCase {
             window: window, navigationController: navigation,
             themeRepository: repository, session: RoutingSession(),
             aiQuizThemeService: MockAIQuizThemeService(),
-            onboardingProgressStore: onboarding, notificationCenter: notifications
+            onboardingProgressStore: onboarding,
+            whatsNewPresentation: WhatsNewPresentation(defaults: defaults, appVersion: whatsNewVersion),
+            notificationCenter: notifications
         )
         coordinator.start()
         addTeardownBlock { @MainActor in

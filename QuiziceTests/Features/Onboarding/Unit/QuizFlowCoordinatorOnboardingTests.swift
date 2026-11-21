@@ -5,6 +5,55 @@ import XCTest
 
 @MainActor
 final class QuizFlowCoordinatorOnboardingTests: QuizFlowCoordinatorTestCase {
+    func testWhatsNewPresentsOnceAfterUpgradeAndContinue() throws {
+        let defaults = try makeWhatsNewDefaults()
+        let navigation = RoutingNavigationControllerSpy()
+        let release = WhatsNewPresentation(defaults: defaults, appVersion: "1.2")
+
+        XCTAssertTrue(release.presentIfNeeded(from: navigation, hasCompletedOnboarding: true, completion: {}))
+        XCTAssertTrue(release.presentIfNeeded(from: navigation, hasCompletedOnboarding: true, completion: {}))
+        XCTAssertEqual(navigation.presentedControllers.count, 1)
+        let controller = try XCTUnwrap(navigation.presentedControllers.first as? UIHostingController<WhatsNewView>)
+        XCTAssertEqual(controller.modalPresentationStyle, .fullScreen)
+
+        controller.rootView.onContinue()
+
+        let nextLaunch = WhatsNewPresentation(defaults: defaults, appVersion: "1.2.1")
+        XCTAssertFalse(nextLaunch.presentIfNeeded(from: navigation, hasCompletedOnboarding: true, completion: {}))
+    }
+
+    func testWhatsNewSkipsCleanInstallEvenAfterCompletingOnboarding() throws {
+        let defaults = try makeWhatsNewDefaults()
+        let navigation = RoutingNavigationControllerSpy()
+        let release = WhatsNewPresentation(defaults: defaults, appVersion: "1.2")
+
+        XCTAssertFalse(release.presentIfNeeded(from: navigation, hasCompletedOnboarding: false, completion: {}))
+
+        let nextLaunch = WhatsNewPresentation(defaults: defaults, appVersion: "1.2")
+        XCTAssertFalse(nextLaunch.presentIfNeeded(from: navigation, hasCompletedOnboarding: true, completion: {}))
+        XCTAssertTrue(navigation.presentedControllers.isEmpty)
+    }
+
+    func testWhatsNewIsLimitedToTheReleaseVersion() throws {
+        let defaults = try makeWhatsNewDefaults()
+        let navigation = RoutingNavigationControllerSpy()
+
+        for version in ["1.1", "1.3", "1.20", "2.0"] {
+            XCTAssertFalse(
+                WhatsNewPresentation(defaults: defaults, appVersion: version)
+                    .presentIfNeeded(from: navigation, hasCompletedOnboarding: true, completion: {})
+            )
+        }
+        XCTAssertTrue(navigation.presentedControllers.isEmpty)
+    }
+
+    private func makeWhatsNewDefaults() throws -> UserDefaults {
+        let suiteName = "WhatsNewPresentationTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        addTeardownBlock { defaults.removePersistentDomain(forName: suiteName) }
+        return defaults
+    }
+
     func testInitialOnboardingPresentsOnceWhenCurrentVersionIsIncomplete() throws {
         let harness = makeOnboardingHarness(isCompleted: false)
 

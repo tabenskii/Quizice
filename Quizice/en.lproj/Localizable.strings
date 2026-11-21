@@ -316,3 +316,9 @@
 "question.offline_unavailable.message" = "No saved questions match these settings. Connect to the internet and open the home screen to download questions for offline play.";
 
 "account_start.connection.failed" = "Could not connect your account. Check your internet connection and try again.";
+
+"whats_new.title" = "What's new in Quizice %@";
+"whats_new.statistics" = "Track your answer accuracy and games played with charts in Statistics.";
+"whats_new.more_themes" = "Open the full catalog with More Themes.";
+"whats_new.launch" = "The Quizice logo grows again when the app launches.";
+"whats_new.continue" = "Continue";

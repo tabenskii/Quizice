@@ -316,3 +316,9 @@
 "question.offline_unavailable.message" = "Keine gespeicherten Fragen passen zu diesen Einstellungen. Verbinde dich mit dem Internet und öffne den Startbildschirm, um Fragen für das Offline-Spiel herunterzuladen.";
 
 "account_start.connection.failed" = "Dein Konto konnte nicht verbunden werden. Prüfe deine Internetverbindung und versuche es erneut.";
+
+"whats_new.title" = "Neu in Quizice %@";
+"whats_new.statistics" = "Sieh in der Statistik, wie sich deine Trefferquote und die Anzahl gespielter Spiele entwickeln.";
+"whats_new.more_themes" = "Mit „Weitere Themen“ öffnest du den gesamten Katalog.";
+"whats_new.launch" = "Das Quizice-Logo wird beim App-Start wieder größer.";
+"whats_new.continue" = "Weiter";
