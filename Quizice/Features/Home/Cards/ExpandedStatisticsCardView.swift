@@ -43,6 +43,7 @@ final class ExpandedStatisticsCardView: UIView {
     private let scrollView = UIScrollView()
     private let contentStackView = UIStackView()
     private let emptyStateLabel = UILabel()
+    let chartsView = StatisticsChartsView()
     private var metricRows: [StatisticsPresentation.MetricID: StatisticsMetricRowView] = [:]
     private var configuredShadow = AppShadowStyle.none
     private var surfaceStyle: AppSurfaceStyle?
@@ -97,6 +98,7 @@ final class ExpandedStatisticsCardView: UIView {
             emptyStateLabel
         ]
         accessibilityItems.append(contentsOf: presentation.metrics.compactMap { metricRows[$0.id] })
+        accessibilityItems.append(chartsView)
         accessibilityItems.append(closeButton)
         accessibilityElements = accessibilityItems
         setTransitionSurfaceHidden(false)
@@ -184,6 +186,8 @@ final class ExpandedStatisticsCardView: UIView {
             metricRows[id] = row
             contentStackView.addArrangedSubview(row)
         }
+
+        contentStackView.addArrangedSubview(chartsView)
 
         surfaceView.addSubview(titleLabel)
         surfaceView.addSubview(subtitleLabel)

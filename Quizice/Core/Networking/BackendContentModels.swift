@@ -4,6 +4,7 @@ enum BackendOperation: String, Equatable {
     case authentication
     case accountDeletion = "account_deletion"
     case statisticsSync = "statistics_sync"
+    case statisticsHistory = "statistics_history"
     case themes
     case themePreferences = "theme_preferences"
     case questions
@@ -69,6 +70,33 @@ struct BackendRequestMetric: Equatable {
 
 protocol BackendRequestMetricRecording {
     func record(_ metric: BackendRequestMetric)
+}
+
+extension BackendRequestMetricRecording {
+    func record(
+        operation: BackendOperation,
+        result: BackendRequestResult,
+        startedAt: ContinuousClock.Instant,
+        statusCode: Int?,
+        responseBytes: Int
+    ) {
+        record(
+            BackendRequestMetric(
+                operation: operation,
+                result: result,
+                durationMilliseconds: milliseconds(ContinuousClock().now - startedAt),
+                statusCode: statusCode,
+                responseBytes: responseBytes
+            )
+        )
+    }
+
+    private func milliseconds(_ duration: Duration) -> Int {
+        let components = duration.components
+        let seconds = components.seconds * 1_000
+        let milliseconds = components.attoseconds / 1_000_000_000_000_000
+        return max(Int(seconds + milliseconds), 0)
+    }
 }
 
 struct NoopBackendRequestMetricRecorder: BackendRequestMetricRecording {

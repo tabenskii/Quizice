@@ -316,3 +316,18 @@
 "question.offline_unavailable.message" = "Keine gespeicherten Fragen passen zu diesen Einstellungen. Verbinde dich mit dem Internet und öffne den Startbildschirm, um Fragen für das Offline-Spiel herunterzuladen.";
 
 "account_start.connection.failed" = "Dein Konto konnte nicht verbunden werden. Prüfe deine Internetverbindung und versuche es erneut.";
+
+/* Daily account statistics */
+"statistics.history.title" = "Spielverlauf";
+"statistics.history.empty" = "In diesem Zeitraum gibt es noch keine Spiele mit Datum.";
+"statistics.history.accuracy" = "Antwortgenauigkeit";
+"statistics.history.games" = "Gespielte Spiele";
+"statistics.history.day" = "Tag";
+"statistics.period.title" = "Zeitraum";
+"statistics.period.week" = "Woche";
+"statistics.period.month" = "Monat";
+"statistics.period.all_time" = "Gesamt";
+"statistics.history.loading" = "Verlauf wird geladen…";
+"statistics.history.error" = "Der Spielverlauf konnte nicht geladen werden. Prüfe deine Verbindung und versuche es erneut.";
+"statistics.history.retry" = "Erneut versuchen";
+"statistics.history.undated" = "Diagramme enthalten Spiele mit gespeichertem Datum. Ältere Spiele ohne Datum bleiben in der Gesamtstatistik.";

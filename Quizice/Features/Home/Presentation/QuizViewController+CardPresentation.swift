@@ -194,6 +194,10 @@ extension QuizViewController {
         wireExpandedStatisticsCardActions(cardView)
         cardView.layoutIfNeeded()
         expandedStatisticsCardView = cardView
+        cardView.chartsView.onPeriodChange = { [weak self] in self?.statisticsHistoryStore.selectPeriod($0) }
+        cardView.chartsView.onRetry = { [weak self] in self?.statisticsHistoryStore.refresh() }
+        statisticsHistoryStore.start()
+        refreshStatisticsCharts()
 
         if reduceMotion {
             cardView.alpha = 0

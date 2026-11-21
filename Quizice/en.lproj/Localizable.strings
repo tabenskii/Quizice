@@ -316,3 +316,18 @@
 "question.offline_unavailable.message" = "No saved questions match these settings. Connect to the internet and open the home screen to download questions for offline play.";
 
 "account_start.connection.failed" = "Could not connect your account. Check your internet connection and try again.";
+
+/* Daily account statistics */
+"statistics.history.title" = "Game history";
+"statistics.history.empty" = "No dated games in this period yet.";
+"statistics.history.accuracy" = "Answer accuracy";
+"statistics.history.games" = "Games played";
+"statistics.history.day" = "Day";
+"statistics.period.title" = "Period";
+"statistics.period.week" = "Week";
+"statistics.period.month" = "Month";
+"statistics.period.all_time" = "All time";
+"statistics.history.loading" = "Loading history…";
+"statistics.history.error" = "Game history could not be loaded. Check your connection and try again.";
+"statistics.history.retry" = "Retry";
+"statistics.history.undated" = "Charts include games with a recorded date. Older games without a date remain in your overall statistics.";

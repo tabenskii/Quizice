@@ -4,6 +4,56 @@ import XCTest
 
 @MainActor
 final class HomeExpandedCardTransitionTests: HomeScreenVisualStateTestCase {
+    func testExpandedStatisticsHistoryEmptyAndErrorHaveVisibleHeight() throws {
+        let timeline = try StatisticsHistoryResponse(period: .week, timeZone: "Europe/Moscow", periodStart: "2026-10-31", periodEnd: "2026-11-07", days: [], undatedPlayedQuizzes: 0)
+            .timeline(requestedPeriod: .week, timeZone: TimeZone(identifier: "Europe/Moscow")!)
+        for state in [StatisticsHistoryStore.State.loaded(timeline), .failed, .loading] {
+            let appearance = SnapshotSupport.appearance(designStyle: .clean)
+            let card = ExpandedStatisticsCardView(frame: CGRect(x: 20, y: 20, width: 335, height: 700))
+            card.configure(summary: .empty, appearance: appearance)
+            card.chartsView.configure(state: state, period: .week, appearance: appearance)
+            let host = UIViewController()
+            host.view.addSubview(card)
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 375, height: 812))
+            window.rootViewController = host
+            window.makeKeyAndVisible()
+            testWindows.append(window)
+            window.layoutIfNeeded()
+            drainAnimations(0.05)
+            card.layoutIfNeeded()
+            XCTAssertGreaterThan(card.chartsView.bounds.height, 100)
+        }
+    }
+
+    func testExpandedStatisticsChartsFitNarrowCardAndRemainReachableByScrolling() throws {
+        let timeline = try StatisticsHistoryResponse(period: .week, timeZone: "Europe/Moscow", periodStart: "2026-10-31", periodEnd: "2026-11-07",
+            days: [.init(date: "2026-11-01", playedQuizzes: 2, correctAnswers: 5, totalQuestions: 20)], undatedPlayedQuizzes: 53)
+            .timeline(requestedPeriod: .week, timeZone: TimeZone(identifier: "Europe/Moscow")!)
+        for style in [AppDesignStyle.classic, .clean, .radar] {
+            let appearance = SnapshotSupport.appearance(designStyle: style)
+            let card = ExpandedStatisticsCardView(frame: CGRect(x: 20, y: 20, width: 335, height: 700))
+            card.configure(summary: .empty, appearance: appearance)
+            card.chartsView.configure(state: .loaded(timeline), period: .week, appearance: appearance)
+            let host = UIViewController()
+            host.view.addSubview(card)
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 375, height: 812))
+            window.rootViewController = host
+            window.makeKeyAndVisible()
+            testWindows.append(window)
+            window.layoutIfNeeded()
+            drainAnimations(0.05)
+            card.layoutIfNeeded()
+            let scroll = try XCTUnwrap(card.descendant(withAccessibilityIdentifier: "expandedStatisticsCardScrollView") as? UIScrollView)
+            XCTAssertGreaterThan(card.chartsView.bounds.height, 400)
+            XCTAssertLessThanOrEqual(card.chartsView.bounds.width, 335)
+            XCTAssertGreaterThan(scroll.contentSize.height, scroll.bounds.height)
+            scroll.setContentOffset(CGPoint(x: 0, y: scroll.contentSize.height - scroll.bounds.height), animated: false)
+            let chartBottom = card.chartsView.convert(CGPoint(x: 0, y: card.chartsView.bounds.maxY), to: scroll)
+            XCTAssertEqual(chartBottom.y, scroll.bounds.maxY, accuracy: 1)
+            XCTAssertTrue(card.accessibilityElements?.contains { ($0 as? UIView) === card.chartsView } == true)
+        }
+    }
+
     func testExpandedStatisticsCardKeepsLargeHistoryValueVisibleAtNarrowWidths() throws {
         let summary = StatisticsSummary(
             playedQuizzes: 53,

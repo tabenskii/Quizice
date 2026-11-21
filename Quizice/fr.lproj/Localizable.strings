@@ -316,3 +316,18 @@
 "question.offline_unavailable.message" = "Aucune question enregistrée ne correspond à ces réglages. Connectez-vous à Internet et ouvrez l’écran d’accueil pour télécharger les questions et jouer hors ligne.";
 
 "account_start.connection.failed" = "Impossible de connecter votre compte. Vérifiez votre connexion Internet et réessayez.";
+
+/* Daily account statistics */
+"statistics.history.title" = "Historique des parties";
+"statistics.history.empty" = "Aucune partie datée pour cette période.";
+"statistics.history.accuracy" = "Précision des réponses";
+"statistics.history.games" = "Parties jouées";
+"statistics.history.day" = "Jour";
+"statistics.period.title" = "Période";
+"statistics.period.week" = "Semaine";
+"statistics.period.month" = "Mois";
+"statistics.period.all_time" = "Tout";
+"statistics.history.loading" = "Chargement de l’historique…";
+"statistics.history.error" = "Impossible de charger l’historique. Vérifiez votre connexion et réessayez.";
+"statistics.history.retry" = "Réessayer";
+"statistics.history.undated" = "Les graphiques incluent les parties avec une date enregistrée. Les anciennes parties sans date restent dans les statistiques générales.";

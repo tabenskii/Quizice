@@ -316,3 +316,18 @@
 "question.offline_unavailable.message" = "Нет сохранённых вопросов с выбранными настройками. Подключитесь к интернету и откройте главный экран, чтобы загрузить вопросы для офлайн-игры.";
 
 "account_start.connection.failed" = "Не удалось подключить аккаунт. Проверьте интернет и повторите попытку.";
+
+/* Daily account statistics */
+"statistics.history.title" = "История игр";
+"statistics.history.empty" = "За этот период пока нет игр с сохранённой датой.";
+"statistics.history.accuracy" = "Точность ответов";
+"statistics.history.games" = "Сыграно игр";
+"statistics.history.day" = "День";
+"statistics.period.title" = "Период";
+"statistics.period.week" = "Неделя";
+"statistics.period.month" = "Месяц";
+"statistics.period.all_time" = "Всё время";
+"statistics.history.loading" = "Загружаем историю…";
+"statistics.history.error" = "Не удалось загрузить историю игр. Проверьте подключение и попробуйте ещё раз.";
+"statistics.history.retry" = "Повторить";
+"statistics.history.undated" = "Графики доступны для игр с сохранённой датой. Старые игры без даты остаются в общей статистике.";
