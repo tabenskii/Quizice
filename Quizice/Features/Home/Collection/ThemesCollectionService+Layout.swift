@@ -95,6 +95,19 @@ extension ThemesCollectionService {
         return CGSize(width: availableWidth, height: Layout.secondaryActionButtonHeight)
     }
 
+    func collectionView(
+        _ collectionView: UICollectionView,
+        layout collectionViewLayout: UICollectionViewLayout,
+        referenceSizeForHeaderInSection section: Int
+    ) -> CGSize {
+        guard !isThemeItemsCollectionView(collectionView) else { return .zero }
+        let width = collectionView.bounds.width
+        let contentWidth = width - Layout.sectionInsets.left - Layout.sectionInsets.right
+        let height = maintenanceBannerHeight(width: contentWidth, traits: collectionView.traitCollection,
+            availableHeight: availableContentHeight(in: collectionView))
+        return CGSize(width: width, height: height)
+    }
+
     func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, minimumLineSpacingForSectionAt section: Int) -> CGFloat {
         isThemeItemsCollectionView(collectionView)
             ? Layout.itemSpacing
@@ -170,6 +183,7 @@ extension ThemesCollectionService {
             + aiThemeCardHeight(width: min(width, 640), traits: traitCollection)
             + Layout.secondaryActionButtonHeight
             + Layout.statisticsCardHeight
+            + maintenanceBannerHeight(width: width, traits: traitCollection, availableHeight: availableOuterHeight)
             + lastItemBottomInset(availableHeight: availableOuterHeight)
             + outerItemSpacing(availableHeight: availableOuterHeight)
                 * CGFloat(outerItemCount - 1)
@@ -198,6 +212,17 @@ extension ThemesCollectionService {
                 - collectionView.adjustedContentInset.bottom,
             0
         )
+    }
+
+    func maintenanceBannerSpacing(in collectionView: UICollectionView) -> CGFloat {
+        outerItemSpacing(availableHeight: availableContentHeight(in: collectionView))
+    }
+
+    private func maintenanceBannerHeight(width: CGFloat, traits: UITraitCollection, availableHeight: CGFloat) -> CGFloat {
+        guard let maintenanceNotice, width > 0 else { return 0 }
+        return HomeMaintenanceBannerView.height(message: maintenanceNotice, width: width,
+            appearance: appearanceStore.appearance(compatibleWith: traits), traits: traits)
+            + outerItemSpacing(availableHeight: availableHeight)
     }
 
     private func outerItemSpacing(availableHeight: CGFloat) -> CGFloat {

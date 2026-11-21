@@ -29,6 +29,7 @@
 		F93000000000000000000002 /* ResultMessagesRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = F92000000000000000000002 /* ResultMessagesRepository.swift */; };
 		F93000000000000000000001 /* HTTPResultMessagesAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = F92000000000000000000001 /* HTTPResultMessagesAPI.swift */; };
 		A154B1000000000000000001 /* HTTPAIServiceStatusAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = A154A1000000000000000001 /* HTTPAIServiceStatusAPI.swift */; };
+		AA1214000000000000000003 /* HTTPMaintenanceStatusAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA1214000000000000000004 /* HTTPMaintenanceStatusAPI.swift */; };
 		F93000000000000000000000 /* ResultMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = F92000000000000000000000 /* ResultMessage.swift */; };
 		0003220FA45176EA04A58596 /* QuizQuestionCountPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = F93AF33B6FA83D319132BD54 /* QuizQuestionCountPolicy.swift */; };
 		013A11228A2DFE3CAEC27F51 /* ExpandedAIThemeCardView+Appearance.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCA9234F162B4CE2242F18A8 /* ExpandedAIThemeCardView+Appearance.swift */; };
@@ -171,6 +172,7 @@
 		B2CD30CAC15215296B9D9BBE /* ThemeVisualCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = E82336079EA413DAC55F5098 /* ThemeVisualCatalog.swift */; };
 		B4F203A995BFC3EE72EE9407 /* HomeAIThemeCardInteractionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D91233DF15623B01A4727EC /* HomeAIThemeCardInteractionTests.swift */; };
 		A154B1000000000000000003 /* HomeAIServiceNoticeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A154A1000000000000000003 /* HomeAIServiceNoticeTests.swift */; };
+		AA1214000000000000000001 /* HomeMaintenanceBannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA1214000000000000000002 /* HomeMaintenanceBannerTests.swift */; };
 		B55AF88819584133CB2007D9 /* BackendConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84999FAFF59131533DB4008F /* BackendConfiguration.swift */; };
 		B68A3D6A9102BC31860D8D6E /* YandexAIQuizThemeTransportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B26BC141AF674C1BBBF166D8 /* YandexAIQuizThemeTransportTests.swift */; };
 		B740A1655C5D91EC1FE95F66 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8F820A9113657A638FA15DA /* SceneDelegate.swift */; };
@@ -266,6 +268,7 @@
 		F92000000000000000000002 /* ResultMessagesRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResultMessagesRepository.swift; sourceTree = "<group>"; };
 		F92000000000000000000001 /* HTTPResultMessagesAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTTPResultMessagesAPI.swift; sourceTree = "<group>"; };
 		A154A1000000000000000001 /* HTTPAIServiceStatusAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTTPAIServiceStatusAPI.swift; sourceTree = "<group>"; };
+		AA1214000000000000000004 /* HTTPMaintenanceStatusAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTTPMaintenanceStatusAPI.swift; sourceTree = "<group>"; };
 		F92000000000000000000000 /* ResultMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResultMessage.swift; sourceTree = "<group>"; };
 		01DA276AB8857D563F1BDE7B /* QuizTheme.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = QuizTheme.swift; sourceTree = "<group>"; };
 		A50FB8E8BFE64DBFB6889702 /* PersistentScrollIndicatorScrollView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistentScrollIndicatorScrollView.swift; sourceTree = "<group>"; };
@@ -348,6 +351,7 @@
 		8D626989A7C8B8CD6A608580 /* HomeFeatureStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeFeatureStore.swift; sourceTree = "<group>"; };
 		8D91233DF15623B01A4727EC /* HomeAIThemeCardInteractionTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeAIThemeCardInteractionTests.swift; sourceTree = "<group>"; };
 		A154A1000000000000000003 /* HomeAIServiceNoticeTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeAIServiceNoticeTests.swift; sourceTree = "<group>"; };
+		AA1214000000000000000002 /* HomeMaintenanceBannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeMaintenanceBannerTests.swift; sourceTree = "<group>"; };
 		93C9D82E8FBBBAF1264DF5C5 /* HomeAIThemeCardReducerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeAIThemeCardReducerTests.swift; sourceTree = "<group>"; };
 		96D09FAE06BCC927ACC38483 /* ExpandedStatisticsCardView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ExpandedStatisticsCardView.swift; sourceTree = "<group>"; };
 		98306DFECB047B76A6D0F610 /* QuizResultPresenter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = QuizResultPresenter.swift; sourceTree = "<group>"; };
@@ -1060,6 +1064,7 @@
 			children = (
 				F92000000000000000000001 /* HTTPResultMessagesAPI.swift */,
 				A154A1000000000000000001 /* HTTPAIServiceStatusAPI.swift */,
+				AA1214000000000000000004 /* HTTPMaintenanceStatusAPI.swift */,
 				B10000000000000000000001 /* BackendContentAPI.swift */,
 				28A0A20CEE1B4198B8D492FF /* HTTPBackendContentAPI.swift */,
 				BBB882E2FE414E0CB6B16876 /* BackendContentResponseValidator.swift */,
@@ -1272,6 +1277,7 @@
 			children = (
 				8D91233DF15623B01A4727EC /* HomeAIThemeCardInteractionTests.swift */,
 				A154A1000000000000000003 /* HomeAIServiceNoticeTests.swift */,
+				AA1214000000000000000002 /* HomeMaintenanceBannerTests.swift */,
 				A3E9F06229E7078F35E6031C /* HomeAIThemeCardTransitionTests.swift */,
 				C10000000000000000000006 /* HomeCollectionServicePresentationTests.swift */,
 				8262BBDADFD39A2E1117F76C /* HomeCollectionServiceTests.swift */,
@@ -1509,6 +1515,7 @@
 				2465B215AD94E69D77F872BB /* AnalyticsService.swift in Sources */,
 				F93000000000000000000001 /* HTTPResultMessagesAPI.swift in Sources */,
 				A154B1000000000000000001 /* HTTPAIServiceStatusAPI.swift in Sources */,
+				AA1214000000000000000003 /* HTTPMaintenanceStatusAPI.swift in Sources */,
 				B10000000000000000000002 /* BackendContentAPI.swift in Sources */,
 				57B27480896448F8B84DE3DF /* OfflineQuestionCache.swift in Sources */,
 				F8F2F75AC24C4544BF3373AC /* OfflineQuestionDownloader.swift in Sources */,
@@ -1638,6 +1645,7 @@
 				BCF1AE84D17127EB902B3253 /* QuizFlowCoordinatorNavigationTests.swift in Sources */,
 				B4F203A995BFC3EE72EE9407 /* HomeAIThemeCardInteractionTests.swift in Sources */,
 				A154B1000000000000000003 /* HomeAIServiceNoticeTests.swift in Sources */,
+				AA1214000000000000000001 /* HomeMaintenanceBannerTests.swift in Sources */,
 				7777C3FC8A38413E317FF32C /* HomeAIThemeCardTransitionTests.swift in Sources */,
 				C10000000000000000000005 /* HomeCollectionServicePresentationTests.swift in Sources */,
 				EE029172AB34E91DFEF01EBA /* HomeCollectionServiceTests.swift in Sources */,

@@ -106,7 +106,7 @@ final class QuizFlowCoordinator: NSObject, QuizRouting, UIViewControllerTransiti
         if let accountDeletionObserver { notificationCenter.removeObserver(accountDeletionObserver) }
     }
 
-    func start() {
+    func start(maintenanceStatusAPI: MaintenanceStatusAPI? = nil) {
         themeRepository.loadData(forceReload: false)
         let viewController = QuizViewController(
             themeRepository: themeRepository,
@@ -115,6 +115,7 @@ final class QuizFlowCoordinator: NSObject, QuizRouting, UIViewControllerTransiti
             aiQuizThemeService: aiQuizThemeService,
             aiQuizAccessProvider: aiQuizAccessProvider,
             aiServiceStatusAPI: aiServiceStatusAPI,
+            maintenanceStatusAPI: maintenanceStatusAPI,
             analytics: analytics,
             randomQuestionsProvider: randomQuestionsProvider,
             randomQuestionSelectionModeProvider: randomQuestionSelectionModeProvider
