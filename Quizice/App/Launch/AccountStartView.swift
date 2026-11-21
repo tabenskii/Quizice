@@ -24,7 +24,7 @@ struct AccountStartView: View {
     @ScaledMetric(relativeTo: .largeTitle) private var titleSize: CGFloat = 32
     @ScaledMetric(relativeTo: .body) private var bodySize: CGFloat = 17
     @ScaledMetric(relativeTo: .footnote) private var privacySize: CGFloat = 14
-    @StateObject private var connectionReadiness = FakeLaunchReadiness(isReady: false)
+    @StateObject private var connectionReadiness = FakeLaunchReadiness()
 
     init(
         model: AccountStartModel,
