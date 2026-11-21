@@ -26,7 +26,7 @@ shows a connected backend catalog; the bundled catalog contains four themes.*
   Mark favorite themes to keep them at the top.
 - **Create with AI.** Describe a topic and generate a quiz in the app's language.
   Production generation requires Game Center sign-in and backend access.
-- **Track your progress.** See completed games, accuracy, and your best result.
+- **Track your progress.** See completed games, correct answers, and your accuracy.
   A backend session enables statistics sync and question-repeat preferences.
 - **Make it yours.** Switch between Classic, Radar, and Clean designs, with
   system, light, and dark appearance options for Clean.

@@ -26,7 +26,7 @@ final class LiveBackendContractTests: XCTestCase {
         let questionsURL = try XCTUnwrap(
             URL(
                 string: backendURL.appendingPathComponent("v1/themes/music/questions").absoluteString
-                    + "?count=5&locale=en&seed=550e8400-e29b-41d4-a716-446655440000"
+                    + "?count=5&locale=en&difficulty=medium&seed=550e8400-e29b-41d4-a716-446655440000"
             )
         )
 
@@ -49,6 +49,7 @@ final class LiveBackendContractTests: XCTestCase {
             themeID: firstTheme.id,
             count: 5,
             locale: "en",
+            difficulty: .medium,
             seed: seed
         )
         XCTAssertEqual(questions.questions.count, 5)

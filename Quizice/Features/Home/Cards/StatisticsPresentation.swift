@@ -1,11 +1,10 @@
 import Foundation
 
 struct StatisticsPresentation: Equatable {
-    enum MetricID: String, Equatable {
+    enum MetricID: String, Equatable, CaseIterable {
         case playedQuizzes
         case correctAnswers
         case percentage
-        case bestResult
     }
 
     struct Metric: Equatable {
@@ -40,11 +39,6 @@ struct StatisticsPresentation: Equatable {
                 id: .percentage,
                 title: L10n.Statistics.percentage,
                 value: "\(summary.percentage)%"
-            ),
-            Metric(
-                id: .bestResult,
-                title: L10n.Statistics.bestResult,
-                value: summary.bestResultDisplay
             )
         ]
     }

@@ -11,7 +11,6 @@ final class StatisticsSummaryTests: XCTestCase {
         XCTAssertEqual(summary.percentage, 0)
         XCTAssertEqual(summary.bestCorrectAnswers, 0)
         XCTAssertEqual(summary.bestTotalQuestions, 0)
-        XCTAssertEqual(summary.bestResultDisplay, "0/0")
     }
 
     func testSummaryAggregatesPlayedQuizzesCorrectAnswersAndTotalQuestions() {
@@ -34,7 +33,7 @@ final class StatisticsSummaryTests: XCTestCase {
         XCTAssertEqual(summary.percentage, 67)
     }
 
-    func testBestResultDisplayUsesBestAttempt() {
+    func testSummaryUsesBestAttempt() {
         let summary = StatisticsStore.summary(from: [
             .init(correctAnswers: 2, totalQuestions: 5),
             .init(correctAnswers: 8, totalQuestions: 10),
@@ -43,7 +42,6 @@ final class StatisticsSummaryTests: XCTestCase {
 
         XCTAssertEqual(summary.bestCorrectAnswers, 8)
         XCTAssertEqual(summary.bestTotalQuestions, 10)
-        XCTAssertEqual(summary.bestResultDisplay, "8/10")
     }
 
     func testBestResultSelectsMoreCorrectAnswersOverHigherPercentage() {

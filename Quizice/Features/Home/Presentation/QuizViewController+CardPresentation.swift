@@ -192,8 +192,10 @@ extension QuizViewController {
         cardView.layer.zPosition = Appearance.expandedCardLayerZPosition
         cardView.configure(summary: summary, appearance: appearance)
         wireExpandedStatisticsCardActions(cardView)
-        cardView.layoutIfNeeded()
         expandedStatisticsCardView = cardView
+        cardView.chartsView.onPeriodChange = { [weak self] in self?.statisticsHistoryStore.selectPeriod($0) }
+        cardView.chartsView.onRetry = { [weak self] in self?.statisticsHistoryStore.refresh() }
+        statisticsHistoryStore.start()
 
         if reduceMotion {
             cardView.alpha = 0
@@ -226,6 +228,7 @@ extension QuizViewController {
             expandedCardTransitionView = transitionView
             installExpandedCardInteractionButton(tracking: [transitionView])
         }
+        UIView.performWithoutAnimation { cardView.layoutIfNeeded() }
 
         expandedCardSnapshotView = snapshotView
         expandedCardSourceContentView = sourceContentView
