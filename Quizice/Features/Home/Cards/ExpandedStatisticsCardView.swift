@@ -1,6 +1,6 @@
 import UIKit
 
-final class ExpandedStatisticsCardView: UIView {
+final class ExpandedStatisticsCardView: UIView, UIScrollViewDelegate {
     private enum AccessibilityID {
         static let root = "expandedStatisticsCardView"
         static let closeButton = "expandedStatisticsCardCloseButton"
@@ -43,14 +43,34 @@ final class ExpandedStatisticsCardView: UIView {
     private let scrollView = UIScrollView()
     private let contentStackView = UIStackView()
     private let emptyStateLabel = UILabel()
+    let chartsView = StatisticsChartsView()
     private var metricRows: [StatisticsPresentation.MetricID: StatisticsMetricRowView] = [:]
     private var configuredShadow = AppShadowStyle.none
     private var surfaceStyle: AppSurfaceStyle?
     private var isTransitionSurfaceHidden = false
+    private var usesScrollableHeader: Bool?
+    private lazy var fixedHeaderConstraints = [
+        titleLabel.topAnchor.constraint(equalTo: surfaceView.topAnchor, constant: Layout.titleTopInset),
+        titleLabel.leadingAnchor.constraint(equalTo: surfaceView.leadingAnchor, constant: Layout.edgeInset),
+        titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: closeButton.leadingAnchor, constant: -8),
+        subtitleLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: Layout.titleToSubtitleSpacing),
+        subtitleLabel.leadingAnchor.constraint(equalTo: surfaceView.leadingAnchor, constant: Layout.edgeInset),
+        subtitleLabel.trailingAnchor.constraint(equalTo: surfaceView.trailingAnchor, constant: -Layout.edgeInset),
+        scrollView.topAnchor.constraint(equalTo: subtitleLabel.bottomAnchor, constant: Layout.subtitleToRowsSpacing)
+    ]
+    private lazy var scrollBelowClose = scrollView.topAnchor.constraint(
+        equalTo: closeButton.bottomAnchor,
+        constant: Layout.titleToSubtitleSpacing
+    )
 
     override init(frame: CGRect) {
         super.init(frame: frame)
         configureHierarchy()
+        updateHeaderLayout()
+        registerForTraitChanges([UITraitPreferredContentSizeCategory.self]) {
+            (view: ExpandedStatisticsCardView, _: UITraitCollection) in
+            view.updateHeaderLayout()
+        }
     }
 
     @available(*, unavailable)
@@ -60,6 +80,7 @@ final class ExpandedStatisticsCardView: UIView {
 
     override func layoutSubviews() {
         super.layoutSubviews()
+        updateHistoryViewport()
         let cornerRadius = surfaceStyle?.cornerRadius ?? 0
         layer.shadowPath = UIBezierPath(
             roundedRect: bounds,
@@ -68,10 +89,12 @@ final class ExpandedStatisticsCardView: UIView {
     }
 
     func configure(summary: StatisticsSummary, appearance: AppAppearance) {
+        updateHeaderLayout()
         let presentation = StatisticsPresentation(summary: summary)
         surfaceStyle = appearance.card
         configuredShadow = appearance.card.shadow
         applyConfiguredSurfaceStyle(appearance.card)
+        scrollView.layer.cornerRadius = appearance.row.cornerRadius
 
         titleLabel.text = L10n.Statistics.title
         titleLabel.textColor = appearance.surfaceTextColor
@@ -97,6 +120,7 @@ final class ExpandedStatisticsCardView: UIView {
             emptyStateLabel
         ]
         accessibilityItems.append(contentsOf: presentation.metrics.compactMap { metricRows[$0.id] })
+        accessibilityItems.append(chartsView)
         accessibilityItems.append(closeButton)
         accessibilityElements = accessibilityItems
         setTransitionSurfaceHidden(false)
@@ -105,6 +129,35 @@ final class ExpandedStatisticsCardView: UIView {
 
     func setTransitionShadowHidden(_ isHidden: Bool) {
         applyShadow(isHidden ? .none : configuredShadow)
+    }
+
+    func configureHistory(
+        state: StatisticsHistoryStore.State,
+        period: StatisticsPeriod,
+        appearance: AppAppearance
+    ) {
+        var minimumHeight: CGFloat = 0
+        if scrollView.contentOffset.y > -scrollView.adjustedContentInset.top {
+            let visibleBottom = min(
+                scrollView.bounds.maxY - scrollView.adjustedContentInset.bottom,
+                scrollView.contentSize.height
+            )
+            let chartsTop = chartsView.convert(chartsView.bounds.origin, to: scrollView).y
+            minimumHeight = max(0, visibleBottom - chartsTop)
+        }
+        chartsView.configure(state: state, period: period, appearance: appearance, minimumHeight: minimumHeight)
+        updateHistoryViewport()
+    }
+
+    func scrollViewDidScroll(_ scrollView: UIScrollView) {
+        updateHistoryViewport()
+    }
+
+    private func updateHistoryViewport() {
+        let insets = scrollView.adjustedContentInset
+        let visibleBounds = scrollView.convert(scrollView.bounds.inset(by: insets), to: chartsView)
+        let bottomAtTop = visibleBounds.maxY - scrollView.contentOffset.y - insets.top
+        chartsView.updateViewport(visibleBounds, bottomAtTop: bottomAtTop)
     }
 
     func setTransitionSurfaceHidden(_ isHidden: Bool) {
@@ -167,6 +220,9 @@ final class ExpandedStatisticsCardView: UIView {
 
         scrollView.accessibilityIdentifier = AccessibilityID.scrollView
         scrollView.alwaysBounceVertical = false
+        scrollView.clipsToBounds = true
+        scrollView.layer.cornerCurve = .continuous
+        scrollView.delegate = self
         scrollView.translatesAutoresizingMaskIntoConstraints = false
 
         contentStackView.axis = .vertical
@@ -174,19 +230,14 @@ final class ExpandedStatisticsCardView: UIView {
         contentStackView.translatesAutoresizingMaskIntoConstraints = false
         contentStackView.addArrangedSubview(emptyStateLabel)
 
-        for id in [
-            StatisticsPresentation.MetricID.playedQuizzes,
-            .correctAnswers,
-            .percentage,
-            .bestResult
-        ] {
+        for id in StatisticsPresentation.MetricID.allCases {
             let row = StatisticsMetricRowView()
             metricRows[id] = row
             contentStackView.addArrangedSubview(row)
         }
 
-        surfaceView.addSubview(titleLabel)
-        surfaceView.addSubview(subtitleLabel)
+        contentStackView.addArrangedSubview(chartsView)
+
         surfaceView.addSubview(scrollView)
         surfaceView.addSubview(closeButton)
         scrollView.addSubview(contentStackView)
@@ -202,15 +253,6 @@ final class ExpandedStatisticsCardView: UIView {
             closeButton.widthAnchor.constraint(equalToConstant: Layout.closeButtonSize),
             closeButton.heightAnchor.constraint(equalToConstant: Layout.closeButtonSize),
 
-            titleLabel.topAnchor.constraint(equalTo: surfaceView.topAnchor, constant: Layout.titleTopInset),
-            titleLabel.leadingAnchor.constraint(equalTo: surfaceView.leadingAnchor, constant: Layout.edgeInset),
-            titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: closeButton.leadingAnchor, constant: -8),
-
-            subtitleLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: Layout.titleToSubtitleSpacing),
-            subtitleLabel.leadingAnchor.constraint(equalTo: surfaceView.leadingAnchor, constant: Layout.edgeInset),
-            subtitleLabel.trailingAnchor.constraint(equalTo: surfaceView.trailingAnchor, constant: -Layout.edgeInset),
-
-            scrollView.topAnchor.constraint(equalTo: subtitleLabel.bottomAnchor, constant: Layout.subtitleToRowsSpacing),
             scrollView.leadingAnchor.constraint(equalTo: surfaceView.leadingAnchor, constant: Layout.edgeInset),
             scrollView.trailingAnchor.constraint(equalTo: surfaceView.trailingAnchor, constant: -Layout.edgeInset),
             scrollView.bottomAnchor.constraint(equalTo: surfaceView.bottomAnchor, constant: -Layout.edgeInset),
@@ -221,6 +263,31 @@ final class ExpandedStatisticsCardView: UIView {
             contentStackView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor),
             contentStackView.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor)
         ])
+    }
+
+    private func updateHeaderLayout() {
+        let scrollHeader = traitCollection.preferredContentSizeCategory.isAccessibilityCategory
+        guard usesScrollableHeader != scrollHeader else { return }
+        usesScrollableHeader = scrollHeader
+        titleLabel.numberOfLines = scrollHeader ? 0 : 2
+
+        if scrollHeader {
+            NSLayoutConstraint.deactivate(fixedHeaderConstraints)
+            titleLabel.removeFromSuperview()
+            subtitleLabel.removeFromSuperview()
+            contentStackView.insertArrangedSubview(titleLabel, at: 0)
+            contentStackView.insertArrangedSubview(subtitleLabel, at: 1)
+            contentStackView.setCustomSpacing(Layout.titleToSubtitleSpacing, after: titleLabel)
+            contentStackView.setCustomSpacing(Layout.subtitleToRowsSpacing, after: subtitleLabel)
+            scrollBelowClose.isActive = true
+        } else {
+            scrollBelowClose.isActive = false
+            titleLabel.removeFromSuperview()
+            subtitleLabel.removeFromSuperview()
+            surfaceView.insertSubview(titleLabel, belowSubview: closeButton)
+            surfaceView.insertSubview(subtitleLabel, belowSubview: closeButton)
+            NSLayoutConstraint.activate(fixedHeaderConstraints)
+        }
     }
 
     private func applyConfiguredSurfaceStyle(_ style: AppSurfaceStyle) {
@@ -259,12 +326,33 @@ final class ExpandedStatisticsCardView: UIView {
 }
 
 private final class StatisticsMetricRowView: UIView {
+    private typealias Layout = ExpandedStatisticsCardView.Layout
     private let titleLabel = UILabel()
     private let valueLabel = UILabel()
+    private var usesVerticalLayout: Bool?
+    private lazy var horizontalConstraints = [
+        titleLabel.topAnchor.constraint(greaterThanOrEqualTo: topAnchor, constant: Layout.rowVerticalInset),
+        titleLabel.bottomAnchor.constraint(lessThanOrEqualTo: bottomAnchor, constant: -Layout.rowVerticalInset),
+        titleLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
+        titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: valueLabel.leadingAnchor, constant: -Layout.rowValueSpacing),
+        valueLabel.centerYAnchor.constraint(equalTo: centerYAnchor)
+    ]
+    private lazy var verticalConstraints = [
+        titleLabel.topAnchor.constraint(equalTo: topAnchor, constant: Layout.rowVerticalInset),
+        titleLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -Layout.rowHorizontalInset),
+        valueLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: Layout.rowHorizontalInset),
+        valueLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: Layout.rowValueSpacing),
+        valueLabel.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -Layout.rowVerticalInset)
+    ]
 
     override init(frame: CGRect) {
         super.init(frame: frame)
         configureHierarchy()
+        updateLayout()
+        registerForTraitChanges([UITraitPreferredContentSizeCategory.self]) {
+            (view: StatisticsMetricRowView, _: UITraitCollection) in
+            view.updateLayout()
+        }
     }
 
     @available(*, unavailable)
@@ -273,6 +361,7 @@ private final class StatisticsMetricRowView: UIView {
     }
 
     func configure(metric: StatisticsPresentation.Metric, appearance: AppAppearance) {
+        updateLayout()
         accessibilityIdentifier = "expandedStatisticsMetric-\(metric.id.rawValue)"
         accessibilityLabel = metric.title
         accessibilityValue = metric.value
@@ -313,14 +402,20 @@ private final class StatisticsMetricRowView: UIView {
         addSubview(valueLabel)
 
         NSLayoutConstraint.activate([
-            heightAnchor.constraint(greaterThanOrEqualToConstant: ExpandedStatisticsCardView.Layout.rowMinimumHeight),
-            titleLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: ExpandedStatisticsCardView.Layout.rowHorizontalInset),
-            titleLabel.topAnchor.constraint(greaterThanOrEqualTo: topAnchor, constant: ExpandedStatisticsCardView.Layout.rowVerticalInset),
-            titleLabel.bottomAnchor.constraint(lessThanOrEqualTo: bottomAnchor, constant: -ExpandedStatisticsCardView.Layout.rowVerticalInset),
-            titleLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
-            titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: valueLabel.leadingAnchor, constant: -ExpandedStatisticsCardView.Layout.rowValueSpacing),
-            valueLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -ExpandedStatisticsCardView.Layout.rowHorizontalInset),
-            valueLabel.centerYAnchor.constraint(equalTo: centerYAnchor)
+            heightAnchor.constraint(greaterThanOrEqualToConstant: Layout.rowMinimumHeight),
+            titleLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: Layout.rowHorizontalInset),
+            valueLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -Layout.rowHorizontalInset)
         ])
+    }
+
+    private func updateLayout() {
+        let vertical = traitCollection.preferredContentSizeCategory.isAccessibilityCategory
+        guard usesVerticalLayout != vertical else { return }
+        usesVerticalLayout = vertical
+        valueLabel.textAlignment = vertical ? .natural : .right
+        valueLabel.numberOfLines = vertical ? 0 : 1
+        valueLabel.setContentCompressionResistancePriority(vertical ? .defaultHigh : .required, for: .horizontal)
+        NSLayoutConstraint.deactivate(vertical ? horizontalConstraints : verticalConstraints)
+        NSLayoutConstraint.activate(vertical ? verticalConstraints : horizontalConstraints)
     }
 }

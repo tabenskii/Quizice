@@ -75,7 +75,8 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             aiQuizThemeService: aiRuntimeDependencies.themeService,
             aiQuizAccessProvider: aiRuntimeDependencies.accessProvider,
             aiServiceStatusAPI: BackendConfiguration.load().map { HTTPAIServiceStatusAPI(configuration: $0) },
-            accountManager: authenticationService
+            accountManager: authenticationService,
+            statisticsHistoryStore: .live()
         )
         coordinator.start()
         self.coordinator = coordinator
@@ -110,7 +111,8 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             aiQuizThemeService: aiDependencies.themeService,
             aiQuizAccessProvider: aiDependencies.accessProvider,
             aiServiceStatusAPI: BackendConfiguration.load().map { HTTPAIServiceStatusAPI(configuration: $0) },
-            accountManager: authenticationService
+            accountManager: authenticationService,
+            statisticsHistoryStore: authenticationService.map { _ in .live() }
         )
         coordinator.start()
         self.coordinator = coordinator

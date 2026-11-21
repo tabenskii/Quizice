@@ -12,11 +12,6 @@ struct StatisticsSummary: Codable, Equatable {
         return Int((Double(correctAnswers) / Double(totalQuestions) * 100).rounded())
     }
 
-    var bestResultDisplay: String {
-        guard bestTotalQuestions > 0 else { return "0/0" }
-        return "\(bestCorrectAnswers)/\(bestTotalQuestions)"
-    }
-
     static let empty = StatisticsSummary(
         playedQuizzes: 0,
         correctAnswers: 0,

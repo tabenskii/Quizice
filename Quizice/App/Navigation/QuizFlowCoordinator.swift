@@ -10,6 +10,7 @@ final class QuizFlowCoordinator: NSObject, QuizRouting, UIViewControllerTransiti
     private let aiQuizAccessProvider: AIQuizAccessProviding
     private let aiServiceStatusAPI: AIServiceStatusAPI?
     private let accountManager: AccountManaging?
+    private let statisticsHistoryStore: StatisticsHistoryStore?
     private let answerOutbox: QuestionAnswerOutboxing
     @MainActor private var dataSynchronizer: AccountDataSynchronizer?
     private let onboardingProgressStore: OnboardingProgressStoring
@@ -44,6 +45,7 @@ final class QuizFlowCoordinator: NSObject, QuizRouting, UIViewControllerTransiti
         aiQuizAccessProvider: AIQuizAccessProviding? = nil,
         aiServiceStatusAPI: AIServiceStatusAPI? = nil,
         accountManager: AccountManaging? = nil,
+        statisticsHistoryStore: StatisticsHistoryStore? = nil,
         answerOutbox: QuestionAnswerOutboxing = PersistentQuestionAnswerOutbox.shared,
         onboardingProgressStore: OnboardingProgressStoring = OnboardingProgressStore.shared,
         whatsNewPresentation: WhatsNewPresentation? = nil,
@@ -67,6 +69,7 @@ final class QuizFlowCoordinator: NSObject, QuizRouting, UIViewControllerTransiti
         self.aiQuizAccessProvider = resolvedAIQuizAccessProvider
         self.aiServiceStatusAPI = aiServiceStatusAPI
         self.accountManager = accountManager
+        self.statisticsHistoryStore = statisticsHistoryStore
         self.answerOutbox = answerOutbox
         self.onboardingProgressStore = onboardingProgressStore
         self.whatsNewPresentation = whatsNewPresentation ?? WhatsNewPresentation()
@@ -111,6 +114,7 @@ final class QuizFlowCoordinator: NSObject, QuizRouting, UIViewControllerTransiti
         let viewController = QuizViewController(
             themeRepository: themeRepository,
             session: session,
+            statisticsHistoryStore: statisticsHistoryStore,
             aiQuizThemeService: aiQuizThemeService,
             aiQuizAccessProvider: aiQuizAccessProvider,
             aiServiceStatusAPI: aiServiceStatusAPI,
@@ -164,10 +168,8 @@ final class QuizFlowCoordinator: NSObject, QuizRouting, UIViewControllerTransiti
     func showSettings() {
         let viewController = UIHostingController(rootView: QuizSettingsView(analytics: analytics, accountManager: accountManager))
         viewController.modalPresentationStyle = .pageSheet
-        if let sheetPresentationController = viewController.sheetPresentationController {
-            sheetPresentationController.detents = [.large()]
-            sheetPresentationController.prefersGrabberVisible = true
-        }
+        viewController.sheetPresentationController?.detents = [.large()]
+        viewController.sheetPresentationController?.prefersGrabberVisible = true
         presentedViewController.present(viewController, animated: true)
     }
 
@@ -205,11 +207,9 @@ final class QuizFlowCoordinator: NSObject, QuizRouting, UIViewControllerTransiti
         )
         let viewController = UIHostingController(rootView: view)
         viewController.modalPresentationStyle = .pageSheet
-        if let sheetPresentationController = viewController.sheetPresentationController {
-            sheetPresentationController.detents = [.large()]
-            sheetPresentationController.prefersGrabberVisible = false
-            sheetPresentationController.prefersScrollingExpandsWhenScrolledToEdge = false
-        }
+        viewController.sheetPresentationController?.detents = [.large()]
+        viewController.sheetPresentationController?.prefersGrabberVisible = false
+        viewController.sheetPresentationController?.prefersScrollingExpandsWhenScrolledToEdge = false
         presenter.present(viewController, animated: true)
     }
 
