@@ -406,6 +406,7 @@ final class HomeThemesCollectionView: UICollectionView {
     private let bottomFadeMaskLayer = CAGradientLayer()
     private var bottomFadeVisibility: CGFloat = 0
     private var bottomFadeHeight: CGFloat = 0
+    weak var moreThemesButton: MoreThemesFadeButton?
 
     override init(frame: CGRect, collectionViewLayout layout: UICollectionViewLayout) {
         super.init(frame: frame, collectionViewLayout: layout)
@@ -423,6 +424,21 @@ final class HomeThemesCollectionView: UICollectionView {
             animated: false,
             preservesActiveAnimation: true
         )
+    }
+
+    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        let hitView = super.hitTest(point, with: event)
+        if hitView != nil, isMoreThemesTouch(at: point) {
+            return self
+        }
+        return hitView
+    }
+
+    func isMoreThemesTouch(at point: CGPoint) -> Bool {
+        guard let button = moreThemesButton, !button.isHidden, button.alpha > 0.01 else {
+            return false
+        }
+        return button.point(inside: convert(point, to: button), with: nil)
     }
 
     override func touchesShouldCancel(in view: UIView) -> Bool {

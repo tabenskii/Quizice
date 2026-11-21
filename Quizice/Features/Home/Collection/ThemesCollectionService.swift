@@ -428,12 +428,9 @@ final class ThemesCollectionService: NSObject, UICollectionViewDelegate, UIColle
 
         let button = MoreThemesFadeButton()
         button.translatesAutoresizingMaskIntoConstraints = false
-        // The visual overlay must not participate in hit testing: touches then
-        // reach the collection view underneath and its native pan gesture keeps
-        // scrolling with full momentum. A dedicated tap recognizer below keeps
-        // the "More themes" action available without putting the label under
-        // the collection view's fade mask.
+        // Keep the label above the fade while the catalog handles taps and drags in its area.
         button.isUserInteractionEnabled = false
+        collectionView.moreThemesButton = button
         button.addTarget(self, action: #selector(moreThemesButtonTapped), for: .touchUpInside)
         cell.contentView.addSubview(button)
         NSLayoutConstraint.activate([
@@ -521,16 +518,10 @@ final class ThemesCollectionService: NSObject, UICollectionViewDelegate, UIColle
         shouldReceive touch: UITouch
     ) -> Bool {
         guard gestureRecognizer === moreThemesTapGestureRecognizer else { return true }
-        guard
-            let button = moreThemesButton,
-            !button.isHidden,
-            button.alpha > 0.01
-        else {
+        guard let collectionView = gestureRecognizer.view as? HomeThemesCollectionView else {
             return false
         }
-
-        let location = touch.location(in: button)
-        return button.point(inside: location, with: nil)
+        return collectionView.isMoreThemesTouch(at: touch.location(in: collectionView))
     }
 
     @objc func buttonTouchedDown(_ sender: UIButton) {
