@@ -77,6 +77,16 @@ class QuizTheme {
     }
 }
 
+extension QuizTheme {
+    func makeBackendRound(questions: [QuizQuestion], difficulty: AIQuizDifficulty) -> QuizTheme {
+        QuizTheme(
+            id: id, theme: theme, themeDescription: themeDescription, questions: questions,
+            sfSymbolName: sfSymbolName, emoji: emoji, colorHex: colorHex, isFavorite: isFavorite,
+            source: .catalog, questionOrigin: .backend, difficulty: difficulty, countries: countries
+        )
+    }
+}
+
 enum RandomQuizSelection {
     static let themeID = "random-selection"
     static let questionCount = 5

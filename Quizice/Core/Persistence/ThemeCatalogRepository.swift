@@ -451,26 +451,12 @@ final class ThemeCatalogRepository: ThemeRepository {
                     throw QuestionAnswerSyncError.accountChanged
                 }
             }
-            let result: QuestionLoadResult
+            let result: OfflineQuestionDownloader.QuestionLoadResult
             if let userID {
-                result = try await withThrowingTaskGroup(of: QuestionLoadResult.self) { group in
-                    group.addTask { @MainActor in .backend(try await fetchQuestions()) }
-                    group.addTask { @MainActor in
-                        try await Task.sleep(for: self.slowQuestionCacheDelay)
-                        do {
-                            let quiz = try await cachedQuiz(for: userID)
-                            return quiz.questions.count == questionCount ? .cache(quiz) : .cacheMiss
-                        } catch QuizPreparationError.offlineQuestionsUnavailable {
-                            return .cacheMiss
-                        }
-                    }
-                    defer { group.cancelAll() }
-                    while let result = try await group.next() {
-                        if case .cacheMiss = result { continue }
-                        return result
-                    }
-                    throw CancellationError()
-                }
+                result = try await OfflineQuestionDownloader.fetchUsingCacheAfterDelay(
+                    slowQuestionCacheDelay, questionCount: questionCount, fetch: fetchQuestions,
+                    fallback: { try await cachedQuiz(for: userID) }
+                )
             } else {
                 result = .backend(try await fetchQuestions())
             }
@@ -506,20 +492,7 @@ final class ThemeCatalogRepository: ThemeRepository {
             AppLog.content.notice(
                 "✅ BACKEND QUESTIONS: received theme=\(themeID, privacy: .public) locale=\(locale, privacy: .public) requested=\(questionCount, privacy: .public) received=\(questions.count, privacy: .public) seed=\(seed, privacy: .public) duration_ms=\(Self.durationMilliseconds(since: startedAt), privacy: .public)"
             )
-            return QuizTheme(
-                id: metadata.id,
-                theme: metadata.theme,
-                themeDescription: metadata.themeDescription,
-                questions: questions,
-                sfSymbolName: metadata.sfSymbolName,
-                emoji: metadata.emoji,
-                colorHex: metadata.colorHex,
-                isFavorite: metadata.isFavorite,
-                source: .catalog,
-                questionOrigin: .backend,
-                difficulty: difficulty,
-                countries: metadata.countries
-            )
+            return metadata.makeBackendRound(questions: questions, difficulty: difficulty)
         } catch is CancellationError {
             throw CancellationError()
         } catch let error as QuizPreparationError {
@@ -533,12 +506,6 @@ final class ThemeCatalogRepository: ThemeRepository {
             )
             throw error
         }
-    }
-
-    private enum QuestionLoadResult {
-        case backend(BackendQuestionBatchResponse)
-        case cache(QuizTheme)
-        case cacheMiss
     }
 
     @MainActor
