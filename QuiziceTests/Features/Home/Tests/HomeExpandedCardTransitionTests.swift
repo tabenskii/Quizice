@@ -54,6 +54,60 @@ final class HomeExpandedCardTransitionTests: HomeScreenVisualStateTestCase {
         }
     }
 
+    func testExpandedStatisticsUpdatesScrollHeightWhenHistoryArrives() throws {
+        let appearance = SnapshotSupport.appearance(designStyle: .classic)
+        let summary = StatisticsSummary(
+            playedQuizzes: 28, correctAnswers: 54, totalQuestions: 131,
+            bestCorrectAnswers: 5, bestTotalQuestions: 5
+        )
+        let timeline = try StatisticsHistoryResponse(
+            period: .week, timeZone: "Europe/Moscow", periodStart: "2026-11-15", periodEnd: "2026-11-22",
+            days: [
+                .init(date: "2026-11-15", playedQuizzes: 4, correctAnswers: 5, totalQuestions: 20),
+                .init(date: "2026-11-16", playedQuizzes: 1, correctAnswers: 0, totalQuestions: 5),
+                .init(date: "2026-11-19", playedQuizzes: 4, correctAnswers: 2, totalQuestions: 10)
+            ],
+            undatedPlayedQuizzes: 0
+        ).timeline(requestedPeriod: .week, timeZone: TimeZone(identifier: "Europe/Moscow")!)
+        let card = ExpandedStatisticsCardView(frame: CGRect(x: 20, y: 150, width: 335, height: 500))
+        card.configure(summary: summary, appearance: appearance)
+        card.chartsView.configure(state: .loading, period: .week, appearance: appearance)
+        let host = UIViewController()
+        host.view.addSubview(card)
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 375, height: 812))
+        window.rootViewController = host
+        window.makeKeyAndVisible()
+        testWindows.append(window)
+        window.layoutIfNeeded()
+        card.layoutIfNeeded()
+        let scroll = try XCTUnwrap(card.descendant(
+            withAccessibilityIdentifier: "expandedStatisticsCardScrollView"
+        ) as? UIScrollView)
+        let loadingChartHeight = card.chartsView.bounds.height
+        let loadingContentHeight = scroll.contentSize.height
+
+        card.chartsView.configure(state: .loaded(timeline), period: .week, appearance: appearance)
+        window.layoutIfNeeded()
+        drainAnimations(0.05)
+        card.layoutIfNeeded()
+
+        let chartHeight = card.chartsView.bounds.height
+        XCTAssertTrue(card.chartsView.clipsToBounds)
+        XCTAssertGreaterThan(chartHeight - loadingChartHeight, 300)
+        XCTAssertEqual(scroll.contentSize.height - loadingContentHeight, chartHeight - loadingChartHeight, accuracy: 1)
+        let lastSummary = try XCTUnwrap(card.descendant(
+            withAccessibilityIdentifier: "expandedStatisticsMetric-bestResult"
+        ))
+        let chartFrame = card.chartsView.convert(card.chartsView.bounds, to: scroll)
+        let lastSummaryFrame = lastSummary.convert(lastSummary.bounds, to: scroll)
+        XCTAssertGreaterThan(chartFrame.minY, lastSummaryFrame.maxY)
+
+        let finalOffset = scroll.contentSize.height - scroll.bounds.height
+        XCTAssertGreaterThan(finalOffset, 0)
+        scroll.setContentOffset(CGPoint(x: 0, y: finalOffset), animated: false)
+        XCTAssertEqual(scroll.bounds.maxY, chartFrame.maxY, accuracy: 1)
+    }
+
     func testExpandedStatisticsCardKeepsLargeHistoryValueVisibleAtNarrowWidths() throws {
         let summary = StatisticsSummary(
             playedQuizzes: 53,

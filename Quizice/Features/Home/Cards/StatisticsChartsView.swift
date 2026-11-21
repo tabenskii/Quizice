@@ -3,9 +3,12 @@ import SwiftUI
 import UIKit
 
 final class StatisticsChartsView: UIView {
+    private let sizingController = UIHostingController(rootView: AnyView(EmptyView()))
     private var hostedContent: (UIView & UIContentView)?
     private var state = StatisticsHistoryStore.State.idle
     private var appearance: AppAppearance?
+    private var measuredWidth: CGFloat?
+    private var measuredHeight: CGFloat = 0
     private(set) var selectedPeriod = StatisticsPeriod.week
     var onPeriodChange: ((StatisticsPeriod) -> Void)?
     var onRetry: (() -> Void)?
@@ -15,10 +18,26 @@ final class StatisticsChartsView: UIView {
         translatesAutoresizingMaskIntoConstraints = false
         accessibilityIdentifier = "statisticsChartsView"
         isAccessibilityElement = false
+        clipsToBounds = true
+        sizingController.safeAreaRegions = []
+
+        registerForTraitChanges([UITraitPreferredContentSizeCategory.self]) {
+            (view: StatisticsChartsView, _: UITraitCollection) in
+            view.updateContent()
+        }
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { nil }
+
+    override var intrinsicContentSize: CGSize {
+        CGSize(width: UIView.noIntrinsicMetric, height: measuredHeight)
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        measureContentHeight()
+    }
 
     func configure(state: StatisticsHistoryStore.State, period: StatisticsPeriod, appearance: AppAppearance) {
         self.state = state
@@ -31,35 +50,47 @@ final class StatisticsChartsView: UIView {
         guard let appearance else { return }
         var calendar = Calendar(identifier: .gregorian)
         if case let .loaded(timeline) = state { calendar.timeZone = timeline.timeZone }
-        let configuration = UIHostingConfiguration {
-            StatisticsChartsContent(
-                state: state,
-                period: selectedPeriod,
-                appearance: appearance,
-                selectPeriod: { [weak self] in self?.onPeriodChange?($0) },
-                retry: { [weak self] in self?.onRetry?() }
-            )
-            .environment(\.locale, AppLocalizationStore.shared.resolvedLocale)
-            .environment(\.calendar, calendar)
-            .environment(\.timeZone, calendar.timeZone)
-            .preferredColorScheme(appearance.swiftUIColorScheme)
-        }.margins(.all, 0)
+        let charts = StatisticsChartsContent(
+            state: state,
+            period: selectedPeriod,
+            appearance: appearance,
+            selectPeriod: { [weak self] in self?.onPeriodChange?($0) },
+            retry: { [weak self] in self?.onRetry?() }
+        )
+        .environment(\.locale, AppLocalizationStore.shared.resolvedLocale)
+        .environment(\.calendar, calendar)
+        .environment(\.timeZone, calendar.timeZone)
+        .preferredColorScheme(appearance.swiftUIColorScheme)
 
+        let configuration = UIHostingConfiguration { charts }.margins(.all, 0)
         if let hostedContent {
             hostedContent.configuration = configuration
         } else {
-            let content = configuration.makeContentView()
-            content.backgroundColor = .clear
-            content.translatesAutoresizingMaskIntoConstraints = false
-            addSubview(content)
-            NSLayoutConstraint.activate([
-                content.topAnchor.constraint(equalTo: topAnchor),
-                content.leadingAnchor.constraint(equalTo: leadingAnchor),
-                content.trailingAnchor.constraint(equalTo: trailingAnchor),
-                content.bottomAnchor.constraint(equalTo: bottomAnchor)
-            ])
-            hostedContent = content
+            let view = configuration.makeContentView()
+            view.backgroundColor = .clear
+            view.frame = bounds
+            view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+            addSubview(view)
+            hostedContent = view
         }
+
+        sizingController.rootView = AnyView(
+            charts.environment(\.dynamicTypeSize, DynamicTypeSize(traitCollection.preferredContentSizeCategory) ?? .large)
+        )
+        measuredWidth = nil
+        measureContentHeight()
+        setNeedsLayout()
+    }
+
+    private func measureContentHeight() {
+        let width = bounds.width
+        guard width > 0, measuredWidth != width else { return }
+        let proposal = CGSize(width: width, height: UIView.layoutFittingExpandedSize.height)
+        let height = ceil(sizingController.sizeThatFits(in: proposal).height)
+        measuredWidth = width
+        guard measuredHeight != height else { return }
+
+        measuredHeight = height
         invalidateIntrinsicContentSize()
     }
 }
