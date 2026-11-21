@@ -6,6 +6,7 @@ enum BackendOperation: String, Equatable {
     case statisticsSync = "statistics_sync"
     case statisticsHistory = "statistics_history"
     case themes
+    case musicGenres = "music_genres"
     case themePreferences = "theme_preferences"
     case questions
     case questionAnswers = "question_answers"

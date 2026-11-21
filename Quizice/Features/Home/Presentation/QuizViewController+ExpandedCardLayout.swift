@@ -7,6 +7,7 @@ extension QuizViewController {
         let difficulty: AIQuizDifficulty
         let locale: String
         let country: String?
+        let musicGenreID: String?
     }
 
     struct QuizProgressRestart {
@@ -31,7 +32,8 @@ extension QuizViewController {
             questionCount: questionCount,
             difficulty: difficulty,
             locale: AppLocalizationStore.shared.resolvedLanguageCode,
-            country: QuestionCountryStore.shared.country
+            country: QuestionCountryStore.shared.country,
+            musicGenreID: cardView.selectedMusicGenre?.id
         )
         quizTransitionSourceView = cardView.transitionSourceView
         isQuizLaunchPending = true
@@ -66,7 +68,8 @@ extension QuizViewController {
                     themeID: themeID,
                     questionCount: questionCount,
                     difficulty: difficulty,
-                    locale: configuration.locale
+                    locale: configuration.locale,
+                    musicGenreID: configuration.musicGenreID
                 )
                 try Task.checkCancellation()
                 if let restart {
@@ -112,6 +115,7 @@ extension QuizViewController {
             && homeCardState.selectedDifficulty == configuration.difficulty
             && AppLocalizationStore.shared.resolvedLanguageCode == configuration.locale
             && QuestionCountryStore.shared.country == configuration.country
+            && expandedThemeCardView?.selectedMusicGenre?.id == configuration.musicGenreID
     }
 
     private func retryQuizPreparation(
@@ -191,7 +195,8 @@ extension QuizViewController {
             themeID: themeID, questionCount: questionCount,
             difficulty: homeCardState.selectedDifficulty,
             locale: AppLocalizationStore.shared.resolvedLanguageCode,
-            country: QuestionCountryStore.shared.country
+            country: QuestionCountryStore.shared.country,
+            musicGenreID: expandedThemeCardView?.selectedMusicGenre?.id
         ), userID)
     }
 

@@ -4,12 +4,45 @@ import XCTest
 
 @MainActor
 final class HomeExpandedThemeCardInteractionTests: HomeScreenVisualStateTestCase {
+    func testMusicGenrePickerIsOnBackendMusicBackAndPreservesSelection() throws {
+        let card = makeHostedExpandedThemeCard(motionProvider: HomeThemeCardMotionProviderFake())
+        let music = makeTheme(name: "Музыка", questionCount: 5)
+        music.id = MusicGenre.themeID
+        music.questionOrigin = .backend
+        let rock = MusicGenre(id: "rock", name: "Рок")
+        card.musicGenresProvider = { [rock] }
+        let appearance = SnapshotSupport.appearance(designStyle: .clean)
+        card.configure(theme: music, appearance: appearance, availableQuestionCounts: [5], selectedQuestionCount: 5)
+        card.setFace(.back, animated: false)
+
+        let picker = card.questionFilterButton
+        XCTAssertFalse(picker.isHidden)
+        XCTAssertTrue(picker.isDescendant(of: card.backFaceView))
+        XCTAssertEqual(picker.accessibilityIdentifier, "descriptionGenrePicker")
+        XCTAssertEqual(picker.accessibilityValue, L10n.ThemeCard.mixedGenres)
+        XCTAssertTrue(picker.menu?.children.contains { $0 is UIDeferredMenuElement } == true)
+
+        card.selectMusicGenre(rock)
+        card.configure(theme: music, appearance: appearance, availableQuestionCounts: [5], selectedQuestionCount: 5)
+        XCTAssertEqual(card.selectedMusicGenre, rock)
+        XCTAssertEqual(picker.accessibilityValue, rock.name)
+        card.setStartLoading(true)
+        card.selectMusicGenre(nil)
+        XCTAssertEqual(card.selectedMusicGenre, rock)
+        XCTAssertFalse(picker.isEnabled)
+
+        music.questionOrigin = .bundled
+        card.configure(theme: music, appearance: appearance, availableQuestionCounts: [5], selectedQuestionCount: 5)
+        XCTAssertTrue(picker.isHidden)
+        XCTAssertNil(card.selectedMusicGenre)
+    }
+
     func testCountryButtonPreservesTitleAndSurfaceAcrossSelectionAndAppearanceUpdates() throws {
         let card = makeHostedExpandedThemeCard(motionProvider: HomeThemeCardMotionProviderFake())
         let theme = makeTheme(name: "Политика и бизнес", questionCount: 5)
         theme.id = "politics_business"
         theme.countries = ["IT", "ES", "DE"]
-        let button = card.countryButton
+        let button = card.questionFilterButton
 
         for style: AppDesignStyle in [.classic, .clean, .radar] {
             let appearance = SnapshotSupport.appearance(designStyle: style)

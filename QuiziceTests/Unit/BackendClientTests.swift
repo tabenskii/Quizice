@@ -1085,6 +1085,35 @@ extension BackendClientTests {
 }
 
 extension BackendClientTests {
+    func testMusicGenreCatalogAndFilteredRoundUseLocalizedBackendRoutes() async throws {
+        let api = makeContentAPI()
+        BackendTestURLProtocol.requestHandler = { request in
+            XCTAssertEqual(request.url?.path, "/api/v1/themes/music/genres")
+            XCTAssertEqual(URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems,
+                           [URLQueryItem(name: "locale", value: "ru")])
+            return Self.response(for: request, data: Data(#"{"genres":[{"id":"rock","name":"Рок"}]}"#.utf8))
+        }
+        let genres = try await api.fetchMusicGenres(locale: "ru")
+        XCTAssertEqual(genres, [MusicGenre(id: "rock", name: "Рок")])
+
+        let seed = "550e8400-e29b-41d4-a716-446655440000"
+        for genreID in [nil, genres.first?.id] {
+            BackendTestURLProtocol.requestHandler = { request in
+                XCTAssertEqual(request.url?.path, "/api/v1/themes/music/questions")
+                let query = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems
+                XCTAssertEqual(query?.first { $0.name == "genre" }?.value, genreID)
+                return Self.response(for: request, data: try JSONSerialization.data(withJSONObject: [
+                    "locale": "ru", "seed": seed, "availableCount": 5, "questions": (0..<5).map(Self.questionJSON)
+                ]))
+            }
+            let round = try await api.fetchQuestions(
+                themeID: "music", count: 5, locale: "ru", difficulty: .medium, seed: seed,
+                strategy: .showAll, country: nil, musicGenreID: genreID
+            )
+            XCTAssertEqual(round.questions.count, 5)
+        }
+    }
+
     func testCountryIsIndependentOfLocaleOnAllQuestionRoutes() async throws {
         let api = makeContentAPI()
         let seed = "550e8400-e29b-41d4-a716-446655440000"

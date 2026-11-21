@@ -124,6 +124,34 @@ final class OfflineQuestionTests: XCTestCase {
         } catch { XCTAssertEqual(error as? BackendContentError, .httpStatus(401, nil)) }
     }
 
+    func testSelectedMusicGenreCannotUseUnfilteredOfflinePack() async throws {
+        let cache = OfflineQuestionCache()
+        try await cache.install(pack())
+        let api = RecordingBackendContentAPI()
+        let outbox = ProgressOutboxSpy()
+        let repository = ThemeCatalogRepository(
+            backendContentAPI: api, offlineCache: cache, accessTokenProvider: ProgressSessionProvider(),
+            answerOutbox: outbox, repeatStrategyProvider: { .showAll }, countryProvider: { nil }
+        )
+        let didRefresh = await repository.refreshBackendCatalog(locale: locale)
+        XCTAssertTrue(didRefresh)
+        outbox.isNetworkUnavailable = true
+
+        let mixed = try await repository.prepareQuiz(
+            themeID: "music", questionCount: 5, difficulty: .medium, locale: locale, musicGenreID: nil
+        )
+        XCTAssertEqual(mixed.questions.count, 5)
+
+        do {
+            _ = try await repository.prepareQuiz(
+                themeID: "music", questionCount: 5, difficulty: .medium, locale: locale, musicGenreID: "rock"
+            )
+            XCTFail("A filtered round cannot contain unfiltered cached questions")
+        } catch {
+            XCTAssertEqual(error as? BackendContentError, .transport(.notConnectedToInternet))
+        }
+    }
+
     func testResetInvalidatesAnAlreadyDownloadingPack() async throws {
         let cache = OfflineQuestionCache()
         try await cache.install(pack())

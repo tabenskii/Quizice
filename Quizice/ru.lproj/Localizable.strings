@@ -245,6 +245,9 @@
 "debug_menu.show_subscription_promo" = "Показывать кнопку Pro";
 "debug_menu.show_subscription_promo.subtitle" = "Показывает предложение подписки на главной только в Debug.";
 
+"theme_card.genre" = "Жанр";
+"theme_card.genre.mixed" = "Все жанры";
+"theme_card.genre.unavailable" = "Жанры пока недоступны";
 "theme_card.country" = "Страна";
 "theme_card.international_questions" = "Международные вопросы";
 

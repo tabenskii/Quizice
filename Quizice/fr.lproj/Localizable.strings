@@ -245,6 +245,9 @@
 "debug_menu.show_subscription_promo" = "Afficher le bouton Pro";
 "debug_menu.show_subscription_promo.subtitle" = "Affiche l’offre d’abonnement sur l’accueil uniquement en Debug.";
 
+"theme_card.genre" = "Genre";
+"theme_card.genre.mixed" = "Tous les genres";
+"theme_card.genre.unavailable" = "Les genres sont indisponibles";
 "theme_card.country" = "Pays";
 "theme_card.international_questions" = "Questions internationales";
 

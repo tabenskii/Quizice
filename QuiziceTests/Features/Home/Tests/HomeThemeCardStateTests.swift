@@ -242,8 +242,10 @@ final class HomeThemeCardStateTests: HomeScreenVisualStateTestCase {
         XCTAssertTrue(repository.resetIDs.isEmpty)
     }
 
-    func testCompletedTopicResetStartsFreshRoundWithSameConfigurationExactlyOnce() async throws {
-        let (controller, repository, router, startButton) = try await makeBackendLaunchHarness()
+    func testCompletedMusicResetKeepsSelectedGenreAndRoundConfiguration() async throws {
+        let (controller, repository, router, startButton) = try await makeBackendLaunchHarness(themeID: MusicGenre.themeID)
+        let card = try XCTUnwrap(controller.expandedThemeCardView)
+        card.selectMusicGenre(MusicGenre(id: "rock", name: "Рок"))
         controller.homeStore.send(.questionCountSelected(10))
         controller.homeStore.send(.difficultySelected(.hard))
         repository.preparationError = QuizPreparationError.progressComplete(userID: "account-a")
@@ -255,12 +257,14 @@ final class HomeThemeCardStateTests: HomeScreenVisualStateTestCase {
         try await waitUntil { router.showQuestionCallCount == 1 }
 
         XCTAssertEqual(repository.resetIDs.count, 1)
-        XCTAssertEqual(repository.resetThemeIDs, ["space"])
+        XCTAssertEqual(repository.resetThemeIDs, [MusicGenre.themeID])
         XCTAssertEqual(repository.resetUserIDs, ["account-a"])
-        XCTAssertEqual(repository.preparedThemeIDs, ["space", "space"])
+        XCTAssertEqual(repository.preparedThemeIDs, [MusicGenre.themeID, MusicGenre.themeID])
         XCTAssertEqual(repository.preparedQuestionCounts, [10, 10])
         XCTAssertEqual(repository.preparedDifficulties, [.hard, .hard])
         XCTAssertEqual(repository.preparedLocales, ["ru", "ru"])
+        XCTAssertEqual(repository.preparedMusicGenreIDs, ["rock", "rock"])
+        XCTAssertEqual(controller.session.chosenTheme?.quizTheme.musicGenreID, "rock")
         XCTAssertEqual(controller.session.chosenTheme?.questionsAndAnswers.count, 10)
         XCTAssertNil(controller.activeQuizPreparationAlert)
     }
@@ -404,9 +408,9 @@ final class HomeThemeCardStateTests: HomeScreenVisualStateTestCase {
     }
 #endif
 
-    private func makeBackendLaunchHarness() async throws ->
+    private func makeBackendLaunchHarness(themeID: String = "space") async throws ->
         (QuizViewController, BackendOnlyHomeThemeRepository, HomeRouterSpy, UIButton) {
-        let metadata = QuizTheme(id: "space", theme: "Космос", themeDescription: "Backend", questions: [],
+        let metadata = QuizTheme(id: themeID, theme: themeID == MusicGenre.themeID ? "Музыка" : "Космос", themeDescription: "Backend", questions: [],
                                  questionOrigin: .backend)
         let repository = BackendOnlyHomeThemeRepository(metadata: metadata)
         let controller = QuizViewController(themeRepository: repository, session: RoutingSession(),
@@ -418,7 +422,7 @@ final class HomeThemeCardStateTests: HomeScreenVisualStateTestCase {
         window.makeKeyAndVisible()
         window.layoutIfNeeded()
         testWindows.append(window)
-        let source = try XCTUnwrap(controller.view.descendant(withAccessibilityIdentifier: "space") as? UIButton)
+        let source = try XCTUnwrap(controller.view.descendant(withAccessibilityIdentifier: themeID) as? UIButton)
         source.sendActions(for: .touchUpInside)
         try await waitUntil { controller.homeCardState.phase == .expandedFront }
         let info = try XCTUnwrap(controller.view.descendant(
@@ -573,6 +577,7 @@ private final class BackendOnlyHomeThemeRepository: ThemeRepository {
     private(set) var preparedQuestionCounts: [Int] = []
     private(set) var preparedDifficulties: [AIQuizDifficulty] = []
     private(set) var preparedLocales: [String] = []
+    private(set) var preparedMusicGenreIDs: [String?] = []
     private(set) var resetIDs: [UUID] = []
     private(set) var resetThemeIDs: [String] = []
     private(set) var resetUserIDs: [String] = []
@@ -602,6 +607,15 @@ private final class BackendOnlyHomeThemeRepository: ThemeRepository {
         await resetDelay?()
         if let resetError { throw resetError }
         preparationError = postResetPreparationError
+    }
+
+    func prepareQuiz(
+        themeID: String, questionCount: Int, difficulty: AIQuizDifficulty, locale: String, musicGenreID: String?
+    ) async throws -> QuizTheme {
+        preparedMusicGenreIDs.append(musicGenreID)
+        let round = try await prepareQuiz(themeID: themeID, questionCount: questionCount, difficulty: difficulty, locale: locale)
+        round.musicGenreID = musicGenreID
+        return round
     }
 
     func prepareQuiz(
@@ -660,11 +674,11 @@ extension HomeThemeCardStateTests {
                        selectedQuestionCount: 5, selectedCountry: nil)
         card.setFace(.back, animated: false)
         card.layoutIfNeeded()
-        XCTAssertFalse(card.countryButton.isHidden)
-        XCTAssertTrue(card.countryButton.isDescendant(of: card.backFaceView))
-        XCTAssertTrue(card.backControlsStack.arrangedSubviews.contains(card.countryButton))
-        XCTAssertEqual(card.countryButton.menu?.children.count, 7)
-        XCTAssertEqual(card.countryButton.accessibilityValue, L10n.ThemeCard.internationalQuestions)
+        XCTAssertFalse(card.questionFilterButton.isHidden)
+        XCTAssertTrue(card.questionFilterButton.isDescendant(of: card.backFaceView))
+        XCTAssertTrue(card.backControlsStack.arrangedSubviews.contains(card.questionFilterButton))
+        XCTAssertEqual(card.questionFilterButton.menu?.children.count, 7)
+        XCTAssertEqual(card.questionFilterButton.accessibilityValue, L10n.ThemeCard.internationalQuestions)
         var choices: [String?] = []
         card.onCountryChanged = { choices.append($0) }
         card.selectCountry("US")
@@ -677,15 +691,15 @@ extension HomeThemeCardStateTests {
         card.setStartLoading(true)
         card.selectCountry("US")
         XCTAssertNil(card.selectedCountry)
-        XCTAssertFalse(card.countryButton.isEnabled)
+        XCTAssertFalse(card.questionFilterButton.isEnabled)
 
         let music = makeTheme(name: "Music", questionCount: 15)
         music.countries = ["US"] // Even unexpected metadata must not expose the picker on other themes.
         card.configure(theme: music, appearance: appearance, availableQuestionCounts: [5], selectedQuestionCount: 5)
-        XCTAssertTrue(card.countryButton.isHidden)
+        XCTAssertTrue(card.questionFilterButton.isHidden)
         politics.countries = []
         card.configure(theme: politics, appearance: appearance, availableQuestionCounts: [5], selectedQuestionCount: 5)
-        XCTAssertTrue(card.countryButton.isHidden)
+        XCTAssertTrue(card.questionFilterButton.isHidden)
     }
 
     func testDifficultyPickerAvailabilitySurvivesBackendAndBundledCardReuse() throws {
@@ -745,7 +759,7 @@ extension HomeThemeCardStateTests {
         drainAnimations(0.8)
         XCTAssertEqual(controller.homeCardState.phase, .expandedBack)
         XCTAssertEqual(controller.expandedThemeCardView?.face, .back)
-        XCTAssertEqual(controller.expandedThemeCardView?.countryButton.isHidden, false)
+        XCTAssertEqual(controller.expandedThemeCardView?.questionFilterButton.isHidden, false)
         controller.expandedThemeCardView?.selectCountry("US")
         XCTAssertEqual(QuestionCountryStore.shared.country, "US")
         controller.resetExpandedThemeCard()

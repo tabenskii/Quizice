@@ -44,6 +44,7 @@ extension QuizViewController {
         cardView.deviceMotionProvider = cardMotionProvider
         cardView.accessibilityIdentifier = AccessibilityID.expandedCard
         cardView.layer.zPosition = Appearance.expandedCardLayerZPosition
+        wireExpandedThemeCardActions(cardView)
         cardView.configure(
             theme: theme,
             appearance: appearance,
@@ -52,7 +53,6 @@ extension QuizViewController {
             selectedDifficulty: homeCardState.selectedDifficulty
         )
         cardView.setParallaxPresentationPhase(homeCardState.phase.parallaxPresentationPhase)
-        wireExpandedThemeCardActions(cardView)
         cardView.layoutIfNeeded()
         expandedThemeCardView = cardView
 
@@ -444,6 +444,12 @@ extension QuizViewController {
         }
         cardView.onBack = { [weak self] in
             self?.handleExpandedThemeCardFlipTap()
+        }
+        cardView.musicGenresProvider = { [weak self] in
+            guard let self else { return [] }
+            let locale = AppLocalizationStore.shared.resolvedLanguageCode
+            let genres = try await self.themeRepository.fetchMusicGenres(locale: locale)
+            return locale == AppLocalizationStore.shared.resolvedLanguageCode ? genres : []
         }
         cardView.onCountryChanged = { [weak self] country in
             guard let self, let theme = self.expandedTheme,

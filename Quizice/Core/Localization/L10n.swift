@@ -485,6 +485,9 @@ enum L10n {
     }
 
     enum ThemeCard {
+        static var genre: String { L10n.localized("theme_card.genre", comment: "Music genre picker title") }
+        static var mixedGenres: String { L10n.localized("theme_card.genre.mixed", comment: "Music questions from any genre") }
+        static var genresUnavailable: String { L10n.localized("theme_card.genre.unavailable", comment: "Music genre catalog is temporarily unavailable") }
         static var country: String { L10n.localized("theme_card.country", comment: "Country for this quiz round") }
         static var internationalQuestions: String { L10n.localized("theme_card.international_questions", comment: "Questions without a country filter") }
         static var accessibilityHint: String { L10n.localized("theme.card.accessibility_hint", comment: "Theme card accessibility hint") }

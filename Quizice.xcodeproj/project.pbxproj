@@ -24,6 +24,7 @@
 		5079EEED26914A8A9282A036 /* BackendContentResponseValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBB882E2FE414E0CB6B16876 /* BackendContentResponseValidator.swift */; };
 		55AF62AF27204B888E377FAB /* QuestionAnswerOutbox.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7BB544353014B47B422AFE9 /* QuestionAnswerOutbox.swift */; };
 		61BFEB8637BF4683B80003B4 /* HTTPBackendContentAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28A0A20CEE1B4198B8D492FF /* HTTPBackendContentAPI.swift */; };
+		0C55B9E199AA47B79057043C /* HTTPBackendContentAPI+MusicGenres.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C55B9E199AA47B79057043B /* HTTPBackendContentAPI+MusicGenres.swift */; };
 		F93000000000000000000003 /* ResultMessagesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F92000000000000000000003 /* ResultMessagesTests.swift */; };
 		A154B1000000000000000002 /* AIServiceStatusAPITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A154A1000000000000000002 /* AIServiceStatusAPITests.swift */; };
 		F93000000000000000000002 /* ResultMessagesRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = F92000000000000000000002 /* ResultMessagesRepository.swift */; };
@@ -261,6 +262,7 @@
 		BBB882E2FE414E0CB6B16876 /* BackendContentResponseValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BackendContentResponseValidator.swift"; sourceTree = "<group>"; };
 		F7BB544353014B47B422AFE9 /* QuestionAnswerOutbox.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = QuestionAnswerOutbox.swift; sourceTree = "<group>"; };
 		28A0A20CEE1B4198B8D492FF /* HTTPBackendContentAPI.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HTTPBackendContentAPI.swift; sourceTree = "<group>"; };
+		0C55B9E199AA47B79057043B /* HTTPBackendContentAPI+MusicGenres.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HTTPBackendContentAPI+MusicGenres.swift"; sourceTree = "<group>"; };
 		F92000000000000000000003 /* ResultMessagesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResultMessagesTests.swift; sourceTree = "<group>"; };
 		A154A1000000000000000002 /* AIServiceStatusAPITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIServiceStatusAPITests.swift; sourceTree = "<group>"; };
 		F92000000000000000000002 /* ResultMessagesRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResultMessagesRepository.swift; sourceTree = "<group>"; };
@@ -1062,6 +1064,7 @@
 				A154A1000000000000000001 /* HTTPAIServiceStatusAPI.swift */,
 				B10000000000000000000001 /* BackendContentAPI.swift */,
 				28A0A20CEE1B4198B8D492FF /* HTTPBackendContentAPI.swift */,
+				0C55B9E199AA47B79057043B /* HTTPBackendContentAPI+MusicGenres.swift */,
 				BBB882E2FE414E0CB6B16876 /* BackendContentResponseValidator.swift */,
 				B1000000000000000000000A /* BackendContentModels.swift */,
 				B10000000000000000000011 /* BackendRetry.swift */,
@@ -1514,6 +1517,7 @@
 				F8F2F75AC24C4544BF3373AC /* OfflineQuestionDownloader.swift in Sources */,
 				55AF62AF27204B888E377FAB /* QuestionAnswerOutbox.swift in Sources */,
 				61BFEB8637BF4683B80003B4 /* HTTPBackendContentAPI.swift in Sources */,
+				0C55B9E199AA47B79057043C /* HTTPBackendContentAPI+MusicGenres.swift in Sources */,
 				5079EEED26914A8A9282A036 /* BackendContentResponseValidator.swift in Sources */,
 				B1000000000000000000000B /* BackendContentModels.swift in Sources */,
 				B10000000000000000000012 /* BackendRetry.swift in Sources */,

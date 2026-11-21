@@ -49,7 +49,7 @@ extension QuizTheme {
             sfSymbolName: sfSymbolName, emoji: emoji, colorHex: colorHex,
             isFavorite: isFavorite, source: source, questionOrigin: questionOrigin,
             aiGenerationConfiguration: aiGenerationConfiguration, difficulty: difficulty,
-            countries: countries
+            countries: countries, musicGenreID: musicGenreID
         )
     }
 }

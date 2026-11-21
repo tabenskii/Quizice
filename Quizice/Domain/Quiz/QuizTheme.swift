@@ -22,6 +22,13 @@ enum QuizQuestionOrigin: String, Codable, Equatable {
     case mock
 }
 
+struct MusicGenre: Decodable, Equatable {
+    static let themeID = "music"
+
+    let id: String
+    let name: String
+}
+
 class QuizTheme {
     static let defaultSFSymbolName = "questionmark.square.dashed"
     static let defaultEmoji = "❓"
@@ -39,6 +46,7 @@ class QuizTheme {
     var questionOrigin: QuizQuestionOrigin
     var difficulty: AIQuizDifficulty?
     var countries: [String]
+    var musicGenreID: String?
     
     init(
         id: String,
@@ -53,7 +61,8 @@ class QuizTheme {
         questionOrigin: QuizQuestionOrigin = .bundled,
         aiGenerationConfiguration: AIQuizGenerationConfiguration? = nil,
         difficulty: AIQuizDifficulty? = nil,
-        countries: [String] = []
+        countries: [String] = [],
+        musicGenreID: String? = nil
     ) {
         self.id = id
         self.theme = theme
@@ -70,6 +79,7 @@ class QuizTheme {
         self.aiGenerationConfiguration = aiGenerationConfiguration
         self.difficulty = difficulty
         self.countries = countries
+        self.musicGenreID = musicGenreID
     }
 
     var source: QuizThemeSource {

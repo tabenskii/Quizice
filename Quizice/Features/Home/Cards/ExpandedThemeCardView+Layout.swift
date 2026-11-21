@@ -286,15 +286,15 @@ extension ExpandedThemeCardView {
         backDescriptionLabel.isAccessibilityElement = true
         backDescriptionLabel.translatesAutoresizingMaskIntoConstraints = false
 
-        countryButton.accessibilityIdentifier = "descriptionCountryPicker"
-        countryButton.accessibilityLabel = L10n.ThemeCard.country
-        countryButton.showsMenuAsPrimaryAction = true
-        countryButton.titleLabel?.adjustsFontForContentSizeCategory = true
-        countryButton.titleLabel?.numberOfLines = 0
-        countryButton.isHidden = true
-        let countryHeight = countryButton.heightAnchor.constraint(greaterThanOrEqualToConstant: 44)
-        countryHeight.priority = .defaultHigh
-        countryHeight.isActive = true
+        questionFilterButton.accessibilityIdentifier = "descriptionCountryPicker"
+        questionFilterButton.accessibilityLabel = L10n.ThemeCard.country
+        questionFilterButton.showsMenuAsPrimaryAction = true
+        questionFilterButton.titleLabel?.adjustsFontForContentSizeCategory = true
+        questionFilterButton.titleLabel?.numberOfLines = 0
+        questionFilterButton.isHidden = true
+        let filterHeight = questionFilterButton.heightAnchor.constraint(greaterThanOrEqualToConstant: 44)
+        filterHeight.priority = .defaultHigh
+        filterHeight.isActive = true
 
         difficultyLabel.accessibilityIdentifier = AccessibilityID.difficultyLabel
         difficultyLabel.text = L10n.AITheme.difficulty
@@ -341,7 +341,7 @@ extension ExpandedThemeCardView {
         backControlsStack.spacing = Layout.controlsSpacing
         backControlsStack.translatesAutoresizingMaskIntoConstraints = false
         [
-            countryButton,
+            questionFilterButton,
             difficultyLabel,
             difficultyControl,
             questionCountLabel,
@@ -461,7 +461,7 @@ extension ExpandedThemeCardView {
         backFaceView.accessibilityElements = [
             backTitleLabel,
             backDescriptionLabel,
-            countryButton,
+            questionFilterButton,
             difficultyLabel,
             difficultyControl,
             questionCountLabel,

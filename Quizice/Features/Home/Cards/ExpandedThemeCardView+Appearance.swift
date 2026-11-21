@@ -41,26 +41,26 @@ extension ExpandedThemeCardView {
             )
             label.textColor = appearance.secondarySurfaceTextColor
         }
-        let countryFont = appearance.typography.font(
+        let filterFont = appearance.typography.font(
             size: Typography.captionSize, weight: .semibold
         )
         // Let UIButton own the background throughout its menu transition.
         // iOS 26 temporarily resets a legacy layer-styled menu button's surface.
-        var countryConfiguration = UIButton.Configuration.plain()
-        countryConfiguration.contentInsets = .zero
-        countryConfiguration.cornerStyle = .fixed
-        countryConfiguration.baseForegroundColor = appearance.surfaceTextColor
-        countryConfiguration.background.backgroundColor = appearance.row.backgroundColor
-        countryConfiguration.background.cornerRadius = appearance.row.cornerRadius
-        countryConfiguration.background.strokeWidth = appearance.row.borderWidth
-        countryConfiguration.background.strokeColor = appearance.row.borderColor
-        countryConfiguration.titleLineBreakMode = .byWordWrapping
-        countryConfiguration.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { attributes in
+        var filterConfiguration = UIButton.Configuration.plain()
+        filterConfiguration.contentInsets = .zero
+        filterConfiguration.cornerStyle = .fixed
+        filterConfiguration.baseForegroundColor = appearance.surfaceTextColor
+        filterConfiguration.background.backgroundColor = appearance.row.backgroundColor
+        filterConfiguration.background.cornerRadius = appearance.row.cornerRadius
+        filterConfiguration.background.strokeWidth = appearance.row.borderWidth
+        filterConfiguration.background.strokeColor = appearance.row.borderColor
+        filterConfiguration.titleLineBreakMode = .byWordWrapping
+        filterConfiguration.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { attributes in
             var attributes = attributes
-            attributes.font = countryFont
+            attributes.font = filterFont
             return attributes
         }
-        countryButton.configuration = countryConfiguration
+        questionFilterButton.configuration = filterConfiguration
         unavailableLabel.font = appearance.typography.font(
             size: Typography.unavailableSize,
             weight: .medium
@@ -149,11 +149,57 @@ extension ExpandedThemeCardView {
         backFaceView.backgroundColor = surfaceColor
     }
 
-    func configureCountries(theme: QuizTheme, selectedCountry: String?) {
+    func configureQuestionFilter(theme: QuizTheme, selectedCountry: String?) {
+        if theme.stableID == MusicGenre.themeID, theme.questionOrigin == .backend, musicGenresProvider != nil {
+            availableCountries = []
+            self.selectedCountry = nil
+            questionFilterButton.isHidden = false
+            questionFilterButton.accessibilityIdentifier = "descriptionGenrePicker"
+            questionFilterButton.accessibilityLabel = L10n.ThemeCard.genre
+            updateMusicGenreMenu()
+            return
+        }
+
+        selectedMusicGenre = nil
         availableCountries = theme.stableID == "politics_business" ? theme.countries : []
-        countryButton.isHidden = availableCountries.isEmpty
+        questionFilterButton.isHidden = availableCountries.isEmpty
+        questionFilterButton.accessibilityIdentifier = "descriptionCountryPicker"
+        questionFilterButton.accessibilityLabel = L10n.ThemeCard.country
         self.selectedCountry = selectedCountry.flatMap { availableCountries.contains($0) ? $0 : nil }
         updateCountryMenu()
+    }
+
+    func selectMusicGenre(_ genre: MusicGenre?) {
+        guard !isStartLoading, questionFilterButton.accessibilityIdentifier == "descriptionGenrePicker" else { return }
+        selectedMusicGenre = genre
+        updateMusicGenreMenu()
+    }
+
+    private func updateMusicGenreMenu() {
+        let title = selectedMusicGenre?.name ?? L10n.ThemeCard.mixedGenres
+        questionFilterButton.setTitle("\(title) ▾", for: .normal)
+        questionFilterButton.accessibilityValue = title
+        let mixed = musicGenreAction(nil)
+        let catalog = UIDeferredMenuElement.uncached { [weak self] completion in
+            guard let provider = self?.musicGenresProvider else { completion([]); return }
+            Task { @MainActor [weak self] in
+                let genres = (try? await provider()) ?? []
+                guard let self else { completion([]); return }
+                completion(genres.isEmpty
+                    ? [UIAction(title: L10n.ThemeCard.genresUnavailable, attributes: .disabled) { _ in }]
+                    : genres.map { self.musicGenreAction($0) })
+            }
+        }
+        questionFilterButton.menu = UIMenu(title: L10n.ThemeCard.genre, children: [mixed, catalog])
+    }
+
+    private func musicGenreAction(_ genre: MusicGenre?) -> UIAction {
+        UIAction(
+            title: genre?.name ?? L10n.ThemeCard.mixedGenres,
+            state: selectedMusicGenre?.id == genre?.id ? .on : .off
+        ) { [weak self] _ in
+            self?.selectMusicGenre(genre)
+        }
     }
 
     func selectCountry(_ country: String?) {
@@ -168,10 +214,10 @@ extension ExpandedThemeCardView {
         let locale = AppLocalizationStore.shared.resolvedLocale
         let title = selectedCountry.flatMap { locale.localizedString(forRegionCode: $0) }
             ?? L10n.ThemeCard.internationalQuestions
-        countryButton.setTitle("\(title) ▾", for: .normal)
-        countryButton.accessibilityValue = title
+        questionFilterButton.setTitle("\(title) ▾", for: .normal)
+        questionFilterButton.accessibilityValue = title
         let codes: [String?] = [nil] + availableCountries.map { Optional($0) }
-        countryButton.menu = UIMenu(title: L10n.ThemeCard.country, children: codes.map { code in
+        questionFilterButton.menu = UIMenu(title: L10n.ThemeCard.country, children: codes.map { code in
             let name = code.map { locale.localizedString(forRegionCode: $0) ?? $0 }
                 ?? L10n.ThemeCard.internationalQuestions
             return UIAction(title: name, state: selectedCountry == code ? .on : .off) { [weak self] _ in
@@ -211,8 +257,8 @@ extension ExpandedThemeCardView {
 
     func updateBackFaceAccessibilityElements(isAvailable: Bool) {
         var elements: [Any] = [backTitleLabel, backDescriptionLabel]
-        if !countryButton.isHidden {
-            elements.append(countryButton)
+        if !questionFilterButton.isHidden {
+            elements.append(questionFilterButton)
         }
         if !difficultyControl.isHidden {
             elements.append(contentsOf: [difficultyLabel, difficultyControl])
@@ -239,7 +285,7 @@ extension ExpandedThemeCardView {
 
     func setStartLoading(_ isLoading: Bool) {
         isStartLoading = isLoading
-        countryButton.isEnabled = !isLoading
+        questionFilterButton.isEnabled = !isLoading
         startButton.isEnabled = !isLoading && selectedQuestionCount != nil
         startButton.setTitle(isLoading ? nil : L10n.Common.start, for: .normal)
         startButton.accessibilityLabel = isLoading ? L10n.Home.feelingLuckyLoading : L10n.Common.start

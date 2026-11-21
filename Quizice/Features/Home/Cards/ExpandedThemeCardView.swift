@@ -76,6 +76,7 @@ final class ExpandedThemeCardView: UIView, UIGestureRecognizerDelegate {
     var onFlip: (() -> Void)?
     var onBack: (() -> Void)?
     var onCountryChanged: ((String?) -> Void)?
+    var musicGenresProvider: (() async throws -> [MusicGenre])?
     var onDifficultyChanged: ((AIQuizDifficulty) -> Void)?
     var onQuestionCountChanged: ((Int) -> Void)?
     var onStart: (() -> Void)?
@@ -123,9 +124,10 @@ final class ExpandedThemeCardView: UIView, UIGestureRecognizerDelegate {
     let backTitleLabel = UILabel()
     let descriptionScrollView = UIScrollView()
     let backDescriptionLabel = UILabel()
-    let countryButton = UIButton(type: .system)
+    let questionFilterButton = UIButton(type: .system)
     var availableCountries: [String] = []
     var selectedCountry: String?
+    var selectedMusicGenre: MusicGenre?
     let difficultyLabel = UILabel()
     let difficultyControl = UISegmentedControl(
         items: AIQuizDifficulty.allCases.map(\.title)
@@ -298,7 +300,7 @@ final class ExpandedThemeCardView: UIView, UIGestureRecognizerDelegate {
             themeTintColor: tintColor,
             borderColor: borderColor
         )
-        configureCountries(theme: theme, selectedCountry: selectedCountry)
+        configureQuestionFilter(theme: theme, selectedCountry: selectedCountry)
         configureDifficulty(selectedDifficulty, isAvailable: theme.questionOrigin != .bundled)
         // `configureQuestionCounts` must run before `setStartLoading` so the
         // Start button's enabled state is only ever written once, using the

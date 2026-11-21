@@ -425,7 +425,7 @@ final class QuizFlowCoordinator: NSObject, QuizRouting, UIViewControllerTransiti
                     themeID: themeID,
                     questionCount: questionCount,
                     difficulty: difficulty,
-                    locale: locale
+                    locale: locale, musicGenreID: previousTheme.quizTheme.musicGenreID
                 )
                 try Task.checkCancellation()
                 guard

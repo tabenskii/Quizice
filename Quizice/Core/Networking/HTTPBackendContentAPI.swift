@@ -271,14 +271,15 @@ final class HTTPBackendContentAPI: BackendContentAPI, StatisticsHistoryAPI {
         )
     }
 
-    private func fetchQuestionBatch(
+    func fetchQuestionBatch(
         themeID: String,
         count: Int,
         locale: String,
         difficulty: AIQuizDifficulty?,
         seed: String,
         strategy: QuestionRepeatStrategy,
-        country: String? = nil
+        country: String? = nil,
+        musicGenreID: String? = nil
     ) async throws -> BackendQuestionBatchResponse {
         guard country.map(QuestionCountryStore.supportedCodes.contains) ?? true else {
             throw BackendContentError.invalidRequest
@@ -287,6 +288,7 @@ final class HTTPBackendContentAPI: BackendContentAPI, StatisticsHistoryAPI {
         let normalizedSeed = seed.trimmingCharacters(in: .whitespacesAndNewlines)
         guard
             !normalizedThemeID.isEmpty,
+            musicGenreID.map({ !$0.isEmpty && normalizedThemeID == MusicGenre.themeID }) ?? true,
             UUID(uuidString: normalizedSeed)?.uuidString.lowercased() == normalizedSeed,
             QuizQuestionCountPolicy.supportedCounts.contains(count),
             Self.isSupported(locale: locale)
@@ -306,6 +308,7 @@ final class HTTPBackendContentAPI: BackendContentAPI, StatisticsHistoryAPI {
         if let country {
             queryItems.append(URLQueryItem(name: "country", value: country))
         }
+        if let musicGenreID { queryItems.append(URLQueryItem(name: "genre", value: musicGenreID)) }
         queryItems.append(URLQueryItem(name: "seed", value: normalizedSeed))
         if let progressMode = strategy.progressMode {
             queryItems.append(URLQueryItem(name: "progressMode", value: progressMode.rawValue))
@@ -466,7 +469,7 @@ final class HTTPBackendContentAPI: BackendContentAPI, StatisticsHistoryAPI {
             pack.isValid(locale: locale, userID: userID)
         }
     }
-    private func get<Response: Decodable>(
+    func get<Response: Decodable>(
         url: URL,
         operation: BackendOperation,
         accessToken: String? = nil,
@@ -670,7 +673,7 @@ final class HTTPBackendContentAPI: BackendContentAPI, StatisticsHistoryAPI {
         }
     }
 
-    private func makeURL(
+    func makeURL(
         pathComponents: [String],
         queryItems: [URLQueryItem]
     ) throws -> URL {
@@ -687,7 +690,7 @@ final class HTTPBackendContentAPI: BackendContentAPI, StatisticsHistoryAPI {
         return result
     }
 
-    private static func isSupported(locale: String) -> Bool {
+    static func isSupported(locale: String) -> Bool {
         AppLanguagePreference.explicitPreference(for: locale) != nil
     }
 }

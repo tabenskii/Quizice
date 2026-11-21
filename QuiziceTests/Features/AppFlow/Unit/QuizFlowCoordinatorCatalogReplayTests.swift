@@ -67,6 +67,21 @@ final class QuizFlowCoordinatorCatalogReplayTests: QuizFlowCoordinatorTestCase {
         XCTAssertEqual(repository.prepareQuizCallCount, 0)
     }
 
+    func testMusicReplayPreservesGenreInTheRoundSnapshotAndRequest() async throws {
+        let song = SnapshotSupport.makeTheme(id: "music", name: "Music")
+        song.musicGenreID = "rock"
+        let snapshot = song.roundSnapshot()
+        XCTAssertEqual(snapshot.musicGenreID, "rock")
+        let repository = CountingReplayThemeRepository(themes: [song])
+        let session = RoutingSession()
+        session.chosenTheme = ThemeModel(quizTheme: snapshot)
+        session.questionsCount = 10
+        let harness = makeCoordinator(themeRepository: repository, session: session)
+        harness.coordinator.replayQuiz()
+        try await waitUntil { repository.prepareQuizCallCount == 1 }
+        XCTAssertEqual(repository.requestedMusicGenreIDs, ["rock"])
+    }
+
     private func makeCoordinator(
         themeRepository: ThemeRepository,
         session: QuizSessionManaging
@@ -92,6 +107,7 @@ final class CountingReplayThemeRepository: ThemeRepository {
     var themes: [QuizTheme]?
     var catalogOrigin: QuizCatalogOrigin = .bundled
     private(set) var prepareQuizCallCount = 0
+    private(set) var requestedMusicGenreIDs: [String?] = []
     private(set) var prepareRandomQuizCallCount = 0
 
     init(themes: [QuizTheme]) {
@@ -116,6 +132,13 @@ final class CountingReplayThemeRepository: ThemeRepository {
             throw QuizPreparationError.unavailable
         }
         return theme
+    }
+
+    func prepareQuiz(
+        themeID: String, questionCount: Int, difficulty: AIQuizDifficulty, locale: String, musicGenreID: String?
+    ) async throws -> QuizTheme {
+        requestedMusicGenreIDs.append(musicGenreID)
+        return try await prepareQuiz(themeID: themeID, questionCount: questionCount, difficulty: difficulty, locale: locale)
     }
 
     func prepareRandomQuiz(

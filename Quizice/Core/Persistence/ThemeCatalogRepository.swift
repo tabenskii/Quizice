@@ -397,22 +397,26 @@ final class ThemeCatalogRepository: ThemeRepository {
         )
     }
 
+    func fetchMusicGenres(locale: String) async throws -> [MusicGenre] {
+        guard catalogOrigin == .backend, let backendContentAPI else { return [] }
+        return try await backendContentAPI.fetchMusicGenres(locale: locale)
+    }
+
+    @MainActor
+    func prepareQuiz(themeID: String, questionCount: Int, difficulty: AIQuizDifficulty, locale: String) async throws -> QuizTheme {
+        try await prepareQuiz(themeID: themeID, questionCount: questionCount, difficulty: difficulty, locale: locale, musicGenreID: nil)
+    }
+
     @MainActor
     func prepareQuiz(
-        themeID: String,
-        questionCount: Int,
-        difficulty: AIQuizDifficulty,
-        locale: String
+        themeID: String, questionCount: Int, difficulty: AIQuizDifficulty, locale: String, musicGenreID: String?
     ) async throws -> QuizTheme {
-        guard
-            QuizQuestionCountPolicy.supportedCounts.contains(questionCount),
-            let metadata = (themes ?? fetchQuizThemes()).first(where: {
-                $0.stableID == themeID
-            })
-        else {
+        let catalog = themes ?? fetchQuizThemes()
+        guard QuizQuestionCountPolicy.supportedCounts.contains(questionCount),
+              let metadata = catalog.first(where: { $0.stableID == themeID }),
+              musicGenreID == nil || (themeID == MusicGenre.themeID && catalogOrigin == .backend) else {
             throw QuizPreparationError.unavailable
         }
-
         guard catalogOrigin == .backend else {
             AppLog.content.notice(
                 "📦 LOCAL QUESTIONS: bundled catalog active theme=\(themeID, privacy: .public) locale=\(locale, privacy: .public) count=\(questionCount, privacy: .public)"
@@ -445,7 +449,8 @@ final class ThemeCatalogRepository: ThemeRepository {
                 difficulty: difficulty,
                 seed: seed,
                 strategy: strategy,
-                country: selectedCountry.flatMap { metadata.countries.contains($0) ? $0 : nil }
+                country: selectedCountry.flatMap { metadata.countries.contains($0) ? $0 : nil },
+                musicGenreID: musicGenreID
             )
             try Task.checkCancellation()
             guard AppLocalizationStore.shared.resolvedLanguageCode == locale,
@@ -482,14 +487,14 @@ final class ThemeCatalogRepository: ThemeRepository {
                 source: .catalog,
                 questionOrigin: .backend,
                 difficulty: difficulty,
-                countries: metadata.countries
+                countries: metadata.countries, musicGenreID: musicGenreID
             )
         } catch is CancellationError {
             throw CancellationError()
         } catch let error as QuizPreparationError {
             throw error
         } catch {
-            if OfflineQuestionDownloader.permitsFallback(error), let userID {
+            if musicGenreID == nil, OfflineQuestionDownloader.permitsFallback(error), let userID {
                 return try await offlineDownloader.makeQuiz(metadata: metadata, themeIDs: [themeID], userID: userID,
                     questionCount: questionCount, difficulty: difficulty, locale: locale, strategy: strategy,
                     selectedCountry: selectedCountry,
