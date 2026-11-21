@@ -29,31 +29,64 @@ final class HomeExpandedCardTransitionTests: HomeScreenVisualStateTestCase {
         let timeline = try StatisticsHistoryResponse(period: .week, timeZone: "Europe/Moscow", periodStart: "2026-10-31", periodEnd: "2026-11-07",
             days: [.init(date: "2026-11-01", playedQuizzes: 2, correctAnswers: 5, totalQuestions: 20)], undatedPlayedQuizzes: 53)
             .timeline(requestedPeriod: .week, timeZone: TimeZone(identifier: "Europe/Moscow")!)
+        let categories: [UIContentSizeCategory] = [.large, .extraExtraExtraLarge, .accessibilityExtraExtraExtraLarge]
         for style in [AppDesignStyle.classic, .clean, .radar] {
-            let appearance = SnapshotSupport.appearance(designStyle: style)
-            let card = ExpandedStatisticsCardView(frame: CGRect(x: 20, y: 20, width: 335, height: 700))
-            card.configure(summary: .empty, appearance: appearance)
-            card.chartsView.configure(state: .loaded(timeline), period: .week, appearance: appearance)
-            let host = UIViewController()
-            host.view.addSubview(card)
-            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 375, height: 812))
-            window.rootViewController = host
-            window.makeKeyAndVisible()
-            testWindows.append(window)
-            window.layoutIfNeeded()
-            drainAnimations(0.05)
-            card.layoutIfNeeded()
-            let scroll = try XCTUnwrap(card.descendant(withAccessibilityIdentifier: "expandedStatisticsCardScrollView") as? UIScrollView)
-            XCTAssertTrue(scroll.clipsToBounds)
-            XCTAssertEqual(scroll.layer.cornerCurve, .continuous)
-            XCTAssertEqual(scroll.layer.cornerRadius, appearance.row.cornerRadius)
-            XCTAssertGreaterThan(card.chartsView.bounds.height, 400)
-            XCTAssertLessThanOrEqual(card.chartsView.bounds.width, 335)
-            XCTAssertGreaterThan(scroll.contentSize.height, scroll.bounds.height)
-            scroll.setContentOffset(CGPoint(x: 0, y: scroll.contentSize.height - scroll.bounds.height), animated: false)
-            let chartBottom = card.chartsView.convert(CGPoint(x: 0, y: card.chartsView.bounds.maxY), to: scroll)
-            XCTAssertEqual(chartBottom.y, scroll.bounds.maxY, accuracy: 1)
-            XCTAssertTrue(card.accessibilityElements?.contains { ($0 as? UIView) === card.chartsView } == true)
+            for category in categories {
+                let appearance = SnapshotSupport.appearance(designStyle: style)
+                let card = ExpandedStatisticsCardView(frame: CGRect(x: 20, y: 20, width: 335, height: 510))
+                let host = UIViewController()
+                host.traitOverrides.preferredContentSizeCategory = category
+                host.view.addSubview(card)
+                let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 375, height: 812))
+                window.rootViewController = host
+                window.makeKeyAndVisible()
+                testWindows.append(window)
+                card.traitCollection.performAsCurrent {
+                    card.configure(
+                        summary: StatisticsSummary(
+                            playedQuizzes: 28,
+                            correctAnswers: 57,
+                            totalQuestions: 140,
+                            bestCorrectAnswers: 5,
+                            bestTotalQuestions: 10
+                        ),
+                        appearance: appearance
+                    )
+                    card.configureHistory(state: .loaded(timeline), period: .week, appearance: appearance)
+                }
+                window.layoutIfNeeded()
+                drainAnimations(0.05)
+                card.layoutIfNeeded()
+                let scroll = try XCTUnwrap(card.descendant(withAccessibilityIdentifier: "expandedStatisticsCardScrollView") as? UIScrollView)
+                XCTAssertEqual(card.chartsView.traitCollection.preferredContentSizeCategory, category)
+                XCTAssertGreaterThan(scroll.bounds.height, 0)
+                XCTAssertTrue(scroll.clipsToBounds)
+                XCTAssertEqual(scroll.layer.cornerCurve, .continuous)
+                XCTAssertEqual(scroll.layer.cornerRadius, appearance.row.cornerRadius)
+                XCTAssertEqual(card.initialFocusView.isDescendant(of: scroll), category.isAccessibilityCategory)
+                if category.isAccessibilityCategory {
+                    let row = try XCTUnwrap(card.descendant(withAccessibilityIdentifier: "expandedStatisticsMetric-correctAnswers"))
+                    let labels = row.subviews.compactMap { $0 as? UILabel }
+                    let value = try XCTUnwrap(labels.first { $0.text == "57/140" })
+                    let title = try XCTUnwrap(labels.first { $0 !== value })
+                    XCTAssertEqual(title.bounds.width, value.bounds.width, accuracy: 0.5)
+                    XCTAssertGreaterThan(value.frame.minY, title.frame.maxY)
+                }
+                XCTAssertGreaterThan(card.chartsView.bounds.height, 400)
+                XCTAssertLessThanOrEqual(card.chartsView.bounds.width, 335)
+                XCTAssertGreaterThan(scroll.contentSize.height, scroll.bounds.height)
+                scroll.setContentOffset(CGPoint(x: 0, y: scroll.contentSize.height - scroll.bounds.height), animated: false)
+                let chartBottom = card.chartsView.convert(CGPoint(x: 0, y: card.chartsView.bounds.maxY), to: scroll)
+                XCTAssertEqual(chartBottom.y, scroll.bounds.maxY, accuracy: 1)
+                XCTAssertTrue(card.accessibilityElements?.contains { ($0 as? UIView) === card.chartsView } == true)
+                if category.isAccessibilityCategory {
+                    host.traitOverrides.preferredContentSizeCategory = .large
+                    window.layoutIfNeeded()
+                    drainAnimations(0.05)
+                    XCTAssertFalse(card.initialFocusView.isDescendant(of: scroll))
+                    XCTAssertGreaterThan(scroll.bounds.height, 0)
+                }
+            }
         }
     }
 

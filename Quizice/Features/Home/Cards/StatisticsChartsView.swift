@@ -243,12 +243,32 @@ private struct StatisticsChartsContent: View {
         .accessibilityIdentifier("statisticsHistoryRetry")
     }
 
-    @ViewBuilder
     private var periodPicker: some View {
+        periodControl
+            .tint(accent)
+            .accessibilityIdentifier("statisticsPeriodPicker")
+            .anchorPreference(key: StatisticsPeriodPickerBounds.self, value: .bounds) { $0 }
+            .frame(maxWidth: dynamicTypeSize.isAccessibilitySize ? nil : .infinity, minHeight: 44)
+    }
+
+    @ViewBuilder
+    private var periodControl: some View {
         if dynamicTypeSize.isAccessibilitySize {
-            picker.pickerStyle(.menu).frame(minHeight: 44)
+            Menu {
+                picker
+            } label: {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text(period.title)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.caption)
+                        .accessibilityHidden(true)
+                }
+            }
+            .accessibilityLabel(L10n.Statistics.period)
+            .accessibilityValue(period.title)
         } else {
-            picker.pickerStyle(.segmented).frame(maxWidth: .infinity, minHeight: 44)
+            picker.pickerStyle(.segmented)
         }
     }
 
@@ -258,9 +278,6 @@ private struct StatisticsChartsContent: View {
                 Text(period.title).tag(period)
             }
         }
-        .tint(accent)
-        .accessibilityIdentifier("statisticsPeriodPicker")
-        .anchorPreference(key: StatisticsPeriodPickerBounds.self, value: .bounds) { $0 }
     }
 
     private func history(_ timeline: StatisticsTimeline) -> some View {
@@ -331,34 +348,33 @@ private struct StatisticsChartsContent: View {
     private func gamesChart(_ timeline: StatisticsTimeline) -> some View {
         let maximumGames = max(timeline.days.map(\.playedQuizzes).max() ?? 0, 1)
         let gameTicks = Array(Set([0, max(1, maximumGames / 2), maximumGames])).sorted()
-        let barTop = UnevenRoundedRectangle(
-            topLeadingRadius: appearance.row.cornerRadius,
-            topTrailingRadius: appearance.row.cornerRadius,
-            style: .continuous
-        )
-        return Chart(timeline.days) { day in
-            BarMark(
-                x: .value(L10n.Statistics.day, day.date, unit: .day, calendar: calendar),
-                y: .value(L10n.Statistics.dailyGames, day.playedQuizzes)
-            )
-                .foregroundStyle(accent)
-                .clipShape(barTop)
-                .accessibilityLabel(day.date.formatted(Date.FormatStyle(date: .long, time: .omitted, locale: locale, calendar: calendar, timeZone: timeline.timeZone)))
-                .accessibilityValue(day.playedQuizzes.formatted(.number.locale(locale)))
-        }
-        .chartXScale(domain: timeline.interval.start...timeline.interval.end)
-        .chartYScale(domain: 0...maximumGames)
-        .chartXAxis { dateAxis(timeline) }
-        .chartXAxis(dynamicTypeSize.isAccessibilitySize ? .hidden : .visible)
-        .chartYAxis {
-            AxisMarks(position: .leading, values: gameTicks) { _ in
-                AxisGridLine().foregroundStyle(Color(uiColor: appearance.progressTrackColor))
-                AxisValueLabel().foregroundStyle(secondary)
+        return GeometryReader { geometry in
+            let panelWidth = geometry.size.width + 2 * Self.panelPadding
+            let barTop = StatisticsBarTop(radiusFraction: appearance.row.cornerRadius / panelWidth)
+            Chart(timeline.days) { day in
+                BarMark(
+                    x: .value(L10n.Statistics.day, day.date, unit: .day, calendar: calendar),
+                    y: .value(L10n.Statistics.dailyGames, day.playedQuizzes)
+                )
+                    .foregroundStyle(accent)
+                    .clipShape(barTop)
+                    .accessibilityLabel(day.date.formatted(Date.FormatStyle(date: .long, time: .omitted, locale: locale, calendar: calendar, timeZone: timeline.timeZone)))
+                    .accessibilityValue(day.playedQuizzes.formatted(.number.locale(locale)))
             }
+            .chartXScale(domain: timeline.interval.start...timeline.interval.end)
+            .chartYScale(domain: 0...maximumGames)
+            .chartXAxis { dateAxis(timeline) }
+            .chartXAxis(dynamicTypeSize.isAccessibilitySize ? .hidden : .visible)
+            .chartYAxis {
+                AxisMarks(position: .leading, values: gameTicks) { _ in
+                    AxisGridLine().foregroundStyle(Color(uiColor: appearance.progressTrackColor))
+                    AxisValueLabel().foregroundStyle(secondary)
+                }
+            }
+            .accessibilityLabel(L10n.Statistics.dailyGames)
+            .accessibilityIdentifier("statisticsGamesChart")
         }
         .frame(height: chartHeight)
-        .accessibilityLabel(L10n.Statistics.dailyGames)
-        .accessibilityIdentifier("statisticsGamesChart")
     }
 
     private func dateRange(_ timeline: StatisticsTimeline) -> String {
@@ -401,6 +417,19 @@ private struct StatisticsChartsContent: View {
                 }
             }
         }
+    }
+}
+
+private struct StatisticsBarTop: Shape {
+    let radiusFraction: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        let radius = min(rect.width, rect.height) * radiusFraction
+        return UnevenRoundedRectangle(
+            topLeadingRadius: radius,
+            topTrailingRadius: radius,
+            style: .continuous
+        ).path(in: rect)
     }
 }
 
