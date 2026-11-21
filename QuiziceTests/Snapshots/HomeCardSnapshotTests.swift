@@ -31,6 +31,35 @@ final class HomeCardSnapshotTests: XCTestCase {
         }
     }
 
+    func testMonthlyStatisticsChartsAtCompactWidth() throws {
+        let zone = try XCTUnwrap(TimeZone(identifier: "Europe/Moscow"))
+        let timeline = try StatisticsHistoryResponse(
+            period: .month,
+            timeZone: zone.identifier,
+            periodStart: "2026-10-23",
+            periodEnd: "2026-11-22",
+            days: [
+                .init(date: "2026-10-23", playedQuizzes: 6, correctAnswers: 15, totalQuestions: 30),
+                .init(date: "2026-10-24", playedQuizzes: 1, correctAnswers: 2, totalQuestions: 5),
+                .init(date: "2026-10-30", playedQuizzes: 3, correctAnswers: 0, totalQuestions: 15),
+                .init(date: "2026-11-11", playedQuizzes: 1, correctAnswers: 3, totalQuestions: 5),
+                .init(date: "2026-11-15", playedQuizzes: 4, correctAnswers: 5, totalQuestions: 20),
+                .init(date: "2026-11-19", playedQuizzes: 4, correctAnswers: 3, totalQuestions: 20)
+            ],
+            undatedPlayedQuizzes: 0
+        ).timeline(requestedPeriod: .month, timeZone: zone)
+        let appearance = SnapshotSupport.appearance(designStyle: .classic)
+        let width: CGFloat = 295
+        let charts = StatisticsChartsView(frame: CGRect(x: 0, y: 0, width: width, height: 0))
+        charts.configure(state: .loaded(timeline), period: .month, appearance: appearance)
+        SnapshotSupport.assertComponent(
+            charts,
+            named: "statistics-charts-month-compact",
+            size: CGSize(width: width, height: 660),
+            backgroundAppearance: appearance
+        )
+    }
+
     func testStatisticsChartsEmptyAndErrorStates() throws {
         let appearance = SnapshotSupport.appearance(designStyle: .clean)
         for (name, state) in [("empty", StatisticsHistoryStore.State.loaded(try chartTimeline(empty: true))), ("error", .failed)] {

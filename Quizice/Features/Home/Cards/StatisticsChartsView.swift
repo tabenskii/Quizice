@@ -331,13 +331,18 @@ private struct StatisticsChartsContent: View {
     private func gamesChart(_ timeline: StatisticsTimeline) -> some View {
         let maximumGames = max(timeline.days.map(\.playedQuizzes).max() ?? 0, 1)
         let gameTicks = Array(Set([0, max(1, maximumGames / 2), maximumGames])).sorted()
+        let barTop = UnevenRoundedRectangle(
+            topLeadingRadius: appearance.row.cornerRadius,
+            topTrailingRadius: appearance.row.cornerRadius,
+            style: .continuous
+        )
         return Chart(timeline.days) { day in
             BarMark(
                 x: .value(L10n.Statistics.day, day.date, unit: .day, calendar: calendar),
                 y: .value(L10n.Statistics.dailyGames, day.playedQuizzes)
             )
                 .foregroundStyle(accent)
-                .cornerRadius(3)
+                .clipShape(barTop)
                 .accessibilityLabel(day.date.formatted(Date.FormatStyle(date: .long, time: .omitted, locale: locale, calendar: calendar, timeZone: timeline.timeZone)))
                 .accessibilityValue(day.playedQuizzes.formatted(.number.locale(locale)))
         }
@@ -362,21 +367,36 @@ private struct StatisticsChartsContent: View {
         return "\(timeline.interval.start.formatted(format)) – \(end.formatted(format))"
     }
 
+    @AxisContentBuilder
     private func dateAxis(_ timeline: StatisticsTimeline) -> some AxisContent {
-        let format = Date.FormatStyle(locale: locale, calendar: calendar, timeZone: timeline.timeZone)
-        let dayMonth = Date.VerbatimFormatStyle(
-            format: "\(day: .twoDigits).\(month: .twoDigits)",
-            locale: locale,
-            timeZone: timeline.timeZone,
-            calendar: calendar
-        )
-        return AxisMarks(values: .automatic(desiredCount: 3)) { value in
-            AxisValueLabel {
-                if let date = value.as(Date.self) {
-                    if timeline.interval.duration > 366 * 24 * 60 * 60 {
+        if timeline.interval.duration > 366 * 24 * 60 * 60 {
+            let format = Date.FormatStyle(locale: locale, calendar: calendar, timeZone: timeline.timeZone)
+            AxisMarks(values: .automatic(desiredCount: 3)) { value in
+                AxisValueLabel {
+                    if let date = value.as(Date.self) {
                         Text(date.formatted(format.month(.abbreviated).year())).foregroundStyle(secondary)
-                    } else {
-                        Text(date.formatted(dayMonth)).foregroundStyle(secondary)
+                    }
+                }
+            }
+        } else {
+            let dayMonth = Date.VerbatimFormatStyle(
+                format: "\(day: .twoDigits).\(month: .twoDigits)",
+                locale: locale,
+                timeZone: timeline.timeZone,
+                calendar: calendar
+            )
+            let dayCount = max(1, calendar.dateComponents([.day], from: timeline.interval.start, to: timeline.interval.end).day ?? 1)
+            let labelCount = min(6, dayCount)
+            let dates = (0..<labelCount).compactMap { index in
+                let dayOffset = (2 * index + 1) * dayCount / (2 * labelCount)
+                return calendar.date(byAdding: .day, value: dayOffset, to: timeline.interval.start)
+            }
+            AxisMarks(values: dates) { value in
+                AxisValueLabel(centered: false) {
+                    if let date = value.as(Date.self) {
+                        Text(date.formatted(dayMonth))
+                            .foregroundStyle(secondary)
+                            .fixedSize(horizontal: true, vertical: false)
                     }
                 }
             }
