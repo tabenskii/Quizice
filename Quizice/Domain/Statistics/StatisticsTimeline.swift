@@ -52,7 +52,6 @@ struct StatisticsHistoryResponse: Decodable, Equatable {
             throw BackendContentError.contractViolation
         }
         var previous: Date?
-        var series = 0
         let points = try days.map { day -> StatisticsTimeline.Day in
             guard let timestamp = date(day.date), timestamp >= start, timestamp < end,
                   previous.map({ timestamp > $0 }) ?? true,
@@ -60,12 +59,9 @@ struct StatisticsHistoryResponse: Decodable, Equatable {
                   day.correctAnswers >= 0, day.correctAnswers <= day.totalQuestions else {
                 throw BackendContentError.contractViolation
             }
-            if let previous, calendar.dateComponents([.day], from: previous, to: timestamp).day != 1 {
-                series += 1
-            }
             previous = timestamp
             return .init(date: timestamp, playedQuizzes: day.playedQuizzes, correctAnswers: day.correctAnswers,
-                         totalQuestions: day.totalQuestions, accuracySeries: series)
+                         totalQuestions: day.totalQuestions)
         }
         return StatisticsTimeline(days: points, interval: DateInterval(start: start, end: end),
                                   timeZone: requestedTimeZone, undatedPlayedQuizzes: undatedPlayedQuizzes)
@@ -78,8 +74,6 @@ struct StatisticsTimeline: Equatable {
         let playedQuizzes: Int
         let correctAnswers: Int
         let totalQuestions: Int
-        /// Do not interpolate accuracy through days without recorded games.
-        let accuracySeries: Int
         var id: Date { date }
         var accuracy: Double { Double(correctAnswers) / Double(totalQuestions) * 100 }
     }

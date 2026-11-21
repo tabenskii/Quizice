@@ -3,12 +3,15 @@ import SwiftUI
 import UIKit
 
 final class StatisticsChartsView: UIView {
+    static let fadeDuration: TimeInterval = 0.25
+
     private let sizingController = UIHostingController(rootView: AnyView(EmptyView()))
     private var hostedContent: (UIView & UIContentView)?
     private var state = StatisticsHistoryStore.State.idle
     private var appearance: AppAppearance?
     private var measuredWidth: CGFloat?
     private var measuredHeight: CGFloat = 0
+    private var fadeInHistory = false
     private(set) var selectedPeriod = StatisticsPeriod.week
     var onPeriodChange: ((StatisticsPeriod) -> Void)?
     var onRetry: (() -> Void)?
@@ -40,6 +43,9 @@ final class StatisticsChartsView: UIView {
     }
 
     func configure(state: StatisticsHistoryStore.State, period: StatisticsPeriod, appearance: AppAppearance) {
+        if state != self.state {
+            fadeInHistory = window != nil && alpha > 0 && UIView.areAnimationsEnabled
+        }
         self.state = state
         self.selectedPeriod = period
         self.appearance = appearance
@@ -54,6 +60,7 @@ final class StatisticsChartsView: UIView {
             state: state,
             period: selectedPeriod,
             appearance: appearance,
+            fadeInHistory: fadeInHistory,
             selectPeriod: { [weak self] in self?.onPeriodChange?($0) },
             retry: { [weak self] in self?.onRetry?() }
         )
@@ -99,6 +106,7 @@ private struct StatisticsChartsContent: View {
     let state: StatisticsHistoryStore.State
     let period: StatisticsPeriod
     let appearance: AppAppearance
+    let fadeInHistory: Bool
     let selectPeriod: (StatisticsPeriod) -> Void
     let retry: () -> Void
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -126,31 +134,11 @@ private struct StatisticsChartsContent: View {
                     .frame(minHeight: 44)
                     .accessibilityIdentifier("statisticsHistoryRetry")
             case let .loaded(timeline):
-                if dynamicTypeSize.isAccessibilitySize {
-                    Text(dateRange(timeline))
-                        .foregroundStyle(secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                if timeline.undatedPlayedQuizzes > 0 {
-                    Text(L10n.Statistics.historyUndated)
-                        .font(appearance.typography.swiftUIFont(size: 15, weight: .regular))
-                        .foregroundStyle(secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                if timeline.days.isEmpty {
-                    Text(L10n.Statistics.historyEmpty)
-                        .foregroundStyle(secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .accessibilityIdentifier("statisticsChartsEmptyState")
-                } else {
-                    metricHeader(title: L10n.Statistics.dailyAccuracy,
-                                 value: ((timeline.accuracy ?? 0) / 100).formatted(.percent.precision(.fractionLength(0)).locale(locale)))
-                    accuracyChart(timeline)
-                    metricHeader(title: L10n.Statistics.dailyGames, value: timeline.playedQuizzes.formatted(.number.locale(locale)))
-                    gamesChart(timeline)
-                }
+                history(timeline)
+                    .modifier(StatisticsHistoryFadeIn(enabled: fadeInHistory))
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .fixedSize(horizontal: false, vertical: true)
         .font(appearance.typography.swiftUIFont(size: 16, weight: .regular))
         .foregroundStyle(foreground)
@@ -167,7 +155,7 @@ private struct StatisticsChartsContent: View {
         if dynamicTypeSize.isAccessibilitySize {
             picker.pickerStyle(.menu).frame(minHeight: 44)
         } else {
-            picker.pickerStyle(.segmented).frame(minHeight: 44)
+            picker.pickerStyle(.segmented).frame(maxWidth: .infinity, minHeight: 44)
         }
     }
 
@@ -181,6 +169,34 @@ private struct StatisticsChartsContent: View {
         .accessibilityIdentifier("statisticsPeriodPicker")
     }
 
+    private func history(_ timeline: StatisticsTimeline) -> some View {
+        VStack(alignment: .leading, spacing: 20) {
+            if dynamicTypeSize.isAccessibilitySize {
+                Text(dateRange(timeline))
+                    .foregroundStyle(secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if timeline.undatedPlayedQuizzes > 0 {
+                Text(L10n.Statistics.historyUndated)
+                    .font(appearance.typography.swiftUIFont(size: 15, weight: .regular))
+                    .foregroundStyle(secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if timeline.days.isEmpty {
+                Text(L10n.Statistics.historyEmpty)
+                    .foregroundStyle(secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("statisticsChartsEmptyState")
+            } else {
+                metricHeader(title: L10n.Statistics.dailyAccuracy,
+                             value: ((timeline.accuracy ?? 0) / 100).formatted(.percent.precision(.fractionLength(0)).locale(locale)))
+                accuracyChart(timeline)
+                metricHeader(title: L10n.Statistics.dailyGames, value: timeline.playedQuizzes.formatted(.number.locale(locale)))
+                gamesChart(timeline)
+            }
+        }
+    }
+
     private func metricHeader(title: String, value: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title).font(appearance.typography.swiftUIFont(size: 17, weight: .medium)).foregroundStyle(secondary)
@@ -191,14 +207,6 @@ private struct StatisticsChartsContent: View {
 
     private func accuracyChart(_ timeline: StatisticsTimeline) -> some View {
         Chart(timeline.days) { day in
-            LineMark(
-                x: .value(L10n.Statistics.day, day.date),
-                y: .value(L10n.Statistics.dailyAccuracy, day.accuracy),
-                series: .value("series", day.accuracySeries)
-            )
-            .foregroundStyle(accent)
-            .lineStyle(StrokeStyle(lineWidth: 2))
-            .accessibilityHidden(true)
             PointMark(x: .value(L10n.Statistics.day, day.date), y: .value(L10n.Statistics.dailyAccuracy, day.accuracy))
                 .foregroundStyle(accent)
                 .symbolSize(32)
@@ -270,6 +278,23 @@ private struct StatisticsChartsContent: View {
                 }
             }
         }
+    }
+}
+
+private struct StatisticsHistoryFadeIn: ViewModifier {
+    let enabled: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var hasAppeared = false
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(enabled && !reduceMotion && !hasAppeared ? 0 : 1)
+            .onAppear {
+                guard !hasAppeared else { return }
+                withAnimation(enabled && !reduceMotion ? .easeInOut(duration: StatisticsChartsView.fadeDuration) : nil) {
+                    hasAppeared = true
+                }
+            }
     }
 }
 

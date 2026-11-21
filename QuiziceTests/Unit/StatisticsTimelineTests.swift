@@ -23,10 +23,16 @@ final class StatisticsTimelineTests: XCTestCase {
         XCTAssertEqual(timeline.interval.duration, 169 * 3600)
     }
 
-    func testAllTimeIsSparseAndDoesNotInventDaysOrInterpolateGaps() throws {
-        let timeline = try response(period: .allTime, start: "1900-01-01", days: [day("1900-01-01"), day("2026-11-01"), day("2026-11-02")]).timeline(requestedPeriod: .allTime, timeZone: zone)
-        XCTAssertEqual(timeline.days.count, 3)
-        XCTAssertEqual(timeline.days.map(\.accuracySeries), [0, 1, 1])
+    func testAllTimeContainsOnlyRecordedDays() throws {
+        let dates = ["1900-01-01", "2026-11-01", "2026-11-02"]
+        let timeline = try response(period: .allTime, start: "1900-01-01", days: dates.map { day($0) })
+            .timeline(requestedPeriod: .allTime, timeZone: zone)
+        let format = DateFormatter()
+        format.calendar = Calendar(identifier: .gregorian)
+        format.locale = Locale(identifier: "en_US_POSIX")
+        format.timeZone = zone
+        format.dateFormat = "yyyy-MM-dd"
+        XCTAssertEqual(timeline.days.map { format.string(from: $0.date) }, dates)
     }
 
     func testEmptyHistoryPreservesUndatedMetadataWithoutFabricatingAccuracy() throws {

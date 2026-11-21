@@ -75,6 +75,11 @@ extension QuizViewController {
     func completeExpandedCardPresentation(targetFrame: CGRect) {
         let presentedCard = homeCardState.presentedCard
         completeExpandedCardTransition(targetFrame: targetFrame)
+        if let chartsView = expandedStatisticsCardView?.chartsView, chartsView.alpha == 0 {
+            UIView.animate(withDuration: StatisticsChartsView.fadeDuration, delay: 0, options: [.curveEaseInOut, .allowUserInteraction]) {
+                chartsView.alpha = 1
+            }
+        }
         expandedCardInteractionButton?.removeFromSuperview()
         expandedCardInteractionButton = nil
         expandedCardSnapshotView?.alpha = 0

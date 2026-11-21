@@ -83,7 +83,7 @@ final class HomeExpandedCardTransitionTests: HomeScreenVisualStateTestCase {
         let scroll = try XCTUnwrap(card.descendant(
             withAccessibilityIdentifier: "expandedStatisticsCardScrollView"
         ) as? UIScrollView)
-        let loadingChartHeight = card.chartsView.bounds.height
+        let loadingChartFrame = card.chartsView.convert(card.chartsView.bounds, to: scroll)
         let loadingContentHeight = scroll.contentSize.height
 
         card.chartsView.configure(state: .loaded(timeline), period: .week, appearance: appearance)
@@ -93,12 +93,14 @@ final class HomeExpandedCardTransitionTests: HomeScreenVisualStateTestCase {
 
         let chartHeight = card.chartsView.bounds.height
         XCTAssertTrue(card.chartsView.clipsToBounds)
-        XCTAssertGreaterThan(chartHeight - loadingChartHeight, 300)
-        XCTAssertEqual(scroll.contentSize.height - loadingContentHeight, chartHeight - loadingChartHeight, accuracy: 1)
+        XCTAssertGreaterThan(chartHeight - loadingChartFrame.height, 300)
+        XCTAssertEqual(scroll.contentSize.height - loadingContentHeight, chartHeight - loadingChartFrame.height, accuracy: 1)
         let lastSummary = try XCTUnwrap(card.descendant(
             withAccessibilityIdentifier: "expandedStatisticsMetric-percentage"
         ))
         let chartFrame = card.chartsView.convert(card.chartsView.bounds, to: scroll)
+        XCTAssertEqual(chartFrame.origin, loadingChartFrame.origin)
+        XCTAssertEqual(chartFrame.width, loadingChartFrame.width)
         let lastSummaryFrame = lastSummary.convert(lastSummary.bounds, to: scroll)
         XCTAssertGreaterThan(chartFrame.minY, lastSummaryFrame.maxY)
 
