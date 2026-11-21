@@ -342,7 +342,7 @@ final class HomeCollectionServicePresentationTests: HomeScreenVisualStateTestCas
         let subscriptionButton = UIButton(type: .system)
         subscriptionButton.accessibilityIdentifier = "homeSubscriptionPromoBanner"
         let feelingLuckyButton = UIButton(type: .system)
-        feelingLuckyButton.accessibilityIdentifier = "homeFeelingLuckyButton"
+        feelingLuckyButton.tag = 15
         let statisticsButton = UIButton(type: .system)
         statisticsButton.accessibilityIdentifier = "homeStatisticsCard"
 
@@ -356,7 +356,7 @@ final class HomeCollectionServicePresentationTests: HomeScreenVisualStateTestCas
         XCTAssertEqual(delegate.selectedThemeIDs, ["music"])
         XCTAssertEqual(delegate.aiThemeTapCount, 1)
         XCTAssertEqual(delegate.subscriptionPromoTapCount, 1)
-        XCTAssertEqual(delegate.feelingLuckyTapCount, 1)
+        XCTAssertEqual(delegate.feelingLuckyQuestionCounts, [15])
         XCTAssertEqual(delegate.statisticsTapCount, 1)
     }
 
@@ -374,7 +374,7 @@ final class HomeCollectionServicePresentationTests: HomeScreenVisualStateTestCas
 
         XCTAssertTrue(viewportCell is ThemesViewportCollectionViewCell)
         XCTAssertNotNil(aiThemeCell.contentView.descendant(withAccessibilityIdentifier: "homeCreateWithAIButton"))
-        XCTAssertNotNil(feelingLuckyCell.contentView.descendant(withAccessibilityIdentifier: "homeFeelingLuckyButton"))
+        XCTAssertNotNil(feelingLuckyCell.contentView.descendant(withAccessibilityIdentifier: "homeFeelingLuckyCard"))
         XCTAssertNotNil(statisticsCell.contentView.descendant(withAccessibilityIdentifier: "homeStatisticsCard"))
     }
 }

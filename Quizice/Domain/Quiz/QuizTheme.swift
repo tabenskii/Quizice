@@ -79,15 +79,16 @@ class QuizTheme {
 
 enum RandomQuizSelection {
     static let themeID = "random-selection"
-    static let questionCount = 5
 
     static func makeTheme(
         from themes: [QuizTheme],
         excluding previousQuestions: [QuizQuestion] = [],
+        questionCount: Int,
         title: String,
         description: String,
         randomizing: ([QuizQuestion]) -> [QuizQuestion]
     ) -> QuizTheme? {
+        guard QuizQuestionCountPolicy.supportedCounts.contains(questionCount) else { return nil }
         let usableQuestions = themes
             .flatMap(\.questions)
             .filter { question in

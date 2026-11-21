@@ -75,7 +75,7 @@
 "home.create_with_ai.beta_badge" = "Beta";
 "home.exit_alert.message" = "¿Seguro que quieres salir?";
 "home.feeling_lucky" = "Voy a tener suerte";
-"home.feeling_lucky.accessibility_hint" = "Inicia cinco preguntas aleatorias de todos los temas";
+"home.feeling_lucky.question_count" = "Voy a tener suerte, %d preguntas";
 "home.feeling_lucky.loading" = "Eligiendo preguntas";
 "home.feeling_lucky.random_selection" = "Selección aleatoria";
 "home.more_themes" = "Más temas";

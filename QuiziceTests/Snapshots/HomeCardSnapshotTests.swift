@@ -262,7 +262,6 @@ final class HomeCardSnapshotTests: XCTestCase {
             feelingLuckyLoading: true
         )
         let progressView = cell.contentView.subviews
-            .compactMap { $0 as? UIButton }
             .flatMap(\.subviews)
             .flatMap(\.subviews)
             .first { $0.accessibilityIdentifier == "homeFeelingLuckyProgressView" }

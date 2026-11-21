@@ -4,32 +4,36 @@ import XCTest
 
 @MainActor
 final class HomeFeelingLuckyTests: HomeScreenVisualStateTestCase {
-    func testFeelingLuckyStartsFiveQuestionsWithoutDescription() async throws {
+    func testFeelingLuckyStartsEachSelectedCountWithoutDescription() async throws {
         QuizFactory.shared.themes = [makeTheme(name: "Музыка", questionCount: 15)]
-        QuizFactory.shared.questionsCount = 15
 
-        let viewController = QuizViewController(
-            randomQuestionsProvider: { $0 },
-            feelingLuckyMinimumFeedbackDelay: {}
-        )
-        let router = HomeRouterSpy()
-        viewController.router = router
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
-        window.rootViewController = viewController
-        window.makeKeyAndVisible()
-        window.layoutIfNeeded()
-        testWindows.append(window)
-        let luckyButton = try XCTUnwrap(
-            viewController.view.descendant(withAccessibilityIdentifier: "homeFeelingLuckyButton") as? UIButton
-        )
+        for questionCount in QuizQuestionCountPolicy.supportedCounts {
+            let session = QuizSessionStore(themes: { QuizFactory.shared.themes })
+            let viewController = QuizViewController(
+                session: session, randomQuestionsProvider: { $0 }, feelingLuckyMinimumFeedbackDelay: {}
+            )
+            let router = HomeRouterSpy()
+            viewController.router = router
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
+            window.rootViewController = viewController
+            window.makeKeyAndVisible()
+            window.layoutIfNeeded()
+            testWindows.append(window)
 
-        luckyButton.sendActions(for: .touchUpInside)
-        luckyButton.sendActions(for: .touchUpInside)
-        let launchTask = try XCTUnwrap(viewController.feelingLuckyTask)
-        await launchTask.value
+            let luckyButton = try XCTUnwrap(viewController.view.descendant(
+                withAccessibilityIdentifier: "homeFeelingLuckyButton-\(questionCount)"
+            ) as? UIButton)
+            XCTAssertGreaterThanOrEqual(luckyButton.bounds.height, 44)
+            XCTAssertEqual(luckyButton.accessibilityLabel, L10n.Home.feelingLuckyQuestionCount(questionCount))
 
-        XCTAssertEqual(QuizFactory.shared.questionsCount, 5)
-        XCTAssertEqual(router.showQuestionCallCount, 1)
+            luckyButton.sendActions(for: .touchUpInside)
+            luckyButton.sendActions(for: .touchUpInside)
+            await (try XCTUnwrap(viewController.feelingLuckyTask)).value
+
+            XCTAssertEqual(session.questionsCount, questionCount)
+            XCTAssertEqual(session.chosenTheme?.questionsAndAnswers.count, questionCount)
+            XCTAssertEqual(router.showQuestionCallCount, 1)
+        }
     }
 
     func testFeelingLuckyAnalyticsTracksRandomFiveQuestionStart() async throws {
@@ -51,7 +55,7 @@ final class HomeFeelingLuckyTests: HomeScreenVisualStateTestCase {
         analytics.reset()
 
         let luckyButton = try XCTUnwrap(
-            viewController.view.descendant(withAccessibilityIdentifier: "homeFeelingLuckyButton") as? UIButton
+            viewController.view.descendant(withAccessibilityIdentifier: "homeFeelingLuckyButton-5") as? UIButton
         )
         luckyButton.sendActions(for: .touchUpInside)
         let launchTask = try XCTUnwrap(viewController.feelingLuckyTask)
@@ -86,7 +90,7 @@ final class HomeFeelingLuckyTests: HomeScreenVisualStateTestCase {
         testWindows.append(window)
         let luckyButton = try XCTUnwrap(
             viewController.view.descendant(
-                withAccessibilityIdentifier: "homeFeelingLuckyButton"
+                withAccessibilityIdentifier: "homeFeelingLuckyButton-5"
             ) as? UIButton
         )
 
@@ -136,7 +140,7 @@ final class HomeFeelingLuckyTests: HomeScreenVisualStateTestCase {
         testWindows.append(window)
         let luckyButton = try XCTUnwrap(
             viewController.view.descendant(
-                withAccessibilityIdentifier: "homeFeelingLuckyButton"
+                withAccessibilityIdentifier: "homeFeelingLuckyButton-5"
             ) as? UIButton
         )
 
@@ -199,7 +203,7 @@ final class HomeFeelingLuckyTests: HomeScreenVisualStateTestCase {
         window.layoutIfNeeded()
         testWindows.append(window)
         let luckyButton = try XCTUnwrap(
-            viewController.view.descendant(withAccessibilityIdentifier: "homeFeelingLuckyButton") as? UIButton
+            viewController.view.descendant(withAccessibilityIdentifier: "homeFeelingLuckyButton-5") as? UIButton
         )
 
         luckyButton.sendActions(for: .touchUpInside)
@@ -244,13 +248,13 @@ final class HomeFeelingLuckyTests: HomeScreenVisualStateTestCase {
         drainAnimations(0.01)
 
         let luckyButton = try XCTUnwrap(
-            viewController.view.descendant(withAccessibilityIdentifier: "homeFeelingLuckyButton") as? UIButton
+            viewController.view.descendant(withAccessibilityIdentifier: "homeFeelingLuckyButton-5") as? UIButton
         )
         let collectionView = try XCTUnwrap(
             viewController.view.descendant(withAccessibilityIdentifier: "homeThemesCollectionView") as? UICollectionView
         )
         let progressView = try XCTUnwrap(
-            luckyButton.descendant(withAccessibilityIdentifier: "homeFeelingLuckyProgressView")
+            viewController.view.descendant(withAccessibilityIdentifier: "homeFeelingLuckyProgressView")
                 as? UIActivityIndicatorView
         )
 
@@ -261,10 +265,14 @@ final class HomeFeelingLuckyTests: HomeScreenVisualStateTestCase {
 
         XCTAssertFalse(luckyButton.isEnabled)
         XCTAssertTrue(progressView.isAnimating)
-        XCTAssertEqual(luckyButton.accessibilityLabel, L10n.Home.feelingLuckyLoading)
+        XCTAssertEqual(
+            viewController.view.descendant(withAccessibilityIdentifier: "homeFeelingLuckyCard")?.accessibilityLabel,
+            L10n.Home.feelingLuckyLoading
+        )
         XCTAssertFalse(collectionView.isUserInteractionEnabled)
         XCTAssertEqual(router.showQuestionCallCount, 0)
-        XCTAssertTrue(viewController.cardSlideTransitionSourceView === luckyButton)
+        let luckyCard = viewController.view.descendant(withAccessibilityIdentifier: "homeFeelingLuckyCard")
+        XCTAssertTrue(viewController.cardSlideTransitionSourceView === luckyCard)
 
         QuizFactory.shared.questionsCount = 10
         delay.release()
@@ -294,10 +302,10 @@ final class HomeFeelingLuckyTests: HomeScreenVisualStateTestCase {
         drainAnimations(0.01)
 
         let luckyButton = try XCTUnwrap(
-            viewController.view.descendant(withAccessibilityIdentifier: "homeFeelingLuckyButton") as? UIButton
+            viewController.view.descendant(withAccessibilityIdentifier: "homeFeelingLuckyButton-5") as? UIButton
         )
         let progressView = try XCTUnwrap(
-            luckyButton.descendant(withAccessibilityIdentifier: "homeFeelingLuckyProgressView")
+            viewController.view.descendant(withAccessibilityIdentifier: "homeFeelingLuckyProgressView")
                 as? UIActivityIndicatorView
         )
         let collectionView = try XCTUnwrap(
@@ -317,7 +325,7 @@ final class HomeFeelingLuckyTests: HomeScreenVisualStateTestCase {
 
         XCTAssertTrue(luckyButton.isEnabled)
         XCTAssertFalse(progressView.isAnimating)
-        XCTAssertEqual(luckyButton.accessibilityLabel, L10n.Home.feelingLucky)
+        XCTAssertEqual(luckyButton.accessibilityLabel, L10n.Home.feelingLuckyQuestionCount(luckyButton.tag))
         XCTAssertTrue(collectionView.isUserInteractionEnabled)
         XCTAssertTrue(settingsButton.isEnabled)
         XCTAssertEqual(router.showQuestionCallCount, 0)
@@ -422,7 +430,7 @@ final class HomeFeelingLuckyTests: HomeScreenVisualStateTestCase {
         window.layoutIfNeeded()
         testWindows.append(window)
         let luckyButton = try XCTUnwrap(
-            viewController.view.descendant(withAccessibilityIdentifier: "homeFeelingLuckyButton") as? UIButton
+            viewController.view.descendant(withAccessibilityIdentifier: "homeFeelingLuckyButton-5") as? UIButton
         )
         let motivationLabel = try XCTUnwrap(
             viewController.view.descendant(withAccessibilityIdentifier: "homeMotivationLabel") as? UILabel
@@ -449,11 +457,11 @@ final class HomeFeelingLuckyTests: HomeScreenVisualStateTestCase {
     }
 
     private func assertFeelingLuckyFailureRecovery(error: Error, expectedMessage: String) async throws {
-        let (controller, repository, router, luckyButton) = try makeBackendFailureHarness()
+        let (controller, repository, router, luckyButton) = try makeBackendFailureHarness(questionCount: 15)
         repository.preparationError = error
         let originalMotivation = controller.motivationLabel.text
         let progressView = try XCTUnwrap(
-            luckyButton.descendant(withAccessibilityIdentifier: "homeFeelingLuckyProgressView")
+            controller.view.descendant(withAccessibilityIdentifier: "homeFeelingLuckyProgressView")
                 as? UIActivityIndicatorView
         )
 
@@ -473,7 +481,7 @@ final class HomeFeelingLuckyTests: HomeScreenVisualStateTestCase {
         XCTAssertEqual(controller.motivationLabel.text, originalMotivation)
         XCTAssertTrue(luckyButton.isEnabled)
         XCTAssertFalse(progressView.isAnimating)
-        XCTAssertEqual(luckyButton.accessibilityLabel, L10n.Home.feelingLucky)
+        XCTAssertEqual(luckyButton.accessibilityLabel, L10n.Home.feelingLuckyQuestionCount(luckyButton.tag))
         XCTAssertTrue(controller.themesCollectionView.isUserInteractionEnabled)
         XCTAssertTrue(controller.settingsButton.isEnabled)
         XCTAssertTrue(controller.helpButton.isEnabled)
@@ -504,12 +512,12 @@ final class HomeFeelingLuckyTests: HomeScreenVisualStateTestCase {
         retryAlert.primaryAction.action()
         try await waitUntil { router.showQuestionCallCount == 1 }
 
-        XCTAssertEqual(repository.requestedSelectionModes.count, 3)
-        XCTAssertEqual(controller.session.chosenTheme?.questionsAndAnswers.count, 5)
+        XCTAssertEqual(repository.requestedQuestionCounts, [15, 15, 15])
+        XCTAssertEqual(controller.session.chosenTheme?.questionsAndAnswers.count, 15)
         XCTAssertEqual(controller.motivationLabel.text, originalMotivation)
     }
 
-    private func makeBackendFailureHarness(reduceMotion: Bool = true) throws ->
+    private func makeBackendFailureHarness(reduceMotion: Bool = true, questionCount: Int = 5) throws ->
         (QuizViewController, FeelingLuckyThemeRepositorySpy, HomeRouterSpy, UIButton) {
         let remoteTheme = QuizTheme(
             id: "music", theme: "Музыка", themeDescription: "Описание",
@@ -519,7 +527,7 @@ final class HomeFeelingLuckyTests: HomeScreenVisualStateTestCase {
             id: RandomQuizSelection.themeID,
             theme: L10n.Home.randomSelection,
             themeDescription: L10n.Home.feelingLucky,
-            questions: makeTheme(name: "Музыка", questionCount: 5).questions,
+            questions: makeTheme(name: "Музыка", questionCount: questionCount).questions,
             questionOrigin: .backend
         )
         let repository = FeelingLuckyThemeRepositorySpy(
@@ -540,7 +548,7 @@ final class HomeFeelingLuckyTests: HomeScreenVisualStateTestCase {
         window.layoutIfNeeded()
         testWindows.append(window)
         let luckyButton = try XCTUnwrap(
-            controller.view.descendant(withAccessibilityIdentifier: "homeFeelingLuckyButton") as? UIButton
+            controller.view.descendant(withAccessibilityIdentifier: "homeFeelingLuckyButton-\(questionCount)") as? UIButton
         )
         return (controller, repository, router, luckyButton)
     }
@@ -551,6 +559,7 @@ private final class FeelingLuckyThemeRepositorySpy: ThemeRepository {
     var themes: [QuizTheme]?
     let catalogOrigin: QuizCatalogOrigin
     private(set) var requestedSelectionModes: [CrossThemeQuestionSelectionMode] = []
+    private(set) var requestedQuestionCounts: [Int] = []
     private(set) var receivedFallbackQuestionCounts: [Int] = []
     var preparationError: Error?
     private let preparedRandomQuiz: QuizTheme?
@@ -578,6 +587,7 @@ private final class FeelingLuckyThemeRepositorySpy: ThemeRepository {
         locale: String
     ) async throws -> QuizTheme {
         requestedSelectionModes.append(selectionMode)
+        requestedQuestionCounts.append(questionCount)
         receivedFallbackQuestionCounts.append(localFallback.questions.count)
         if let preparationError { throw preparationError }
         return preparedRandomQuiz ?? localFallback

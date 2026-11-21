@@ -13,7 +13,8 @@ final class ThemesCollectionService: NSObject, UICollectionViewDelegate, UIColle
         static let aiThemeBadgeAccessibilityID = "homeCreateWithAIBadge"
         static let aiThemeSubtitleAccessibilityID = "homeCreateWithAISubtitle"
         static let aiThemeGradientBorderAccessibilityID = "homeCreateWithAIGradientBorder"
-        static let feelingLuckyAccessibilityID = "homeFeelingLuckyButton"
+        static let feelingLuckyAccessibilityID = "homeFeelingLuckyCard"
+        static let feelingLuckyButtonAccessibilityID = "homeFeelingLuckyButton"
         static let feelingLuckyProgressAccessibilityID = "homeFeelingLuckyProgressView"
         static let statisticsAccessibilityID = "homeStatisticsCard"
         static let statisticsTitleAccessibilityID = "homeStatisticsTitleLabel"
@@ -33,6 +34,8 @@ final class ThemesCollectionService: NSObject, UICollectionViewDelegate, UIColle
         static let accessibilityProminentActionCardHeight: CGFloat = 272
         static let aiThemeButtonHeight = prominentActionCardHeight
         static let secondaryActionButtonHeight: CGFloat = 54
+        static let feelingLuckyCardHeight: CGFloat = 82
+        static let accessibilityFeelingLuckyCardHeight: CGFloat = 112
         static let subscriptionPromoHeight = prominentActionCardHeight
         static let accessibilitySubscriptionPromoHeight = accessibilityProminentActionCardHeight
         static let statisticsCardHeight: CGFloat = 112
@@ -100,7 +103,7 @@ final class ThemesCollectionService: NSObject, UICollectionViewDelegate, UIColle
     var isFeelingLuckyLoading = false {
         didSet {
             guard oldValue != isFeelingLuckyLoading else { return }
-            refreshVisibleFeelingLuckyButton()
+            refreshVisibleFeelingLuckyCard()
         }
     }
 

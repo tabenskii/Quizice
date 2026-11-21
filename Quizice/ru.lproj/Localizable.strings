@@ -75,7 +75,7 @@
 "home.create_with_ai.beta_badge" = "Бета";
 "home.exit_alert.message" = "Вы уверены что хотите выйти?";
 "home.feeling_lucky" = "Мне повезет";
-"home.feeling_lucky.accessibility_hint" = "Запускает пять случайных вопросов из всех тем";
+"home.feeling_lucky.question_count" = "Мне повезёт, %d вопросов";
 "home.feeling_lucky.loading" = "Подбираем вопросы";
 "home.feeling_lucky.random_selection" = "Случайный выбор";
 "home.more_themes" = "Больше тем";

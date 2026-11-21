@@ -474,8 +474,8 @@ final class QuizFlowCoordinator: NSObject, QuizRouting, UIViewControllerTransiti
     }
 
     private func replayRandomSelectionQuiz() {
-        guard let previousTheme = session.chosenTheme,
-              previousTheme.themeID == RandomQuizSelection.themeID else { return }
+        guard let previousTheme = session.chosenTheme, previousTheme.themeID == RandomQuizSelection.themeID else { return }
+        let questionCount = session.questionsCount
         let localFallback: QuizTheme
         if themeRepository.catalogOrigin == .backend {
             // Backend catalogs contain metadata only. Replay must still request a
@@ -487,6 +487,7 @@ final class QuizFlowCoordinator: NSObject, QuizRouting, UIViewControllerTransiti
         } else if let selection = RandomQuizSelection.makeTheme(
             from: themeRepository.themes ?? themeRepository.fetchQuizThemes(),
             excluding: previousTheme.quizTheme.questions,
+            questionCount: questionCount,
             title: L10n.Home.randomSelection,
             description: L10n.Home.feelingLucky,
             randomizing: randomQuestionsProvider
@@ -496,7 +497,6 @@ final class QuizFlowCoordinator: NSObject, QuizRouting, UIViewControllerTransiti
             presentCatalogReplayFailure(QuizPreparationError.unavailable)
             return
         }
-
         let selectionMode = randomQuestionSelectionModeProvider()
         let difficulty = previousTheme.difficulty ?? .medium
         let locale = AppLocalizationStore.shared.resolvedLanguageCode
@@ -509,7 +509,7 @@ final class QuizFlowCoordinator: NSObject, QuizRouting, UIViewControllerTransiti
                 let preparedTheme = try await self.themeRepository.prepareRandomQuiz(
                     selectionMode: selectionMode,
                     localFallback: localFallback,
-                    questionCount: RandomQuizSelection.questionCount,
+                    questionCount: questionCount,
                     difficulty: difficulty,
                     locale: locale
                 )
@@ -525,7 +525,7 @@ final class QuizFlowCoordinator: NSObject, QuizRouting, UIViewControllerTransiti
                 ) > 0 else { throw QuizPreparationError.unavailable }
                 self.stopCatalogReplayLoading()
                 self.session.chosenTheme = ThemeModel(quizTheme: preparedTheme)
-                self.session.questionsCount = RandomQuizSelection.questionCount
+                self.session.questionsCount = questionCount
                 self.presentFreshQuestionController()
             } catch is CancellationError {
                 self.stopCatalogReplayLoading()

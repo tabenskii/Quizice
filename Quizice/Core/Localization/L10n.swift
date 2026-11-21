@@ -85,7 +85,10 @@ enum L10n {
         static var createWithAIBetaBadge: String { L10n.localized("home.create_with_ai.beta_badge", comment: "Create quiz theme with AI beta badge") }
         static var exitAlertMessage: String { L10n.localized("home.exit_alert.message", comment: "Exit confirmation message") }
         static var feelingLucky: String { L10n.localized("home.feeling_lucky", comment: "Feeling lucky random theme button title") }
-        static var feelingLuckyAccessibilityHint: String { L10n.localized("home.feeling_lucky.accessibility_hint", comment: "Feeling lucky button accessibility hint") }
+        static func feelingLuckyQuestionCount(_ count: Int) -> String {
+            L10n.formatted("home.feeling_lucky.question_count", comment: "Starts a random quiz with the specified number of questions", count)
+        }
+
         static var feelingLuckyLoading: String { L10n.localized("home.feeling_lucky.loading", comment: "Feeling lucky loading state title") }
         static var moreThemes: String { L10n.localized("home.more_themes", comment: "More themes button title") }
         static var moreThemesAccessibilityHint: String { L10n.localized("home.more_themes.accessibility_hint", comment: "More themes button accessibility hint") }

@@ -105,9 +105,9 @@ extension QuizViewController {
         animationsEngine.animateUpFloat(sender)
     }
 
-    func feelingLuckyButtonTouchedUpInside(_ sender: UIButton) {
+    func feelingLuckyButtonTouchedUpInside(_ sender: UIButton, questionCount: Int, sourceView: UIView) {
         animationsEngine.animateUpFloat(sender)
-        startRandomTheme(sourceView: sender)
+        startRandomTheme(questionCount: questionCount, sourceView: sourceView)
     }
 
     func quizFlowWillReturnToThemes() {
@@ -174,7 +174,7 @@ extension QuizViewController {
         return prompt.replacingOccurrences(of: "\\n", with: "\n")
     }
 
-    func startRandomTheme(sourceView: UIView) {
+    private func startRandomTheme(questionCount: Int, sourceView: UIView) {
         guard
             homeCardState.phase == .grid,
             !isQuizLaunchPending,
@@ -198,18 +198,19 @@ extension QuizViewController {
         } else {
             guard let localTheme = RandomQuizSelection.makeTheme(
                 from: themes,
+                questionCount: questionCount,
                 title: L10n.Home.randomSelection,
                 description: L10n.Home.feelingLucky,
                 randomizing: randomQuestionsProvider
             ) else {
-                presentRandomQuizPreparationFailure(error: QuizPreparationError.unavailable, sourceView: sourceView)
+                presentRandomQuizPreparationFailure(error: QuizPreparationError.unavailable, questionCount: questionCount, sourceView: sourceView)
                 return
             }
             randomSelectionTheme = localTheme
         }
 
         session.chosenTheme = ThemeModel(quizTheme: randomSelectionTheme)
-        session.questionsCount = RandomQuizSelection.questionCount
+        session.questionsCount = questionCount
         let selectionMode = randomQuestionSelectionModeProvider()
         let locale = AppLocalizationStore.shared.resolvedLanguageCode
         AppLog.content.notice(
@@ -236,7 +237,7 @@ extension QuizViewController {
                 let preparedTheme = try await self.themeRepository.prepareRandomQuiz(
                     selectionMode: selectionMode,
                     localFallback: randomSelectionTheme,
-                    questionCount: RandomQuizSelection.questionCount,
+                    questionCount: questionCount,
                     difficulty: .medium,
                     locale: locale
                 )
@@ -256,7 +257,7 @@ extension QuizViewController {
                 ) > 0 else { throw QuizPreparationError.unavailable }
                 self.feelingLuckyTask = nil
                 self.session.chosenTheme = ThemeModel(quizTheme: preparedTheme)
-                self.session.questionsCount = RandomQuizSelection.questionCount
+                self.session.questionsCount = questionCount
                 self.hasQuizLaunchStarted = true
                 router.showQuestion()
             } catch is CancellationError {
@@ -269,20 +270,16 @@ extension QuizViewController {
                     return
                 }
                 self.analytics.reportOperationalError(error, context: .contentLoad)
-                self.finishFailedFeelingLuckyLaunch(error: error, sourceView: sourceView)
+                self.cancelFeelingLuckyLaunch()
+                self.presentRandomQuizPreparationFailure(error: error, questionCount: questionCount, sourceView: sourceView)
             }
         }
     }
 
-    private func finishFailedFeelingLuckyLaunch(error: Error, sourceView: UIView) {
-        cancelFeelingLuckyLaunch()
-        presentRandomQuizPreparationFailure(error: error, sourceView: sourceView)
-    }
-
-    private func presentRandomQuizPreparationFailure(error: Error, sourceView: UIView) {
+    private func presentRandomQuizPreparationFailure(error: Error, questionCount: Int, sourceView: UIView) {
         presentQuizPreparationFailure(message: QuizPreparationError.message(for: error)) { [weak self, weak sourceView] in
             guard let self else { return }
-            self.startRandomTheme(sourceView: sourceView ?? self.themesCollectionView)
+            self.startRandomTheme(questionCount: questionCount, sourceView: sourceView ?? self.themesCollectionView)
         }
     }
 

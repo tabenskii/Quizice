@@ -60,11 +60,12 @@ final class QuizFlowCoordinatorCatalogReplayTests: QuizFlowCoordinatorTestCase {
         let session = RoutingSession()
         session.chosenTheme = ThemeModel(quizTheme: SnapshotSupport.makeTheme(
             id: RandomQuizSelection.themeID, name: "Random"))
-        session.questionsCount = 5
+        session.questionsCount = 10
         let harness = makeCoordinator(themeRepository: repository, session: session)
         harness.coordinator.replayQuiz()
         try await waitUntil { repository.prepareRandomQuizCallCount == 1 }
         XCTAssertEqual(repository.prepareQuizCallCount, 0)
+        XCTAssertEqual(repository.requestedRandomQuestionCounts, [10])
     }
 
     private func makeCoordinator(
@@ -92,7 +93,8 @@ final class CountingReplayThemeRepository: ThemeRepository {
     var themes: [QuizTheme]?
     var catalogOrigin: QuizCatalogOrigin = .bundled
     private(set) var prepareQuizCallCount = 0
-    private(set) var prepareRandomQuizCallCount = 0
+    private(set) var requestedRandomQuestionCounts: [Int] = []
+    var prepareRandomQuizCallCount: Int { requestedRandomQuestionCounts.count }
 
     init(themes: [QuizTheme]) {
         self.themes = themes
@@ -125,7 +127,7 @@ final class CountingReplayThemeRepository: ThemeRepository {
         difficulty: AIQuizDifficulty,
         locale: String
     ) async throws -> QuizTheme {
-        prepareRandomQuizCallCount += 1
+        requestedRandomQuestionCounts.append(questionCount)
         try await Task.sleep(nanoseconds: 300_000_000)
         return localFallback
     }
