@@ -42,6 +42,7 @@ final class ThemeCatalogRepository: ThemeRepository {
     private let countryProvider: () -> String?
     private let repeatStrategyProvider: () -> QuestionRepeatStrategy
     private let slowQuestionCacheDelay: Duration
+    private let questionLoadTimeout: Duration
 
     private var loadedThemes: [QuizTheme]?
     private var catalogOrder: [String] = []
@@ -79,7 +80,8 @@ final class ThemeCatalogRepository: ThemeRepository {
         answerOutbox: QuestionAnswerOutboxing = PersistentQuestionAnswerOutbox.shared,
         repeatStrategyProvider: @escaping () -> QuestionRepeatStrategy = { QuestionRepeatStrategyStore.shared.strategy },
         countryProvider: @escaping () -> String? = { QuestionCountryStore.shared.country },
-        slowQuestionCacheDelay: Duration = .seconds(2)
+        slowQuestionCacheDelay: Duration = .seconds(2),
+        questionLoadTimeout: Duration = .seconds(8)
     ) {
         self.offlineCache = offlineCache
         self.offlineDownloader = OfflineQuestionDownloader(api: automaticallyDownloadsOfflineQuestions ? backendContentAPI : nil, cache: offlineCache,
@@ -93,6 +95,7 @@ final class ThemeCatalogRepository: ThemeRepository {
         self.repeatStrategyProvider = repeatStrategyProvider
         self.countryProvider = countryProvider
         self.slowQuestionCacheDelay = slowQuestionCacheDelay
+        self.questionLoadTimeout = questionLoadTimeout
         localizationObserver = NotificationCenter.default.addObserver(
             forName: .appLocalizationDidChange,
             object: nil,
@@ -444,22 +447,10 @@ final class ThemeCatalogRepository: ThemeRepository {
         }
         do {
             if answerOutbox.isNetworkUnavailable { throw BackendContentError.transport(.notConnectedToInternet) }
-            if strategy.progressMode != nil {
-                guard let userID else { throw BackendContentError.unauthenticated }
-                try await answerOutbox.synchronizeBeforeFetchingQuestions(for: userID)
-                guard accessTokenProvider.currentSession()?.userID == userID else {
-                    throw QuestionAnswerSyncError.accountChanged
-                }
-            }
-            let result: OfflineQuestionDownloader.QuestionLoadResult
-            if let userID {
-                result = try await OfflineQuestionDownloader.fetchUsingCacheAfterDelay(
-                    slowQuestionCacheDelay, questionCount: questionCount, fetch: fetchQuestions,
-                    fallback: { try await cachedQuiz(for: userID) }
-                )
-            } else {
-                result = .backend(try await fetchQuestions())
-            }
+            let result = try await offlineDownloader.fetchUsingCacheAfterDelay(
+                slowQuestionCacheDelay, timeout: questionLoadTimeout, questionCount: questionCount,
+                userID: userID, strategy: strategy, fetch: fetchQuestions, fallback: cachedQuiz
+            )
             try Task.checkCancellation()
             guard AppLocalizationStore.shared.resolvedLanguageCode == locale,
                   countryProvider() == selectedCountry else {
@@ -475,8 +466,6 @@ final class ThemeCatalogRepository: ThemeRepository {
                 response = batch
             case .cache(let quiz):
                 return quiz
-            case .cacheMiss:
-                throw QuizPreparationError.offlineQuestionsUnavailable
             }
             if response.isExhausted {
                 guard let userID, let progressMode = strategy.progressMode,
