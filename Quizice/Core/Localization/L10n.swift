@@ -475,7 +475,6 @@ enum L10n {
         static var periodMonth: String { L10n.localized("statistics.period.month", comment: "Last thirty calendar days") }
         static var periodAllTime: String { L10n.localized("statistics.period.all_time", comment: "All recorded history") }
         static var accessibilityLabel: String { L10n.localized("statistics.accessibility_label", comment: "Expanded statistics card accessibility label") }
-        static var bestResult: String { L10n.localized("statistics.best_result", comment: "Best result row title") }
         static var correctAnswers: String { L10n.localized("statistics.correct_answers", comment: "Correct answers row title") }
         static var emptyStateText: String { L10n.localized("statistics.empty_state.text", comment: "Statistics empty state text") }
         static var percentage: String { L10n.localized("statistics.percentage", comment: "Correct answers percentage row title") }

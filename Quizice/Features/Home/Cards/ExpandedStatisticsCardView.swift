@@ -176,12 +176,7 @@ final class ExpandedStatisticsCardView: UIView {
         contentStackView.translatesAutoresizingMaskIntoConstraints = false
         contentStackView.addArrangedSubview(emptyStateLabel)
 
-        for id in [
-            StatisticsPresentation.MetricID.playedQuizzes,
-            .correctAnswers,
-            .percentage,
-            .bestResult
-        ] {
+        for id in StatisticsPresentation.MetricID.allCases {
             let row = StatisticsMetricRowView()
             metricRows[id] = row
             contentStackView.addArrangedSubview(row)

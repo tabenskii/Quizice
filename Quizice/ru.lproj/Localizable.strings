@@ -27,7 +27,7 @@
 "onboarding.tutorial.ai.title" = "Создавайте свои квизы с ИИ";
 "onboarding.tutorial.ai.detail" = "Опишите любую тему — ИИ подготовит вопросы специально для вас.";
 "onboarding.tutorial.statistics.title" = "Следите за прогрессом";
-"onboarding.tutorial.statistics.detail" = "Смотрите количество пройденных квизов, точность ответов и лучший результат.";
+"onboarding.tutorial.statistics.detail" = "Смотрите количество пройденных квизов и точность ответов.";
 "home.background_style.switcher" = "Вариант фона";
 "home.background_style.original" = "Оригинальный";
 "home.background_style.grid_4x4" = "Сетка 4×4";
@@ -192,9 +192,8 @@
 "settings.ai.direct" = "ИИ напрямую";
 "settings.ai.direct.subtitle" = "Debug API-ключ с устройства вместо backend · нужен перезапуск";
 "statistics.accessibility_label" = "Общая статистика";
-"statistics.best_result" = "Лучший результат";
 "statistics.correct_answers" = "Правильных ответов";
-"statistics.empty_state.text" = "Пройдите первую викторину, чтобы увидеть общую статистику. Здесь появятся сыгранные квизы, точность и лучший результат.";
+"statistics.empty_state.text" = "Пройдите первую викторину, чтобы увидеть общую статистику. Здесь появятся сыгранные квизы и точность ответов.";
 "statistics.percentage" = "Процент правильных";
 "statistics.played_quizzes" = "Пройдено викторин";
 "statistics.subtitle.empty" = "Начните с первой викторины — статистика появится автоматически";

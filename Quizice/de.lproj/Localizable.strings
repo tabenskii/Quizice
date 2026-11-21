@@ -27,7 +27,7 @@
 "onboarding.tutorial.ai.title" = "Eigene Quizze mit KI erstellen";
 "onboarding.tutorial.ai.detail" = "Beschreibe ein beliebiges Thema und die KI erstellt passende Fragen für dich.";
 "onboarding.tutorial.statistics.title" = "Fortschritt verfolgen";
-"onboarding.tutorial.statistics.detail" = "Sieh, wie viele Quizze du gespielt hast, wie genau du antwortest und was dein bestes Ergebnis ist.";
+"onboarding.tutorial.statistics.detail" = "Sieh, wie viele Quizze du gespielt hast und wie genau du geantwortet hast.";
 "home.background_style.switcher" = "Hintergrundstil";
 "home.background_style.original" = "Original";
 "home.background_style.grid_4x4" = "4×4-Netz";
@@ -192,9 +192,8 @@
 "settings.ai.direct" = "Direkte KI";
 "settings.ai.direct.subtitle" = "Debug-API-Schlüssel vom Gerät statt Backend verwenden · Neustart erforderlich";
 "statistics.accessibility_label" = "Gesamtstatistik";
-"statistics.best_result" = "Bestes Ergebnis";
 "statistics.correct_answers" = "Richtige Antworten";
-"statistics.empty_state.text" = "Beende dein erstes Quiz, um die Gesamtstatistik zu sehen. Hier erscheinen gespielte Quizze, Genauigkeit und bestes Ergebnis.";
+"statistics.empty_state.text" = "Beende dein erstes Quiz, um die Gesamtstatistik zu sehen. Hier siehst du, wie viele Quizze du gespielt hast und wie genau du geantwortet hast.";
 "statistics.percentage" = "Prozent richtig";
 "statistics.played_quizzes" = "Gespielte Quizze";
 "statistics.subtitle.empty" = "Starte mit deinem ersten Quiz — die Statistik erscheint automatisch";

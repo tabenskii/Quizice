@@ -96,7 +96,7 @@ final class HomeExpandedCardTransitionTests: HomeScreenVisualStateTestCase {
         XCTAssertGreaterThan(chartHeight - loadingChartHeight, 300)
         XCTAssertEqual(scroll.contentSize.height - loadingContentHeight, chartHeight - loadingChartHeight, accuracy: 1)
         let lastSummary = try XCTUnwrap(card.descendant(
-            withAccessibilityIdentifier: "expandedStatisticsMetric-bestResult"
+            withAccessibilityIdentifier: "expandedStatisticsMetric-percentage"
         ))
         let chartFrame = card.chartsView.convert(card.chartsView.bounds, to: scroll)
         let lastSummaryFrame = lastSummary.convert(lastSummary.bounds, to: scroll)
@@ -235,8 +235,7 @@ final class HomeExpandedCardTransitionTests: HomeScreenVisualStateTestCase {
         let expectedMetrics: [(id: String, title: String, value: String)] = [
             ("playedQuizzes", L10n.Statistics.playedQuizzes, "2"),
             ("correctAnswers", L10n.Statistics.correctAnswers, "8/10"),
-            ("percentage", L10n.Statistics.percentage, "80%"),
-            ("bestResult", L10n.Statistics.bestResult, "5/5")
+            ("percentage", L10n.Statistics.percentage, "80%")
         ]
         let metricRows = try expectedMetrics.map { expected in
             let row = try XCTUnwrap(
@@ -248,7 +247,10 @@ final class HomeExpandedCardTransitionTests: HomeScreenVisualStateTestCase {
             XCTAssertEqual(row.accessibilityValue, expected.value)
             return row
         }
-        XCTAssertEqual(Set(metricRows.map { ObjectIdentifier($0) }).count, 4)
+        XCTAssertEqual(Set(metricRows.map { ObjectIdentifier($0) }).count, 3)
+        XCTAssertNil(viewController.view.descendant(
+            withAccessibilityIdentifier: "expandedStatisticsMetric-bestResult"
+        ))
         XCTAssertTrue(
             try XCTUnwrap(
                 viewController.view.descendant(

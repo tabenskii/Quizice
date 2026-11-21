@@ -27,7 +27,7 @@
 "onboarding.tutorial.ai.title" = "Créez vos propres quiz avec l’IA";
 "onboarding.tutorial.ai.detail" = "Décrivez le thème de votre choix et l’IA préparera des questions rien que pour vous.";
 "onboarding.tutorial.statistics.title" = "Suivez vos progrès";
-"onboarding.tutorial.statistics.detail" = "Consultez le nombre de quiz joués, votre précision et votre meilleur résultat.";
+"onboarding.tutorial.statistics.detail" = "Consultez le nombre de quiz joués et votre précision.";
 "home.background_style.switcher" = "Style d’arrière-plan";
 "home.background_style.original" = "Original";
 "home.background_style.grid_4x4" = "Maillage 4×4";
@@ -192,9 +192,8 @@
 "settings.ai.direct" = "IA directe";
 "settings.ai.direct.subtitle" = "Utiliser la clé API Debug de l’appareil au lieu du backend · redémarrage requis";
 "statistics.accessibility_label" = "Statistiques globales";
-"statistics.best_result" = "Meilleur résultat";
 "statistics.correct_answers" = "Bonnes réponses";
-"statistics.empty_state.text" = "Terminez votre premier quiz pour voir les statistiques globales. Les quiz joués, la précision et le meilleur résultat apparaîtront ici.";
+"statistics.empty_state.text" = "Terminez votre premier quiz pour voir les statistiques globales. Le nombre de quiz joués et votre précision apparaîtront ici.";
 "statistics.percentage" = "Pourcentage correct";
 "statistics.played_quizzes" = "Quiz joués";
 "statistics.subtitle.empty" = "Commencez par votre premier quiz — les statistiques apparaîtront automatiquement";

@@ -27,7 +27,7 @@
 "onboarding.tutorial.ai.title" = "Create your own quizzes with AI";
 "onboarding.tutorial.ai.detail" = "Describe any topic and AI will prepare questions just for you.";
 "onboarding.tutorial.statistics.title" = "Track your progress";
-"onboarding.tutorial.statistics.detail" = "See how many quizzes you’ve played, your accuracy, and your best result.";
+"onboarding.tutorial.statistics.detail" = "See how many quizzes you’ve played and how accurately you’ve answered.";
 "home.background_style.switcher" = "Background style";
 "home.background_style.original" = "Original";
 "home.background_style.grid_4x4" = "4×4 Mesh";
@@ -192,9 +192,8 @@
 "settings.ai.direct" = "Direct AI";
 "settings.ai.direct.subtitle" = "Use the on-device Debug API key instead of backend · restart required";
 "statistics.accessibility_label" = "Overall statistics";
-"statistics.best_result" = "Best result";
 "statistics.correct_answers" = "Correct answers";
-"statistics.empty_state.text" = "Finish your first quiz to see overall statistics. Played quizzes, accuracy, and best result will appear here.";
+"statistics.empty_state.text" = "Finish your first quiz to see overall statistics. The number of quizzes played and your accuracy will appear here.";
 "statistics.percentage" = "Correct percentage";
 "statistics.played_quizzes" = "Quizzes played";
 "statistics.subtitle.empty" = "Start with your first quiz — statistics will appear automatically";
