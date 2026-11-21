@@ -10,6 +10,7 @@ final class QuizFlowCoordinator: NSObject, QuizRouting, UIViewControllerTransiti
     private let aiQuizAccessProvider: AIQuizAccessProviding
     private let aiServiceStatusAPI: AIServiceStatusAPI?
     private let accountManager: AccountManaging?
+    private let statisticsHistoryStore: StatisticsHistoryStore?
     private let answerOutbox: QuestionAnswerOutboxing
     @MainActor private var dataSynchronizer: AccountDataSynchronizer?
     private let onboardingProgressStore: OnboardingProgressStoring
@@ -43,6 +44,7 @@ final class QuizFlowCoordinator: NSObject, QuizRouting, UIViewControllerTransiti
         aiQuizAccessProvider: AIQuizAccessProviding? = nil,
         aiServiceStatusAPI: AIServiceStatusAPI? = nil,
         accountManager: AccountManaging? = nil,
+        statisticsHistoryStore: StatisticsHistoryStore? = nil,
         answerOutbox: QuestionAnswerOutboxing = PersistentQuestionAnswerOutbox.shared,
         onboardingProgressStore: OnboardingProgressStoring = OnboardingProgressStore.shared,
         analytics: AnalyticsTracking = AppMetricaAnalyticsTracker.shared,
@@ -65,6 +67,7 @@ final class QuizFlowCoordinator: NSObject, QuizRouting, UIViewControllerTransiti
         self.aiQuizAccessProvider = resolvedAIQuizAccessProvider
         self.aiServiceStatusAPI = aiServiceStatusAPI
         self.accountManager = accountManager
+        self.statisticsHistoryStore = statisticsHistoryStore
         self.answerOutbox = answerOutbox
         self.onboardingProgressStore = onboardingProgressStore
         self.analytics = analytics
@@ -108,6 +111,7 @@ final class QuizFlowCoordinator: NSObject, QuizRouting, UIViewControllerTransiti
         let viewController = QuizViewController(
             themeRepository: themeRepository,
             session: session,
+            statisticsHistoryStore: statisticsHistoryStore,
             aiQuizThemeService: aiQuizThemeService,
             aiQuizAccessProvider: aiQuizAccessProvider,
             aiServiceStatusAPI: aiServiceStatusAPI,

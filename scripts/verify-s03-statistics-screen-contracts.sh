@@ -212,7 +212,7 @@ reject_fixed_string "$QUIZ_FLOW_COORDINATOR" 'func closeStatistics()' 'Coordinat
 reject_fixed_string "$QUIZ_FLOW_COORDINATOR" 'StatisticsRouting' 'Coordinator must not retain the retired statistics routing protocol'
 reject_fixed_string "$QUIZ_FLOW_COORDINATOR" 'StatisticsViewController' 'Coordinator must not instantiate the retired statistics controller'
 require_fixed_string "$EXPANDED_STATISTICS_CARD" 'accessibilityViewIsModal = true' 'Expanded statistics card must be accessibility-modal'
-require_fixed_string "$EXPANDED_STATISTICS_CARD" 'StatisticsPresentation.MetricID.playedQuizzes' 'Expanded statistics card must render all shared aggregate metrics'
+require_fixed_string "$EXPANDED_STATISTICS_CARD" 'for id in StatisticsPresentation.MetricID.allCases' 'Expanded statistics card must render all shared aggregate metrics'
 require_fixed_string "$EXPANDED_STATISTICS_CARD" 'override func accessibilityPerformEscape() -> Bool' 'Expanded statistics card must support accessibility escape'
 
 printf 'Checking inline statistics rendering and accessibility contract...\n'

@@ -177,6 +177,7 @@ final class QuizViewController: BaseQuizViewController, ThemeCollectionDelegate,
     let themeRepository: ThemeRepository
     let session: QuizSessionManaging
     let statisticsStore: StatisticsStore
+    let statisticsHistoryStore: StatisticsHistoryStore
     let aiQuizThemeService: AIQuizThemeServiceProtocol
     let aiQuizAccessProvider: AIQuizAccessProviding
     let aiServiceStatusAPI: AIServiceStatusAPI?
@@ -264,6 +265,7 @@ final class QuizViewController: BaseQuizViewController, ThemeCollectionDelegate,
         themeRepository: ThemeRepository = QuizFactory.shared,
         session: QuizSessionManaging = QuizSessionStore.shared,
         statisticsStore: StatisticsStore = StatisticsStore(),
+        statisticsHistoryStore: StatisticsHistoryStore? = nil,
         aiQuizThemeService: AIQuizThemeServiceProtocol = MockAIQuizThemeService(),
         aiQuizAccessProvider: AIQuizAccessProviding = AIQuizAccessStore.shared,
         aiServiceStatusAPI: AIServiceStatusAPI? = nil,
@@ -286,6 +288,7 @@ final class QuizViewController: BaseQuizViewController, ThemeCollectionDelegate,
         self.themeRepository = themeRepository
         self.session = session
         self.statisticsStore = statisticsStore
+        self.statisticsHistoryStore = statisticsHistoryStore ?? StatisticsHistoryStore(api: nil, sessionProvider: NoopBackendAccessTokenProvider())
         self.aiQuizThemeService = aiQuizThemeService
         self.aiQuizAccessProvider = aiQuizAccessProvider
         self.aiServiceStatusAPI = aiServiceStatusAPI
@@ -347,6 +350,12 @@ final class QuizViewController: BaseQuizViewController, ThemeCollectionDelegate,
             }
         }
         updateThemeAvailabilityMessage()
+        statisticsHistoryStore.onChange = { [weak self] in self?.refreshStatisticsCharts() }
+    }
+
+    func refreshStatisticsCharts() {
+        expandedStatisticsCardView?.configureHistory(state: statisticsHistoryStore.state,
+            period: statisticsHistoryStore.period, appearance: currentAppearance())
     }
 
     override func viewDidLayoutSubviews() {

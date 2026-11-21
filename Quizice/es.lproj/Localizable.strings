@@ -27,7 +27,7 @@
 "onboarding.tutorial.ai.title" = "Crea tus propios quizzes con IA";
 "onboarding.tutorial.ai.detail" = "Describe cualquier tema y la IA preparará preguntas especialmente para ti.";
 "onboarding.tutorial.statistics.title" = "Sigue tu progreso";
-"onboarding.tutorial.statistics.detail" = "Consulta cuántos quizzes has jugado, tu precisión y tu mejor resultado.";
+"onboarding.tutorial.statistics.detail" = "Consulta cuántos quizzes has jugado y tu precisión.";
 "home.background_style.switcher" = "Estilo de fondo";
 "home.background_style.original" = "Original";
 "home.background_style.grid_4x4" = "Malla 4×4";
@@ -192,9 +192,8 @@
 "settings.ai.direct" = "IA directa";
 "settings.ai.direct.subtitle" = "Usar la clave API Debug del dispositivo en lugar del backend · requiere reinicio";
 "statistics.accessibility_label" = "Estadísticas generales";
-"statistics.best_result" = "Mejor resultado";
 "statistics.correct_answers" = "Respuestas correctas";
-"statistics.empty_state.text" = "Termina tu primer quiz para ver las estadísticas generales. Aquí aparecerán los quizzes jugados, la precisión y el mejor resultado.";
+"statistics.empty_state.text" = "Termina tu primer quiz para ver las estadísticas generales. Aquí verás cuántos quizzes has jugado y tu precisión.";
 "statistics.percentage" = "Porcentaje correcto";
 "statistics.played_quizzes" = "Quizzes jugados";
 "statistics.subtitle.empty" = "Empieza con tu primer quiz: las estadísticas aparecerán automáticamente";
@@ -316,3 +315,18 @@
 "question.offline_unavailable.message" = "No hay preguntas guardadas para estos ajustes. Conéctate a internet y abre la pantalla de inicio para descargar preguntas y jugar sin conexión.";
 
 "account_start.connection.failed" = "No se ha podido conectar tu cuenta. Comprueba tu conexión a internet e inténtalo de nuevo.";
+
+/* Daily account statistics */
+"statistics.history.title" = "Historial de partidas";
+"statistics.history.empty" = "Todavía no hay partidas con fecha en este período.";
+"statistics.history.accuracy" = "Precisión de respuestas";
+"statistics.history.games" = "Partidas jugadas";
+"statistics.history.day" = "Día";
+"statistics.period.title" = "Período";
+"statistics.period.week" = "Semana";
+"statistics.period.month" = "Mes";
+"statistics.period.all_time" = "Todo";
+"statistics.history.loading" = "Cargando historial…";
+"statistics.history.error" = "No se pudo cargar el historial. Comprueba tu conexión e inténtalo de nuevo.";
+"statistics.history.retry" = "Reintentar";
+"statistics.history.undated" = "Los gráficos incluyen partidas con fecha guardada. Las partidas antiguas sin fecha permanecen en las estadísticas generales.";
