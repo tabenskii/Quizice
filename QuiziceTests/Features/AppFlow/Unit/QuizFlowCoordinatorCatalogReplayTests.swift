@@ -106,8 +106,8 @@ final class QuizFlowCoordinatorCatalogReplayTests: QuizFlowCoordinatorTestCase {
 final class CountingReplayThemeRepository: ThemeRepository {
     var themes: [QuizTheme]?
     var catalogOrigin: QuizCatalogOrigin = .bundled
-    private(set) var prepareQuizCallCount = 0
     private(set) var requestedMusicGenreIDs: [String?] = []
+    private(set) var prepareQuizCallCount = 0
     private(set) var prepareRandomQuizCallCount = 0
 
     init(themes: [QuizTheme]) {

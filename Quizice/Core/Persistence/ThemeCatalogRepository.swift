@@ -41,6 +41,8 @@ final class ThemeCatalogRepository: ThemeRepository {
     private let answerOutbox: QuestionAnswerOutboxing
     private let countryProvider: () -> String?
     private let repeatStrategyProvider: () -> QuestionRepeatStrategy
+    private let slowQuestionCacheDelay: Duration
+    private let questionLoadTimeout: Duration
 
     private var loadedThemes: [QuizTheme]?
     private var catalogOrder: [String] = []
@@ -77,7 +79,9 @@ final class ThemeCatalogRepository: ThemeRepository {
         accessTokenProvider: BackendAccessTokenProviding = StoredBackendAccessTokenProvider(),
         answerOutbox: QuestionAnswerOutboxing = PersistentQuestionAnswerOutbox.shared,
         repeatStrategyProvider: @escaping () -> QuestionRepeatStrategy = { QuestionRepeatStrategyStore.shared.strategy },
-        countryProvider: @escaping () -> String? = { QuestionCountryStore.shared.country }
+        countryProvider: @escaping () -> String? = { QuestionCountryStore.shared.country },
+        slowQuestionCacheDelay: Duration = .seconds(2),
+        questionLoadTimeout: Duration = .seconds(8)
     ) {
         self.offlineCache = offlineCache
         self.offlineDownloader = OfflineQuestionDownloader(api: automaticallyDownloadsOfflineQuestions ? backendContentAPI : nil, cache: offlineCache,
@@ -90,6 +94,8 @@ final class ThemeCatalogRepository: ThemeRepository {
         self.answerOutbox = answerOutbox
         self.repeatStrategyProvider = repeatStrategyProvider
         self.countryProvider = countryProvider
+        self.slowQuestionCacheDelay = slowQuestionCacheDelay
+        self.questionLoadTimeout = questionLoadTimeout
         localizationObserver = NotificationCenter.default.addObserver(
             forName: .appLocalizationDidChange,
             object: nil,
@@ -429,28 +435,26 @@ final class ThemeCatalogRepository: ThemeRepository {
         guard let backendContentAPI else { throw QuizPreparationError.unavailable }
 
         let selectedCountry = countryProvider()
+        let country = selectedCountry.flatMap { metadata.countries.contains($0) ? $0 : nil }
         let strategy = effectiveQuestionRepeatStrategy
         let userID = accessTokenProvider.currentSession()?.userID
         let seed = seedGenerator()
         let startedAt = Date()
+        func cachedQuiz(for userID: String) async throws -> QuizTheme {
+            guard musicGenreID == nil else { throw QuizPreparationError.offlineQuestionsUnavailable }
+            return try await offlineDownloader.makeQuiz(metadata: metadata, themeIDs: [themeID], userID: userID,
+                questionCount: questionCount, difficulty: difficulty, locale: locale, strategy: strategy,
+                selectedCountry: selectedCountry, country: country, countryProvider: countryProvider)
+        }
+        func fetchQuestions() async throws -> BackendQuestionBatchResponse {
+            try await backendContentAPI.fetchQuestions(themeID: themeID, count: questionCount,
+                locale: locale, difficulty: difficulty, seed: seed, strategy: strategy, country: country, musicGenreID: musicGenreID)
+        }
         do {
             if answerOutbox.isNetworkUnavailable { throw BackendContentError.transport(.notConnectedToInternet) }
-            if strategy.progressMode != nil {
-                guard let userID else { throw BackendContentError.unauthenticated }
-                try await answerOutbox.synchronizeBeforeFetchingQuestions(for: userID)
-                guard accessTokenProvider.currentSession()?.userID == userID else {
-                    throw QuestionAnswerSyncError.accountChanged
-                }
-            }
-            let response = try await backendContentAPI.fetchQuestions(
-                themeID: themeID,
-                count: questionCount,
-                locale: locale,
-                difficulty: difficulty,
-                seed: seed,
-                strategy: strategy,
-                country: selectedCountry.flatMap { metadata.countries.contains($0) ? $0 : nil },
-                musicGenreID: musicGenreID
+            let result = try await offlineDownloader.fetchUsingCacheAfterDelay(
+                slowQuestionCacheDelay, timeout: questionLoadTimeout, questionCount: questionCount,
+                userID: userID, strategy: strategy, fetch: fetchQuestions, fallback: cachedQuiz
             )
             try Task.checkCancellation()
             guard AppLocalizationStore.shared.resolvedLanguageCode == locale,
@@ -460,6 +464,13 @@ final class ThemeCatalogRepository: ThemeRepository {
 
             guard accessTokenProvider.currentSession()?.userID == userID else {
                 throw QuestionAnswerSyncError.accountChanged
+            }
+            let response: BackendQuestionBatchResponse
+            switch result {
+            case .backend(let batch):
+                response = batch
+            case .cache(let quiz):
+                return quiz
             }
             if response.isExhausted {
                 guard let userID, let progressMode = strategy.progressMode,
@@ -475,31 +486,14 @@ final class ThemeCatalogRepository: ThemeRepository {
             AppLog.content.notice(
                 "✅ BACKEND QUESTIONS: received theme=\(themeID, privacy: .public) locale=\(locale, privacy: .public) requested=\(questionCount, privacy: .public) received=\(questions.count, privacy: .public) seed=\(seed, privacy: .public) duration_ms=\(Self.durationMilliseconds(since: startedAt), privacy: .public)"
             )
-            return QuizTheme(
-                id: metadata.id,
-                theme: metadata.theme,
-                themeDescription: metadata.themeDescription,
-                questions: questions,
-                sfSymbolName: metadata.sfSymbolName,
-                emoji: metadata.emoji,
-                colorHex: metadata.colorHex,
-                isFavorite: metadata.isFavorite,
-                source: .catalog,
-                questionOrigin: .backend,
-                difficulty: difficulty,
-                countries: metadata.countries, musicGenreID: musicGenreID
-            )
+            return metadata.makeBackendRound(questions: questions, difficulty: difficulty, musicGenreID: musicGenreID)
         } catch is CancellationError {
             throw CancellationError()
         } catch let error as QuizPreparationError {
             throw error
         } catch {
             if musicGenreID == nil, OfflineQuestionDownloader.permitsFallback(error), let userID {
-                return try await offlineDownloader.makeQuiz(metadata: metadata, themeIDs: [themeID], userID: userID,
-                    questionCount: questionCount, difficulty: difficulty, locale: locale, strategy: strategy,
-                    selectedCountry: selectedCountry,
-                    country: selectedCountry.flatMap { metadata.countries.contains($0) ? $0 : nil },
-                    countryProvider: countryProvider)
+                return try await cachedQuiz(for: userID)
             }
             AppLog.content.error(
                 "⚠️ BACKEND QUESTIONS: failed, no bundled fallback in backend catalog mode theme=\(themeID, privacy: .public) locale=\(locale, privacy: .public) count=\(questionCount, privacy: .public) seed=\(seed, privacy: .public) duration_ms=\(Self.durationMilliseconds(since: startedAt), privacy: .public) error=\(String(describing: error), privacy: .public)"

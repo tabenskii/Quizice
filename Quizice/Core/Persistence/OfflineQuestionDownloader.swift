@@ -1,6 +1,11 @@
 import Foundation
 
 final class OfflineQuestionDownloader {
+    enum QuestionLoadResult {
+        case backend(BackendQuestionBatchResponse)
+        case cache(QuizTheme)
+    }
+
     private let api: BackendContentAPI?
     private let cache: OfflineQuestionCache
     private let accessTokenProvider: BackendAccessTokenProviding
@@ -72,10 +77,52 @@ final class OfflineQuestionDownloader {
             count: questionCount, difficulty: difficulty, strategy: strategy, country: country, balanced: balanced)
         try validate()
         AppLog.content.notice("Using offline questions: locale=\(locale, privacy: .public) count=\(questions.count)")
-        return QuizTheme(id: metadata.id, theme: metadata.theme, themeDescription: metadata.themeDescription,
-            questions: questions, sfSymbolName: metadata.sfSymbolName, emoji: metadata.emoji,
-            colorHex: metadata.colorHex, isFavorite: metadata.isFavorite, source: .catalog,
-            questionOrigin: .backend, difficulty: difficulty, countries: metadata.countries)
+        return metadata.makeBackendRound(questions: questions, difficulty: difficulty)
+    }
+
+    @MainActor
+    func fetchUsingCacheAfterDelay(
+        _ delay: Duration,
+        timeout: Duration,
+        questionCount: Int,
+        userID: String?,
+        strategy: QuestionRepeatStrategy,
+        fetch: @escaping @MainActor () async throws -> BackendQuestionBatchResponse,
+        fallback: @escaping @MainActor (String) async throws -> QuizTheme
+    ) async throws -> QuestionLoadResult {
+        try await withThrowingTaskGroup(of: QuestionLoadResult?.self) { group in
+            group.addTask { @MainActor in
+                if strategy.progressMode != nil {
+                    guard let userID else { throw BackendContentError.unauthenticated }
+                    try await self.outbox.synchronizeBeforeFetchingQuestions(for: userID)
+                    guard self.accessTokenProvider.currentSession()?.userID == userID else {
+                        throw QuestionAnswerSyncError.accountChanged
+                    }
+                }
+                try Task.checkCancellation()
+                return .backend(try await fetch())
+            }
+            if let userID {
+                group.addTask { @MainActor in
+                    try await Task.sleep(for: delay)
+                    do {
+                        let quiz = try await fallback(userID)
+                        return quiz.questions.count == questionCount ? .cache(quiz) : nil
+                    } catch QuizPreparationError.offlineQuestionsUnavailable {
+                        return nil
+                    }
+                }
+            }
+            group.addTask {
+                try await Task.sleep(for: timeout)
+                throw QuizPreparationError.timedOut
+            }
+            defer { group.cancelAll() }
+            while let result = try await group.next() {
+                if let result { return result }
+            }
+            throw CancellationError()
+        }
     }
 
     static func permitsFallback(_ error: Error) -> Bool {
