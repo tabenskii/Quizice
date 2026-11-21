@@ -109,8 +109,7 @@ final class QuizFlowCoordinator: NSObject, QuizRouting, UIViewControllerTransiti
     func start(maintenanceStatusAPI: MaintenanceStatusAPI? = nil) {
         themeRepository.loadData(forceReload: false)
         let viewController = QuizViewController(
-            themeRepository: themeRepository,
-            session: session,
+            themeRepository: themeRepository, session: session,
             statisticsHistoryStore: statisticsHistoryStore,
             aiQuizThemeService: aiQuizThemeService,
             aiQuizAccessProvider: aiQuizAccessProvider,

@@ -95,19 +95,6 @@ extension ThemesCollectionService {
         return CGSize(width: availableWidth, height: Layout.secondaryActionButtonHeight)
     }
 
-    func collectionView(
-        _ collectionView: UICollectionView,
-        layout collectionViewLayout: UICollectionViewLayout,
-        referenceSizeForHeaderInSection section: Int
-    ) -> CGSize {
-        guard !isThemeItemsCollectionView(collectionView) else { return .zero }
-        let width = collectionView.bounds.width
-        let contentWidth = width - Layout.sectionInsets.left - Layout.sectionInsets.right
-        let height = maintenanceBannerHeight(width: contentWidth, traits: collectionView.traitCollection,
-            availableHeight: availableContentHeight(in: collectionView))
-        return CGSize(width: width, height: height)
-    }
-
     func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, minimumLineSpacingForSectionAt section: Int) -> CGFloat {
         isThemeItemsCollectionView(collectionView)
             ? Layout.itemSpacing
@@ -122,6 +109,19 @@ extension ThemesCollectionService {
 
     func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, insetForSectionAt section: Int) -> UIEdgeInsets {
         isThemeItemsCollectionView(collectionView) ? .zero : Layout.sectionInsets
+    }
+
+    func collectionView(
+        _ collectionView: UICollectionView,
+        layout collectionViewLayout: UICollectionViewLayout,
+        referenceSizeForHeaderInSection section: Int
+    ) -> CGSize {
+        guard !isThemeItemsCollectionView(collectionView) else { return .zero }
+        let width = collectionView.bounds.width
+        let contentWidth = width - Layout.sectionInsets.left - Layout.sectionInsets.right
+        let height = maintenanceBannerHeight(width: contentWidth, traits: collectionView.traitCollection,
+            availableHeight: availableContentHeight(in: collectionView))
+        return CGSize(width: width, height: height)
     }
 
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
@@ -183,14 +183,15 @@ extension ThemesCollectionService {
             + aiThemeCardHeight(width: min(width, 640), traits: traitCollection)
             + Layout.secondaryActionButtonHeight
             + Layout.statisticsCardHeight
-            + maintenanceBannerHeight(width: width, traits: traitCollection, availableHeight: availableOuterHeight)
             + lastItemBottomInset(availableHeight: availableOuterHeight)
             + outerItemSpacing(availableHeight: availableOuterHeight)
                 * CGFloat(outerItemCount - 1)
+        let viewportBudget = availableOuterHeight - fixedOuterContentHeight
+            - maintenanceBannerHeight(width: width, traits: traitCollection, availableHeight: availableOuterHeight)
         let minimumViewportHeight = geometry.frames.prefix(grid.columnCount).map(\.maxY).max()
             ?? ThemeCardLayoutMetrics.singleLineHeight
         usesOuterScrolling = usesAccessibilityLayout
-            || fixedOuterContentHeight + minimumViewportHeight > availableOuterHeight
+            || minimumViewportHeight > viewportBudget
         if usesOuterScrolling {
             catalogCanScroll = false
             return geometry.contentSize.height
@@ -199,7 +200,6 @@ extension ThemesCollectionService {
         let maximumViewportHeight = geometry.frames
             .prefix(Layout.viewportCardsPerColumn * grid.columnCount)
             .map(\.maxY).max() ?? minimumViewportHeight
-        let viewportBudget = availableOuterHeight - fixedOuterContentHeight
         let viewportHeight = min(maximumViewportHeight, max(viewportBudget, minimumViewportHeight))
         catalogCanScroll = geometry.contentSize.height > viewportHeight + 0.5
         return viewportHeight
