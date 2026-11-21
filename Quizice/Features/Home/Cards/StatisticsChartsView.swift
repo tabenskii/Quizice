@@ -1,9 +1,11 @@
 import Charts
+import Observation
 import SwiftUI
 import UIKit
 
 final class StatisticsChartsView: UIView {
     private let sizingController = UIHostingController(rootView: AnyView(EmptyView()))
+    private let viewport = StatisticsChartsViewport()
     private var hostedContent: (UIView & UIContentView)?
     private var state = StatisticsHistoryStore.State.idle
     private var appearance: AppAppearance?
@@ -57,6 +59,18 @@ final class StatisticsChartsView: UIView {
         updateContent()
     }
 
+    func updateViewport(_ visibleBounds: CGRect, bottomAtTop: CGFloat) {
+        guard state.isWaitingForHistory else { return }
+        if viewport.visibleBounds != visibleBounds {
+            viewport.visibleBounds = visibleBounds
+        }
+
+        let height = ceil(bottomAtTop)
+        guard measuredHeight > 0, height > measuredHeight else { return }
+        minimumHeight = height
+        updateContent()
+    }
+
     private func updateContent() {
         guard let appearance else { return }
         var calendar = Calendar(identifier: .gregorian)
@@ -67,6 +81,7 @@ final class StatisticsChartsView: UIView {
             appearance: appearance,
             fadeInCharts: fadeInCharts,
             minimumHeight: minimumHeight,
+            viewport: viewport,
             selectPeriod: { [weak self] in self?.onPeriodChange?($0) },
             retry: { [weak self] in self?.onRetry?() }
         )
@@ -108,18 +123,39 @@ final class StatisticsChartsView: UIView {
     }
 }
 
+@Observable
+private final class StatisticsChartsViewport {
+    var visibleBounds: CGRect?
+}
+
+private extension StatisticsHistoryStore.State {
+    var isWaitingForHistory: Bool { self == .idle || self == .loading }
+}
+
+private struct StatisticsPeriodPickerBounds: PreferenceKey {
+    static var defaultValue: Anchor<CGRect>? { nil }
+
+    static func reduce(value: inout Anchor<CGRect>?, nextValue: () -> Anchor<CGRect>?) {
+        value = nextValue() ?? value
+    }
+}
+
 private struct StatisticsChartsContent: View {
+    private static let panelPadding: CGFloat = 16
+
     let state: StatisticsHistoryStore.State
     let period: StatisticsPeriod
     let appearance: AppAppearance
     let fadeInCharts: Bool
     let minimumHeight: CGFloat
+    let viewport: StatisticsChartsViewport
     let selectPeriod: (StatisticsPeriod) -> Void
     let retry: () -> Void
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.locale) private var locale
     @Environment(\.calendar) private var calendar
     @ScaledMetric(relativeTo: .body) private var chartHeight = 170.0
+    @ScaledMetric(relativeTo: .subheadline) private var loadingHeight = 80.0
 
     private var foreground: Color { Color(uiColor: appearance.surfaceTextColor) }
     private var secondary: Color { Color(uiColor: appearance.secondarySurfaceTextColor) }
@@ -132,14 +168,10 @@ private struct StatisticsChartsContent: View {
             periodPicker
             switch state {
             case .idle, .loading:
-                ProgressView(L10n.Statistics.historyLoading)
-                    .tint(accent)
-                    .frame(maxWidth: .infinity, minHeight: 80)
+                Color.clear.frame(height: loadingHeight)
             case .failed:
                 Text(L10n.Statistics.historyError).fixedSize(horizontal: false, vertical: true)
-                Button(L10n.Statistics.historyRetry, action: retry)
-                    .frame(minHeight: 44)
-                    .accessibilityIdentifier("statisticsHistoryRetry")
+                retryButton
             case let .loaded(timeline):
                 history(timeline)
             }
@@ -148,13 +180,60 @@ private struct StatisticsChartsContent: View {
         .fixedSize(horizontal: false, vertical: true)
         .font(appearance.typography.swiftUIFont(size: 16, weight: .regular))
         .foregroundStyle(foreground)
-        .padding(16)
+        .padding(Self.panelPadding)
         .frame(minHeight: minimumHeight, alignment: .topLeading)
         .background(Color(uiColor: appearance.row.backgroundColor), in: RoundedRectangle(cornerRadius: appearance.row.cornerRadius))
         .overlay {
             RoundedRectangle(cornerRadius: appearance.row.cornerRadius)
                 .stroke(Color(uiColor: appearance.row.borderColor), lineWidth: appearance.row.borderWidth)
         }
+        .overlayPreferenceValue(StatisticsPeriodPickerBounds.self) { picker in
+            if state.isWaitingForHistory, let picker {
+                loadingIndicator(below: picker)
+            }
+        }
+    }
+
+    private func loadingIndicator(below picker: Anchor<CGRect>) -> some View {
+        GeometryReader { geometry in
+            let visibleBounds = viewport.visibleBounds ?? CGRect(origin: .zero, size: geometry.size)
+            let top = max(geometry[picker].maxY, visibleBounds.minY)
+            let bottom = min(geometry.size.height, visibleBounds.maxY)
+            ProgressView {
+                Text(L10n.Statistics.historyLoading)
+                    .foregroundStyle(secondary)
+                    .multilineTextAlignment(.center)
+            }
+                .tint(accent)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal, Self.panelPadding)
+                .frame(minHeight: max(0, bottom - top))
+                .offset(y: top)
+                .accessibilityIdentifier("statisticsHistoryLoading")
+        }
+        .allowsHitTesting(false)
+    }
+
+    private var retryButton: some View {
+        let style = appearance.primaryButton
+        let shape = RoundedRectangle(cornerRadius: style.cornerRadius)
+        return Button(action: retry) {
+            Text(L10n.Statistics.historyRetry)
+                .font(appearance.typography.swiftUIFont(size: 17, weight: .semibold))
+                .foregroundStyle(Color(uiColor: QuizThemeAccentStyle.primaryButtonTextColor(themeID: nil, appearance: appearance)))
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, Self.panelPadding)
+                .padding(.vertical, 8)
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .background(Color(uiColor: style.backgroundColor), in: shape)
+                .overlay {
+                    shape.strokeBorder(Color(uiColor: style.borderColor), lineWidth: style.borderWidth)
+                        .clipShape(shape)
+                }
+        }
+        .buttonStyle(QuizPressButtonStyle())
+        .accessibilityIdentifier("statisticsHistoryRetry")
     }
 
     @ViewBuilder
@@ -174,6 +253,7 @@ private struct StatisticsChartsContent: View {
         }
         .tint(accent)
         .accessibilityIdentifier("statisticsPeriodPicker")
+        .anchorPreference(key: StatisticsPeriodPickerBounds.self, value: .bounds) { $0 }
     }
 
     private func history(_ timeline: StatisticsTimeline) -> some View {

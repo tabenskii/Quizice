@@ -1,6 +1,6 @@
 import UIKit
 
-final class ExpandedStatisticsCardView: UIView {
+final class ExpandedStatisticsCardView: UIView, UIScrollViewDelegate {
     private enum AccessibilityID {
         static let root = "expandedStatisticsCardView"
         static let closeButton = "expandedStatisticsCardCloseButton"
@@ -61,6 +61,7 @@ final class ExpandedStatisticsCardView: UIView {
 
     override func layoutSubviews() {
         super.layoutSubviews()
+        updateHistoryViewport()
         let cornerRadius = surfaceStyle?.cornerRadius ?? 0
         layer.shadowPath = UIBezierPath(
             roundedRect: bounds,
@@ -125,6 +126,18 @@ final class ExpandedStatisticsCardView: UIView {
             minimumHeight = max(0, visibleBottom - chartsTop)
         }
         chartsView.configure(state: state, period: period, appearance: appearance, minimumHeight: minimumHeight)
+        updateHistoryViewport()
+    }
+
+    func scrollViewDidScroll(_ scrollView: UIScrollView) {
+        updateHistoryViewport()
+    }
+
+    private func updateHistoryViewport() {
+        let insets = scrollView.adjustedContentInset
+        let visibleBounds = scrollView.convert(scrollView.bounds.inset(by: insets), to: chartsView)
+        let bottomAtTop = visibleBounds.maxY - scrollView.contentOffset.y - insets.top
+        chartsView.updateViewport(visibleBounds, bottomAtTop: bottomAtTop)
     }
 
     func setTransitionSurfaceHidden(_ isHidden: Bool) {
@@ -189,6 +202,7 @@ final class ExpandedStatisticsCardView: UIView {
         scrollView.alwaysBounceVertical = false
         scrollView.clipsToBounds = true
         scrollView.layer.cornerCurve = .continuous
+        scrollView.delegate = self
         scrollView.translatesAutoresizingMaskIntoConstraints = false
 
         contentStackView.axis = .vertical
