@@ -364,13 +364,19 @@ private struct StatisticsChartsContent: View {
 
     private func dateAxis(_ timeline: StatisticsTimeline) -> some AxisContent {
         let format = Date.FormatStyle(locale: locale, calendar: calendar, timeZone: timeline.timeZone)
+        let dayMonth = Date.VerbatimFormatStyle(
+            format: "\(day: .twoDigits).\(month: .twoDigits)",
+            locale: locale,
+            timeZone: timeline.timeZone,
+            calendar: calendar
+        )
         return AxisMarks(values: .automatic(desiredCount: 3)) { value in
             AxisValueLabel {
                 if let date = value.as(Date.self) {
                     if timeline.interval.duration > 366 * 24 * 60 * 60 {
                         Text(date.formatted(format.month(.abbreviated).year())).foregroundStyle(secondary)
                     } else {
-                        Text(date.formatted(format.day().month(.abbreviated))).foregroundStyle(secondary)
+                        Text(date.formatted(dayMonth)).foregroundStyle(secondary)
                     }
                 }
             }
