@@ -2,6 +2,7 @@ import Foundation
 
 extension Notification.Name {
     static let statisticsDidChange = Notification.Name("quizice.statistics.changed")
+    static let statisticsAccountHistoryDidChange = Notification.Name("quizice.statistics.account-history-changed")
     static let statisticsPendingSync = Notification.Name("quizice.statistics.pending-sync")
 }
 
@@ -207,12 +208,14 @@ final class StatisticsStore {
         let changed = activeUserID != normalizedUserID
         userDefaults.set(normalizedUserID, forKey: activePrincipalKey)
         if changed { notificationCenter.post(name: .statisticsDidChange, object: normalizedUserID) }
+        notificationCenter.post(name: .statisticsAccountHistoryDidChange, object: nil)
     }
 
     func activateGuest() {
         let changed = userDefaults.string(forKey: activePrincipalKey) != nil
         userDefaults.removeObject(forKey: activePrincipalKey)
         if changed { notificationCenter.post(name: .statisticsDidChange, object: nil) }
+        notificationCenter.post(name: .statisticsAccountHistoryDidChange, object: nil)
     }
 
     /// Called after the backend confirms deletion and the authentication owner
@@ -252,6 +255,9 @@ final class StatisticsStore {
         // so retaining it would create an endless retry loop.
         state.legacySummary = nil
         save(state: state, for: userID)
+        if activeUserID == userID {
+            notificationCenter.post(name: .statisticsAccountHistoryDidChange, object: nil)
+        }
     }
 
     static func summary(from attempts: [Attempt]) -> StatisticsSummary {

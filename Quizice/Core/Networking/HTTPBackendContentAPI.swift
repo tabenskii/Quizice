@@ -1,6 +1,6 @@
 import Foundation
 
-final class HTTPBackendContentAPI: BackendContentAPI {
+final class HTTPBackendContentAPI: BackendContentAPI, StatisticsHistoryAPI {
     private let baseURL: URL
     private let session: URLSession
     private let encoder: JSONEncoder
@@ -33,6 +33,24 @@ final class HTTPBackendContentAPI: BackendContentAPI {
     // Recover expired sessions rather than silently requesting guest content.
     private var requestAccessToken: String? {
         accessTokenProvider.validAccessToken() ?? accessTokenProvider.currentSession()?.accessToken
+    }
+
+    func fetchStatisticsHistory(period: StatisticsPeriod, timeZone: TimeZone, session: AuthSession) async throws -> StatisticsHistoryResponse {
+        guard accessTokenProvider.currentSession()?.userID == session.userID else {
+            throw BackendContentError.unauthenticated
+        }
+        let url = try makeURL(pathComponents: ["v1", "me", "statistics", "history"], queryItems: [
+            URLQueryItem(name: "period", value: period.rawValue),
+            URLQueryItem(name: "timeZone", value: timeZone.identifier)
+        ])
+        let response: StatisticsHistoryResponse = try await get(
+            url: url, operation: .statisticsHistory, accessToken: session.accessToken,
+            validate: { (try? $0.timeline(requestedPeriod: period, timeZone: timeZone)) != nil }
+        )
+        guard accessTokenProvider.currentSession()?.userID == session.userID else {
+            throw BackendContentError.unauthenticated
+        }
+        return response
     }
 
     func fetchThemes(locale: String) async throws -> BackendThemeCatalogResponse {
@@ -503,7 +521,7 @@ final class HTTPBackendContentAPI: BackendContentAPI {
         do {
             let (data, response) = try await session.data(for: request)
             guard let httpResponse = response as? HTTPURLResponse else {
-                record(
+                metrics.record(
                     operation: operation,
                     result: .transportError,
                     startedAt: startedAt,
@@ -513,7 +531,7 @@ final class HTTPBackendContentAPI: BackendContentAPI {
                 throw BackendContentError.invalidResponse
             }
             guard data.count <= Self.maxResponseBytes else {
-                record(
+                metrics.record(
                     operation: operation,
                     result: .contractError,
                     startedAt: startedAt,
@@ -528,7 +546,7 @@ final class HTTPBackendContentAPI: BackendContentAPI {
             if (200..<300).contains(httpResponse.statusCode) {
                 let contentType = httpResponse.value(forHTTPHeaderField: "Content-Type")?.lowercased()
                 if let contentType, !contentType.contains("application/json") {
-                    record(
+                    metrics.record(
                         operation: operation,
                         result: .contractError,
                         startedAt: startedAt,
@@ -540,7 +558,7 @@ final class HTTPBackendContentAPI: BackendContentAPI {
             }
             guard (200..<300).contains(httpResponse.statusCode) else {
                 let envelope = try? decoder.decode(BackendErrorEnvelope.self, from: data)
-                record(
+                metrics.record(
                     operation: operation,
                     result: .httpError,
                     startedAt: startedAt,
@@ -582,7 +600,7 @@ final class HTTPBackendContentAPI: BackendContentAPI {
             do {
                 let decoded = try decoder.decode(Response.self, from: data)
                 guard validate(decoded) else {
-                    record(
+                    metrics.record(
                         operation: operation,
                         result: .contractError,
                         startedAt: startedAt,
@@ -591,7 +609,7 @@ final class HTTPBackendContentAPI: BackendContentAPI {
                     )
                     throw BackendContentError.contractViolation
                 }
-                record(
+                metrics.record(
                     operation: operation,
                     result: .success,
                     startedAt: startedAt,
@@ -602,7 +620,7 @@ final class HTTPBackendContentAPI: BackendContentAPI {
             } catch let error as BackendContentError {
                 throw error
             } catch {
-                record(
+                metrics.record(
                     operation: operation,
                     result: .decodingError,
                     startedAt: startedAt,
@@ -612,7 +630,7 @@ final class HTTPBackendContentAPI: BackendContentAPI {
                 throw BackendContentError.decoding
             }
         } catch is CancellationError {
-            record(
+            metrics.record(
                 operation: operation,
                 result: .cancelled,
                 startedAt: startedAt,
@@ -623,7 +641,7 @@ final class HTTPBackendContentAPI: BackendContentAPI {
         } catch let error as BackendContentError {
             throw error
         } catch let error as URLError where error.code == .cancelled {
-            record(
+            metrics.record(
                 operation: operation,
                 result: .cancelled,
                 startedAt: startedAt,
@@ -632,7 +650,7 @@ final class HTTPBackendContentAPI: BackendContentAPI {
             )
             throw CancellationError()
         } catch let error as URLError {
-            record(
+            metrics.record(
                 operation: operation,
                 result: .transportError,
                 startedAt: startedAt,
@@ -641,7 +659,7 @@ final class HTTPBackendContentAPI: BackendContentAPI {
             )
             throw BackendContentError.transport(error.code)
         } catch {
-            record(
+            metrics.record(
                 operation: operation,
                 result: .transportError,
                 startedAt: startedAt,
@@ -669,32 +687,7 @@ final class HTTPBackendContentAPI: BackendContentAPI {
         return result
     }
 
-    private func record(
-        operation: BackendOperation,
-        result: BackendRequestResult,
-        startedAt: ContinuousClock.Instant,
-        statusCode: Int?,
-        responseBytes: Int
-    ) {
-        metrics.record(
-            BackendRequestMetric(
-                operation: operation,
-                result: result,
-                durationMilliseconds: Self.milliseconds(clock.now - startedAt),
-                statusCode: statusCode,
-                responseBytes: responseBytes
-            )
-        )
-    }
-
     private static func isSupported(locale: String) -> Bool {
         AppLanguagePreference.explicitPreference(for: locale) != nil
-    }
-
-    private static func milliseconds(_ duration: Duration) -> Int {
-        let components = duration.components
-        let seconds = components.seconds * 1_000
-        let milliseconds = components.attoseconds / 1_000_000_000_000_000
-        return max(Int(seconds + milliseconds), 0)
     }
 }

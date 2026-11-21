@@ -738,7 +738,7 @@ check_statistics_coverage_markers() {
   require_test_method "$SUMMARY_TESTS" 'testEmptySummaryHasZeroTotalsAndDisplayValues' 'Statistics tests must cover the empty summary baseline'
   require_test_method "$SUMMARY_TESTS" 'testSummaryAggregatesPlayedQuizzesCorrectAnswersAndTotalQuestions' 'Statistics tests must cover played quiz, correct-answer, and total-question aggregation'
   require_test_method "$SUMMARY_TESTS" 'testPercentageIsRoundedToNearestWholeNumber' 'Statistics tests must cover percentage rounding'
-  require_test_method "$SUMMARY_TESTS" 'testBestResultDisplayUsesBestAttempt' 'Statistics tests must cover best-result display'
+  require_test_method "$SUMMARY_TESTS" 'testSummaryUsesBestAttempt' 'Statistics tests must cover best-result aggregation'
   require_test_method "$SUMMARY_TESTS" 'testBestResultSelectsMoreCorrectAnswersOverHigherPercentage' 'Statistics tests must cover server best-result precedence by correct-answer count'
   require_test_method "$SUMMARY_TESTS" 'testBestResultTieUsesMoreCorrectAnswers' 'Statistics tests must cover best-result tie handling'
   require_test_method "$SUMMARY_TESTS" 'testEqualCorrectAnswersKeepFirstAttempt' 'Statistics tests must keep the previous best result when correct-answer counts tie'
