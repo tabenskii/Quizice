@@ -393,9 +393,11 @@ final class HomeExpandedThemeCardInteractionTests: HomeScreenVisualStateTestCase
 
         XCTAssertEqual(QuizFactory.shared.questionsCount, 10)
         XCTAssertEqual(router.showQuestionCallCount, 1)
-        XCTAssertFalse(activityIndicator.isAnimating)
+        XCTAssertTrue(activityIndicator.isAnimating)
+        XCTAssertFalse(startButton.isEnabled)
 
         viewController.viewWillAppear(false)
+        XCTAssertFalse(activityIndicator.isAnimating)
         XCTAssertNil(
             viewController.view.descendant(withAccessibilityIdentifier: "homeExpandedThemeCardBackdrop")
         )
