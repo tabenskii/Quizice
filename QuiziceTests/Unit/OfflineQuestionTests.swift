@@ -125,6 +125,61 @@ final class OfflineQuestionTests: XCTestCase {
         } catch { XCTAssertEqual(error as? BackendContentError, .httpStatus(401, nil)) }
     }
 
+    func testFastBackendKeepsPriorityOverCachedQuestions() async throws {
+        let cache = OfflineQuestionCache()
+        try await cache.install(pack())
+        let api = RecordingBackendContentAPI()
+        let repository = ThemeCatalogRepository(backendContentAPI: api, offlineCache: cache,
+            accessTokenProvider: ProgressSessionProvider(), answerOutbox: ProgressOutboxSpy(),
+            repeatStrategyProvider: { .showAll }, countryProvider: { nil })
+        _ = await repository.refreshBackendCatalog(locale: locale)
+
+        let quiz = try await repository.prepareQuiz(themeID: "music", questionCount: 5, difficulty: .medium, locale: locale)
+
+        XCTAssertEqual(quiz.questions.count, 5)
+        XCTAssertTrue(quiz.questions.allSatisfy { $0.question.hasPrefix("Remote ") })
+    }
+
+    func testSlowBackendStartsFullCachedRoundAndCancelsPendingRequest() async throws {
+        let cache = OfflineQuestionCache()
+        try await cache.install(pack())
+        let api = RecordingBackendContentAPI()
+        let cancelled = expectation(description: "Slow request cancelled")
+        api.onQuestions = {
+            do {
+                try await Task.sleep(for: .seconds(10))
+            } catch is CancellationError {
+                cancelled.fulfill()
+                throw CancellationError()
+            }
+        }
+        let repository = ThemeCatalogRepository(backendContentAPI: api, offlineCache: cache,
+            accessTokenProvider: ProgressSessionProvider(), answerOutbox: ProgressOutboxSpy(),
+            repeatStrategyProvider: { .hideAnswered }, countryProvider: { nil }, slowQuestionCacheDelay: .milliseconds(40))
+        _ = await repository.refreshBackendCatalog(locale: locale)
+
+        let quiz = try await repository.prepareQuiz(themeID: "music", questionCount: 5, difficulty: .medium, locale: locale)
+
+        await fulfillment(of: [cancelled], timeout: 1)
+        XCTAssertEqual(Set(quiz.questions.compactMap(\.questionID)), Set((3..<8).map { "music:\($0)" }))
+    }
+
+    func testSlowRequestWaitsForBackendWhenCachedQuestionsCannotFillRound() async throws {
+        let cache = OfflineQuestionCache()
+        try await cache.install(pack())
+        let api = RecordingBackendContentAPI()
+        api.onQuestions = { try await Task.sleep(for: .milliseconds(150)) }
+        let repository = ThemeCatalogRepository(backendContentAPI: api, offlineCache: cache,
+            accessTokenProvider: ProgressSessionProvider(), answerOutbox: ProgressOutboxSpy(),
+            repeatStrategyProvider: { .showAll }, countryProvider: { nil }, slowQuestionCacheDelay: .milliseconds(20))
+        _ = await repository.refreshBackendCatalog(locale: locale)
+
+        let quiz = try await repository.prepareQuiz(themeID: "music", questionCount: 10, difficulty: .medium, locale: locale)
+
+        XCTAssertEqual(quiz.questions.count, 10)
+        XCTAssertTrue(quiz.questions.allSatisfy { $0.question.hasPrefix("Remote ") })
+    }
+
     func testResetInvalidatesAnAlreadyDownloadingPack() async throws {
         let cache = OfflineQuestionCache()
         try await cache.install(pack())

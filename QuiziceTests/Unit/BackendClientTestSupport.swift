@@ -156,7 +156,7 @@ final class RecordingBackendContentAPI: BackendContentAPI {
     private let catalogThemes: [BackendThemeDTO]
     private let questionError: Error?
     var returnedQuestionCount: Int?
-    var onQuestions: (() throws -> Void)?
+    var onQuestions: (() async throws -> Void)?
     private(set) var themeRequestCount = 0
     private(set) var seeds: [String] = []
     private(set) var randomSelectionModes: [CrossThemeQuestionSelectionMode] = []
@@ -191,7 +191,7 @@ final class RecordingBackendContentAPI: BackendContentAPI {
         seed: String
     ) async throws -> BackendQuestionBatchResponse {
         seeds.append(seed)
-        try onQuestions?()
+        try await onQuestions?()
         if let questionError {
             throw questionError
         }
