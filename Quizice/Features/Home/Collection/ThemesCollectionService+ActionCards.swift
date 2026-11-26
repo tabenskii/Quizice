@@ -33,13 +33,13 @@ extension ThemesCollectionService {
     }
 
     func refreshVisibleFeelingLuckyCard() {
-        visibleFeelingLuckyCard?.setLoading(isFeelingLuckyLoading)
+        visibleFeelingLuckyCard?.render(isExpanded: isFeelingLuckyExpanded, isLoading: isFeelingLuckyLoading)
     }
 
     func makeSecondaryActionButton(
         accessibilityIdentifier: String,
         accessibilityLabel: String,
-        accessibilityHint: String,
+        accessibilityHint: String?,
         title: String,
         action: Selector,
         appearance: AppAppearance
@@ -108,25 +108,31 @@ extension ThemesCollectionService {
 
     func configureFeelingLuckyCard(in cell: UICollectionViewCell, appearance: AppAppearance) {
         cell.applyShadow(.none)
+        let prompt = UIButton(type: .system)
+        prompt.accessibilityIdentifier = Content.feelingLuckyButtonAccessibilityID
+        prompt.setTitle(L10n.Home.feelingLucky, for: .normal)
+        prompt.setTitleColor(appearance.screenTextColor, for: .normal)
+        prompt.titleLabel?.font = appearance.typography.font(size: Appearance.luckyFontSize, weight: .semibold)
+        prompt.titleLabel?.adjustsFontForContentSizeCategory = true
+        prompt.titleLabel?.adjustsFontSizeToFitWidth = true
+        prompt.titleLabel?.minimumScaleFactor = 0.65
+        prompt.addTarget(self, action: #selector(expandFeelingLucky(_:)), for: .touchUpInside)
+
         let buttons = QuizQuestionCountPolicy.supportedCounts.map { count in
-            let button = UIButton(type: .system)
+            let button = makeSecondaryActionButton(
+                accessibilityIdentifier: "\(Content.feelingLuckyButtonAccessibilityID)-\(count)",
+                accessibilityLabel: L10n.Home.feelingLuckyQuestionCount(count),
+                accessibilityHint: nil,
+                title: String(count),
+                action: #selector(feelingLuckyButtonTouchedUpInside(_:)),
+                appearance: appearance
+            )
             button.tag = count
-            button.setTitle(String(count), for: .normal)
-            button.setTitleColor(appearance.screenTextColor, for: .normal)
-            button.setTitleColor(appearance.disabledTextColor, for: .disabled)
-            button.titleLabel?.font = appearance.typography.font(size: Appearance.luckyFontSize, weight: .semibold)
-            button.titleLabel?.adjustsFontForContentSizeCategory = true
-            button.accessibilityIdentifier = "\(Content.feelingLuckyButtonAccessibilityID)-\(count)"
-            button.accessibilityLabel = L10n.Home.feelingLuckyQuestionCount(count)
-            button.addTarget(self, action: #selector(buttonTouchedDown(_:)), for: .touchDown)
-            button.addTarget(self, action: #selector(feelingLuckyButtonTouchedUpInside(_:)), for: .touchUpInside)
-            button.addTarget(self, action: #selector(buttonTouchedUpOutside(_:)), for: [.touchUpOutside, .touchCancel])
+            button.addTarget(self, action: #selector(buttonTouchedUpOutside(_:)), for: .touchCancel)
             return button
         }
-        let card = FeelingLuckyCardView(appearance: appearance, buttons: buttons, traits: cell.traitCollection)
-        applyCleanOutlineStyleIfNeeded(to: card, appearance: appearance,
-                                       borderColor: appearance.screenTextColor.withAlphaComponent(0.18))
-        card.setLoading(isFeelingLuckyLoading)
+        let card = FeelingLuckyCardView(appearance: appearance, prompt: prompt, buttons: buttons)
+        card.render(isExpanded: isFeelingLuckyExpanded, isLoading: isFeelingLuckyLoading)
         pin(card, to: cell.contentView)
     }
 
@@ -353,10 +359,18 @@ extension ThemesCollectionService {
         }
     }
 
+    @objc private func expandFeelingLucky(_ sender: UIButton) {
+        guard !isFeelingLuckyExpanded, !isFeelingLuckyLoading,
+              let card = sender.superview as? FeelingLuckyCardView else { return }
+        isFeelingLuckyExpanded = true
+        card.render(isExpanded: true, isLoading: false, animatesExpansion: true)
+    }
+
     @objc func feelingLuckyButtonTouchedUpInside(_ sender: UIButton) {
-        guard QuizQuestionCountPolicy.supportedCounts.contains(sender.tag) else { return }
+        guard isFeelingLuckyExpanded, !isFeelingLuckyLoading, sender.isEnabled,
+              QuizQuestionCountPolicy.supportedCounts.contains(sender.tag) else { return }
         delegate?.feelingLuckyButtonTouchedUpInside(
-            sender, questionCount: sender.tag, sourceView: visibleFeelingLuckyCard ?? sender
+            sender, questionCount: sender.tag, sourceView: sender.superview as? FeelingLuckyCardView ?? sender
         )
     }
 
@@ -374,15 +388,18 @@ extension ThemesCollectionService {
 }
 
 private final class FeelingLuckyCardView: UIView {
-    private let prompt = UILabel()
+    private let prompt: UIButton
     private let buttons: [UIButton]
-    private let options: UIStackView
+    private let middleTitle = UILabel()
     private let progress: UIActivityIndicatorView
     private let loadingContent: UIStackView
+    private var joinedConstraints: [NSLayoutConstraint] = []
+    private var separatedConstraints: [NSLayoutConstraint] = []
+    private var showsOptions = false
 
-    init(appearance: AppAppearance, buttons: [UIButton], traits: UITraitCollection) {
+    init(appearance: AppAppearance, prompt: UIButton, buttons: [UIButton]) {
+        self.prompt = prompt
         self.buttons = buttons
-        options = UIStackView(arrangedSubviews: buttons)
         let progress = UIActivityIndicatorView(style: .medium)
         self.progress = progress
         let loadingLabel = UILabel()
@@ -391,51 +408,58 @@ private final class FeelingLuckyCardView: UIView {
 
         accessibilityIdentifier = ThemesCollectionService.Content.feelingLuckyAccessibilityID
         translatesAutoresizingMaskIntoConstraints = false
-        applySurfaceStyle(appearance.secondaryButton)
-        clipsToBounds = true
 
-        prompt.text = L10n.Home.feelingLucky
-        prompt.textAlignment = .center
-        loadingLabel.text = L10n.Home.feelingLuckyLoading
-        for label in [prompt, loadingLabel] {
-            label.textColor = appearance.screenTextColor
-            label.font = appearance.typography.font(size: 17, weight: .semibold, compatibleWith: traits)
-            label.adjustsFontForContentSizeCategory = true
-            label.adjustsFontSizeToFitWidth = true
-            label.minimumScaleFactor = 0.65
-        }
-
-        options.distribution = .fillEqually
-        let selectionContent = UIStackView(arrangedSubviews: [prompt, options])
-        selectionContent.axis = .vertical
-        selectionContent.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(selectionContent)
-
-        let isAccessibilitySize = traits.preferredContentSizeCategory.isAccessibilityCategory
-        NSLayoutConstraint.activate([
-            selectionContent.leadingAnchor.constraint(equalTo: leadingAnchor),
-            selectionContent.trailingAnchor.constraint(equalTo: trailingAnchor),
-            selectionContent.topAnchor.constraint(equalTo: topAnchor),
-            selectionContent.bottomAnchor.constraint(equalTo: bottomAnchor),
-            options.heightAnchor.constraint(equalToConstant: isAccessibilitySize ? 60 : 44)
-        ])
-
-        for button in buttons.dropFirst() {
-            let divider = UIView()
-            divider.translatesAutoresizingMaskIntoConstraints = false
-            divider.backgroundColor = appearance.screenTextColor.withAlphaComponent(0.18)
-            divider.isUserInteractionEnabled = false
-            button.addSubview(divider)
+        let first = buttons[0]
+        let middle = buttons[1]
+        let last = buttons[2]
+        for button in [first, last, middle, prompt] {
+            button.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(button)
             NSLayoutConstraint.activate([
-                divider.leadingAnchor.constraint(equalTo: button.leadingAnchor),
-                divider.centerYAnchor.constraint(equalTo: button.centerYAnchor),
-                divider.widthAnchor.constraint(equalToConstant: 1),
-                divider.heightAnchor.constraint(equalTo: button.heightAnchor, multiplier: 0.6)
+                button.topAnchor.constraint(equalTo: topAnchor),
+                button.bottomAnchor.constraint(equalTo: bottomAnchor)
             ])
         }
+        middleTitle.text = middle.title(for: .normal)
+        middleTitle.font = middle.titleLabel?.font
+        middleTitle.textColor = appearance.screenTextColor
+        middleTitle.adjustsFontForContentSizeCategory = true
+        middleTitle.translatesAutoresizingMaskIntoConstraints = false
+        middleTitle.isAccessibilityElement = false
+        middleTitle.isUserInteractionEnabled = false
+        middle.setTitle(nil, for: .normal)
+        middle.addSubview(middleTitle)
+
+        let spacing = ThemesCollectionService.Layout.compactOuterItemSpacing
+        NSLayoutConstraint.activate([
+            prompt.leadingAnchor.constraint(equalTo: leadingAnchor),
+            prompt.trailingAnchor.constraint(equalTo: trailingAnchor),
+            middleTitle.centerXAnchor.constraint(equalTo: middle.centerXAnchor),
+            middleTitle.centerYAnchor.constraint(equalTo: middle.centerYAnchor),
+            middle.centerXAnchor.constraint(equalTo: centerXAnchor),
+            first.widthAnchor.constraint(equalTo: widthAnchor, multiplier: 1.0 / 3.0, constant: -2 * spacing / 3),
+            last.widthAnchor.constraint(equalTo: first.widthAnchor)
+        ])
+        joinedConstraints = [
+            middle.widthAnchor.constraint(equalTo: widthAnchor),
+            first.centerXAnchor.constraint(equalTo: middle.centerXAnchor),
+            last.centerXAnchor.constraint(equalTo: middle.centerXAnchor)
+        ]
+        separatedConstraints = [
+            middle.widthAnchor.constraint(equalTo: first.widthAnchor),
+            first.leadingAnchor.constraint(equalTo: leadingAnchor),
+            last.trailingAnchor.constraint(equalTo: trailingAnchor)
+        ]
+        NSLayoutConstraint.activate(joinedConstraints)
 
         progress.accessibilityIdentifier = ThemesCollectionService.Content.feelingLuckyProgressAccessibilityID
         progress.color = appearance.screenTextColor
+        loadingLabel.text = L10n.Home.feelingLuckyLoading
+        loadingLabel.textColor = appearance.screenTextColor
+        loadingLabel.font = appearance.typography.font(size: ThemesCollectionService.Appearance.luckyFontSize, weight: .semibold)
+        loadingLabel.adjustsFontForContentSizeCategory = true
+        loadingLabel.adjustsFontSizeToFitWidth = true
+        loadingLabel.minimumScaleFactor = 0.78
         loadingContent.alignment = .center
         loadingContent.spacing = 10
         loadingContent.translatesAutoresizingMaskIntoConstraints = false
@@ -452,21 +476,65 @@ private final class FeelingLuckyCardView: UIView {
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError() }
 
-    func setLoading(_ isLoading: Bool) {
-        let showsOptions = !isLoading
+    func render(isExpanded: Bool, isLoading: Bool, animatesExpansion: Bool = false) {
+        let showsOptions = isExpanded && !isLoading
+        let showsPrompt = !isExpanded && !isLoading
+        let stateChanged = self.showsOptions != showsOptions
+        let animates = stateChanged && (animatesExpansion || isLoading) && window != nil
+            && !UIAccessibility.isReduceMotionEnabled
+        if animates {
+            layoutIfNeeded()
+        }
+        if stateChanged {
+            NSLayoutConstraint.deactivate(showsOptions ? joinedConstraints : separatedConstraints)
+            NSLayoutConstraint.activate(showsOptions ? separatedConstraints : joinedConstraints)
+            self.showsOptions = showsOptions
+        }
+
         isAccessibilityElement = isLoading
         accessibilityLabel = isLoading ? L10n.Home.feelingLuckyLoading : nil
         accessibilityTraits = isLoading ? [.staticText, .updatesFrequently] : []
-        prompt.alpha = showsOptions ? 1 : 0
-        buttons.forEach { $0.isEnabled = showsOptions }
-        options.alpha = showsOptions ? 1 : 0
-        options.isUserInteractionEnabled = showsOptions
-        options.accessibilityElementsHidden = isLoading
-        loadingContent.isHidden = showsOptions
+        accessibilityElements = isLoading ? nil : (showsOptions ? buttons : [prompt])
+        prompt.isEnabled = showsPrompt
+        prompt.isAccessibilityElement = showsPrompt
+        for button in buttons {
+            button.isEnabled = showsOptions
+            button.isAccessibilityElement = showsOptions
+        }
+        loadingContent.isHidden = !isLoading
         if isLoading {
             progress.startAnimating()
         } else {
             progress.stopAnimating()
+        }
+
+        let updateOpacity = {
+            self.prompt.alpha = showsPrompt ? 1 : 0
+            self.buttons[0].alpha = showsOptions ? 1 : 0
+            self.middleTitle.alpha = showsOptions ? 1 : 0
+            self.buttons[2].alpha = showsOptions ? 1 : 0
+        }
+        let focusFirstOption = {
+            guard animatesExpansion, UIAccessibility.isVoiceOverRunning,
+                  self.showsOptions else { return }
+            UIAccessibility.post(notification: .layoutChanged, argument: self.buttons.first)
+        }
+        if animates {
+            UIView.animate(
+                withDuration: 0.34,
+                delay: 0,
+                usingSpringWithDamping: 0.86,
+                initialSpringVelocity: 0,
+                options: [.allowUserInteraction, .beginFromCurrentState],
+                animations: {
+                    self.layoutIfNeeded()
+                    updateOpacity()
+                },
+                completion: { _ in focusFirstOption() }
+            )
+        } else {
+            updateOpacity()
+            focusFirstOption()
         }
     }
 }

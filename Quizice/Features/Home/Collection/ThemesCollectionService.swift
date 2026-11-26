@@ -34,8 +34,6 @@ final class ThemesCollectionService: NSObject, UICollectionViewDelegate, UIColle
         static let accessibilityProminentActionCardHeight: CGFloat = 272
         static let aiThemeButtonHeight = prominentActionCardHeight
         static let secondaryActionButtonHeight: CGFloat = 54
-        static let feelingLuckyCardHeight: CGFloat = 82
-        static let accessibilityFeelingLuckyCardHeight: CGFloat = 112
         static let subscriptionPromoHeight = prominentActionCardHeight
         static let accessibilitySubscriptionPromoHeight = accessibilityProminentActionCardHeight
         static let statisticsCardHeight: CGFloat = 112
@@ -99,6 +97,8 @@ final class ThemesCollectionService: NSObject, UICollectionViewDelegate, UIColle
             reconfigureAIThemeCell()
         }
     }
+
+    var isFeelingLuckyExpanded = false
 
     var isFeelingLuckyLoading = false {
         didSet {

@@ -88,20 +88,7 @@ extension ThemesCollectionService {
             ))
         }
 
-        if indexPath.item == feelingLuckyIndex {
-            return CGSize(
-                width: availableWidth,
-                height: feelingLuckyCardHeight(traits: collectionView.traitCollection)
-            )
-        }
-
         return CGSize(width: availableWidth, height: Layout.secondaryActionButtonHeight)
-    }
-
-    private func feelingLuckyCardHeight(traits: UITraitCollection) -> CGFloat {
-        traits.preferredContentSizeCategory.isAccessibilityCategory
-            ? Layout.accessibilityFeelingLuckyCardHeight
-            : Layout.feelingLuckyCardHeight
     }
 
     func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, minimumLineSpacingForSectionAt section: Int) -> CGFloat {
@@ -177,7 +164,7 @@ extension ThemesCollectionService {
                     : Layout.subscriptionPromoHeight)
                 : 0)
             + aiThemeCardHeight(width: min(width, 640), traits: traitCollection)
-            + feelingLuckyCardHeight(traits: traitCollection)
+            + Layout.secondaryActionButtonHeight
             + Layout.statisticsCardHeight
             + lastItemBottomInset(availableHeight: availableOuterHeight)
             + outerItemSpacing(availableHeight: availableOuterHeight)

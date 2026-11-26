@@ -14,18 +14,55 @@ final class HomeFeelingLuckyTests: HomeScreenVisualStateTestCase {
             )
             let router = HomeRouterSpy()
             viewController.router = router
-            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 844))
             window.rootViewController = viewController
             window.makeKeyAndVisible()
             window.layoutIfNeeded()
             testWindows.append(window)
 
-            let luckyButton = try XCTUnwrap(viewController.view.descendant(
-                withAccessibilityIdentifier: "homeFeelingLuckyButton-\(questionCount)"
+            let card = try XCTUnwrap(viewController.view.descendant(
+                withAccessibilityIdentifier: "homeFeelingLuckyCard"
+            ))
+            let collapsedButton = try XCTUnwrap(card.descendant(
+                withAccessibilityIdentifier: "homeFeelingLuckyButton"
             ) as? UIButton)
-            XCTAssertGreaterThanOrEqual(luckyButton.bounds.height, 44)
-            XCTAssertEqual(luckyButton.accessibilityLabel, L10n.Home.feelingLuckyQuestionCount(questionCount))
+            let options = try QuizQuestionCountPolicy.supportedCounts.map {
+                try feelingLuckyOption($0, in: card)
+            }
+            let collapsedFrame = card.convert(card.bounds, to: window)
+            XCTAssertEqual(collapsedFrame.height, 54, accuracy: 0.5)
+            XCTAssertEqual(collapsedButton.convert(collapsedButton.bounds, to: card), card.bounds)
+            XCTAssertEqual(collapsedButton.accessibilityLabel ?? collapsedButton.currentTitle, L10n.Home.feelingLucky)
+            XCTAssertTrue(collapsedButton.isAccessibilityElement)
+            XCTAssertTrue(options.allSatisfy { !$0.isEnabled && !$0.isAccessibilityElement })
+            let collapsedHit = card.hitTest(CGPoint(x: card.bounds.midX, y: card.bounds.midY), with: nil)
+            XCTAssertTrue(collapsedHit === collapsedButton || collapsedHit?.isDescendant(of: collapsedButton) == true)
 
+            try expandFeelingLucky(in: card)
+
+            XCTAssertNil(viewController.feelingLuckyTask)
+            XCTAssertNil(session.chosenTheme)
+            XCTAssertEqual(router.showQuestionCallCount, 0)
+            XCTAssertFalse(collapsedButton.isAccessibilityElement)
+            XCTAssertEqual(card.convert(card.bounds, to: window), collapsedFrame)
+            for option in options {
+                XCTAssertTrue(option.isEnabled)
+                XCTAssertTrue(option.isAccessibilityElement)
+                XCTAssertEqual(option.bounds.height, 54, accuracy: 0.5)
+                XCTAssertEqual(option.accessibilityLabel, L10n.Home.feelingLuckyQuestionCount(option.tag))
+                let center = option.convert(CGPoint(x: option.bounds.midX, y: option.bounds.midY), to: card)
+                let hit = card.hitTest(center, with: nil)
+                XCTAssertTrue(hit === option || hit?.isDescendant(of: option) == true)
+            }
+            let optionFrames = options.map { $0.convert($0.bounds, to: card) }
+            XCTAssertEqual(optionFrames[0].minX, card.bounds.minX, accuracy: 0.5)
+            XCTAssertEqual(optionFrames[2].maxX, card.bounds.maxX, accuracy: 0.5)
+            for (leading, trailing) in zip(optionFrames, optionFrames.dropFirst()) {
+                XCTAssertEqual(leading.width, trailing.width, accuracy: 0.5)
+                XCTAssertEqual(trailing.minX - leading.maxX, 12, accuracy: 0.5)
+            }
+
+            let luckyButton = try XCTUnwrap(options.first { $0.tag == questionCount })
             luckyButton.sendActions(for: .touchUpInside)
             luckyButton.sendActions(for: .touchUpInside)
             await (try XCTUnwrap(viewController.feelingLuckyTask)).value
@@ -54,9 +91,8 @@ final class HomeFeelingLuckyTests: HomeScreenVisualStateTestCase {
         drainAnimations(0.01)
         analytics.reset()
 
-        let luckyButton = try XCTUnwrap(
-            viewController.view.descendant(withAccessibilityIdentifier: "homeFeelingLuckyButton-5") as? UIButton
-        )
+        try expandFeelingLucky(in: viewController.view)
+        let luckyButton = try feelingLuckyOption(5, in: viewController.view)
         luckyButton.sendActions(for: .touchUpInside)
         let launchTask = try XCTUnwrap(viewController.feelingLuckyTask)
         await launchTask.value
@@ -88,11 +124,9 @@ final class HomeFeelingLuckyTests: HomeScreenVisualStateTestCase {
         window.makeKeyAndVisible()
         window.layoutIfNeeded()
         testWindows.append(window)
-        let luckyButton = try XCTUnwrap(
-            viewController.view.descendant(
-                withAccessibilityIdentifier: "homeFeelingLuckyButton-5"
-            ) as? UIButton
-        )
+        try expandFeelingLucky(in: viewController.view)
+        XCTAssertTrue(repository.requestedSelectionModes.isEmpty)
+        let luckyButton = try feelingLuckyOption(5, in: viewController.view)
 
         luckyButton.sendActions(for: .touchUpInside)
         let launchTask = try XCTUnwrap(viewController.feelingLuckyTask)
@@ -138,11 +172,8 @@ final class HomeFeelingLuckyTests: HomeScreenVisualStateTestCase {
         window.makeKeyAndVisible()
         window.layoutIfNeeded()
         testWindows.append(window)
-        let luckyButton = try XCTUnwrap(
-            viewController.view.descendant(
-                withAccessibilityIdentifier: "homeFeelingLuckyButton-5"
-            ) as? UIButton
-        )
+        try expandFeelingLucky(in: viewController.view)
+        let luckyButton = try feelingLuckyOption(5, in: viewController.view)
 
         luckyButton.sendActions(for: .touchUpInside)
         let launchTask = try XCTUnwrap(viewController.feelingLuckyTask)
@@ -202,9 +233,8 @@ final class HomeFeelingLuckyTests: HomeScreenVisualStateTestCase {
         window.makeKeyAndVisible()
         window.layoutIfNeeded()
         testWindows.append(window)
-        let luckyButton = try XCTUnwrap(
-            viewController.view.descendant(withAccessibilityIdentifier: "homeFeelingLuckyButton-5") as? UIButton
-        )
+        try expandFeelingLucky(in: viewController.view)
+        let luckyButton = try feelingLuckyOption(5, in: viewController.view)
 
         luckyButton.sendActions(for: .touchUpInside)
         let launchTask = try XCTUnwrap(viewController.feelingLuckyTask)
@@ -247,9 +277,8 @@ final class HomeFeelingLuckyTests: HomeScreenVisualStateTestCase {
         testWindows.append(window)
         drainAnimations(0.01)
 
-        let luckyButton = try XCTUnwrap(
-            viewController.view.descendant(withAccessibilityIdentifier: "homeFeelingLuckyButton-5") as? UIButton
-        )
+        try expandFeelingLucky(in: viewController.view)
+        let luckyButton = try feelingLuckyOption(5, in: viewController.view)
         let collectionView = try XCTUnwrap(
             viewController.view.descendant(withAccessibilityIdentifier: "homeThemesCollectionView") as? UICollectionView
         )
@@ -301,9 +330,8 @@ final class HomeFeelingLuckyTests: HomeScreenVisualStateTestCase {
         testWindows.append(window)
         drainAnimations(0.01)
 
-        let luckyButton = try XCTUnwrap(
-            viewController.view.descendant(withAccessibilityIdentifier: "homeFeelingLuckyButton-5") as? UIButton
-        )
+        try expandFeelingLucky(in: viewController.view)
+        let luckyButton = try feelingLuckyOption(5, in: viewController.view)
         let progressView = try XCTUnwrap(
             viewController.view.descendant(withAccessibilityIdentifier: "homeFeelingLuckyProgressView")
                 as? UIActivityIndicatorView
@@ -429,9 +457,8 @@ final class HomeFeelingLuckyTests: HomeScreenVisualStateTestCase {
         window.makeKeyAndVisible()
         window.layoutIfNeeded()
         testWindows.append(window)
-        let luckyButton = try XCTUnwrap(
-            viewController.view.descendant(withAccessibilityIdentifier: "homeFeelingLuckyButton-5") as? UIButton
-        )
+        try expandFeelingLucky(in: viewController.view)
+        let luckyButton = try feelingLuckyOption(5, in: viewController.view)
         let motivationLabel = try XCTUnwrap(
             viewController.view.descendant(withAccessibilityIdentifier: "homeMotivationLabel") as? UILabel
         )
@@ -547,10 +574,22 @@ final class HomeFeelingLuckyTests: HomeScreenVisualStateTestCase {
         window.makeKeyAndVisible()
         window.layoutIfNeeded()
         testWindows.append(window)
-        let luckyButton = try XCTUnwrap(
-            controller.view.descendant(withAccessibilityIdentifier: "homeFeelingLuckyButton-\(questionCount)") as? UIButton
-        )
+        try expandFeelingLucky(in: controller.view)
+        let luckyButton = try feelingLuckyOption(questionCount, in: controller.view)
         return (controller, repository, router, luckyButton)
+    }
+
+    private func expandFeelingLucky(in view: UIView) throws {
+        let button = try XCTUnwrap(view.descendant(withAccessibilityIdentifier: "homeFeelingLuckyButton") as? UIButton)
+        XCTAssertTrue(button.isEnabled)
+        UIView.performWithoutAnimation {
+            button.sendActions(for: .touchUpInside)
+            view.layoutIfNeeded()
+        }
+    }
+
+    private func feelingLuckyOption(_ count: Int, in view: UIView) throws -> UIButton {
+        try XCTUnwrap(view.descendant(withAccessibilityIdentifier: "homeFeelingLuckyButton-\(count)") as? UIButton)
     }
 
 }

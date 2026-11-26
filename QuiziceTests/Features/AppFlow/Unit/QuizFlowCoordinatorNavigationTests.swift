@@ -108,9 +108,18 @@ final class QuizFlowCoordinatorNavigationTests: QuizFlowCoordinatorTestCase {
         let collectionView = try XCTUnwrap(
             descendant(in: home.view, accessibilityIdentifier: "homeThemesCollectionView") as? UICollectionView
         )
+        let expandButton = try XCTUnwrap(
+            descendant(in: home.view, accessibilityIdentifier: "homeFeelingLuckyButton") as? UIButton
+        )
+        UIView.performWithoutAnimation {
+            expandButton.sendActions(for: .touchUpInside)
+            home.view.layoutIfNeeded()
+        }
+        XCTAssertTrue(navigationController.presentedControllers.isEmpty)
         let luckyButton = try XCTUnwrap(
             descendant(in: home.view, accessibilityIdentifier: "homeFeelingLuckyButton-5") as? UIButton
         )
+        XCTAssertTrue(luckyButton.isEnabled)
 
         luckyButton.sendActions(for: .touchUpInside)
         try await waitUntil(timeout: 1.5) {
@@ -124,6 +133,16 @@ final class QuizFlowCoordinatorNavigationTests: QuizFlowCoordinatorTestCase {
 
         XCTAssertTrue(collectionView.isUserInteractionEnabled)
         XCTAssertFalse(luckyCard.isHidden)
+        let restoredButton = try XCTUnwrap(
+            descendant(in: home.view, accessibilityIdentifier: "homeFeelingLuckyButton") as? UIButton
+        )
+        let restoredOption = try XCTUnwrap(
+            descendant(in: home.view, accessibilityIdentifier: "homeFeelingLuckyButton-5") as? UIButton
+        )
+        XCTAssertTrue(restoredButton.isEnabled)
+        XCTAssertTrue(restoredButton.isAccessibilityElement)
+        XCTAssertFalse(restoredOption.isEnabled)
+        XCTAssertFalse(restoredOption.isAccessibilityElement)
 
         let themeButton = try XCTUnwrap(
             descendant(in: home.view, accessibilityIdentifier: "music") as? UIButton

@@ -290,6 +290,9 @@ extension QuizViewController {
         feelingLuckyTask?.cancel()
         feelingLuckyTask = nil
         feelingLuckyRequestID = nil
+        if hasQuizLaunchStarted {
+            themesCollectionService.isFeelingLuckyExpanded = false
+        }
         themesCollectionService.isFeelingLuckyLoading = false
         settingsButton?.isEnabled = true
         helpButton?.isEnabled = true
