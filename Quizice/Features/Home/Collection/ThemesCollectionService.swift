@@ -118,6 +118,7 @@ final class ThemesCollectionService: NSObject, UICollectionViewDelegate, UIColle
     weak var themeItemsCollectionView: UICollectionView?
     private weak var moreThemesButton: MoreThemesFadeButton?
     private weak var moreThemesTapGestureRecognizer: UITapGestureRecognizer?
+    private weak var feelingLuckyDismissalTap: UITapGestureRecognizer?
 
     var pendingScrollAnchor: HomeThemeScrollAnchor?
 
@@ -516,15 +517,39 @@ final class ThemesCollectionService: NSObject, UICollectionViewDelegate, UIColle
         moreThemesButtonTapped()
     }
 
+    func installFeelingLuckyDismissal(in view: UIView) {
+        let tap = UITapGestureRecognizer(target: self, action: #selector(feelingLuckyOutsideTapped(_:)))
+        tap.delegate = self
+        tap.cancelsTouchesInView = false
+        tap.delaysTouchesEnded = false
+        view.addGestureRecognizer(tap)
+        feelingLuckyDismissalTap = tap
+    }
+
+    @objc private func feelingLuckyOutsideTapped(_ tap: UITapGestureRecognizer) {
+        guard let view = tap.view else { return }
+        dismissFeelingLucky(forTapAt: tap.location(in: view), in: view)
+    }
+
     func gestureRecognizer(
         _ gestureRecognizer: UIGestureRecognizer,
         shouldReceive touch: UITouch
     ) -> Bool {
+        if gestureRecognizer === feelingLuckyDismissalTap {
+            return isFeelingLuckyExpanded && !isFeelingLuckyLoading
+        }
         guard gestureRecognizer === moreThemesTapGestureRecognizer else { return true }
         guard let collectionView = gestureRecognizer.view as? HomeThemesCollectionView else {
             return false
         }
         return collectionView.isMoreThemesTouch(at: touch.location(in: collectionView))
+    }
+
+    func gestureRecognizer(
+        _ gestureRecognizer: UIGestureRecognizer,
+        shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
+    ) -> Bool {
+        gestureRecognizer === feelingLuckyDismissalTap || otherGestureRecognizer === feelingLuckyDismissalTap
     }
 
     @objc func buttonTouchedDown(_ sender: UIButton) {

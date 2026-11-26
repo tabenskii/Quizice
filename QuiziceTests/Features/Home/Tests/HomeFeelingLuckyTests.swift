@@ -73,6 +73,47 @@ final class HomeFeelingLuckyTests: HomeScreenVisualStateTestCase {
         }
     }
 
+    func testFeelingLuckyCollapsesOnlyForTapsOutsideTheCard() throws {
+        QuizFactory.shared.themes = [makeTheme(name: "Музыка", questionCount: 15)]
+        let controller = makeHomeViewController(in: CGRect(x: 0, y: 0, width: 390, height: 844))
+        let router = HomeRouterSpy()
+        controller.router = router
+        let root = try XCTUnwrap(controller.view)
+        let card = try XCTUnwrap(root.descendant(withAccessibilityIdentifier: "homeFeelingLuckyCard"))
+        let collapsedButton = try XCTUnwrap(card.descendant(
+            withAccessibilityIdentifier: "homeFeelingLuckyButton"
+        ) as? UIButton)
+        let options = try QuizQuestionCountPolicy.supportedCounts.map { try feelingLuckyOption($0, in: card) }
+        let frame = card.convert(card.bounds, to: root)
+
+        try expandFeelingLucky(in: card)
+
+        let firstFrame = options[0].convert(options[0].bounds, to: root)
+        let secondFrame = options[1].convert(options[1].bounds, to: root)
+        let gap = CGPoint(x: (firstFrame.maxX + secondFrame.minX) / 2, y: frame.midY)
+        XCTAssertTrue(frame.contains(gap))
+        XCTAssertGreaterThan(secondFrame.minX, firstFrame.maxX)
+        controller.themesCollectionService.dismissFeelingLucky(forTapAt: gap, in: root)
+        XCTAssertFalse(collapsedButton.isAccessibilityElement)
+        XCTAssertTrue(options.allSatisfy { $0.isEnabled && $0.isAccessibilityElement })
+
+        let outside = CGPoint(x: frame.midX, y: frame.minY - 1)
+        XCTAssertTrue(root.bounds.contains(outside))
+        UIView.performWithoutAnimation {
+            controller.themesCollectionService.dismissFeelingLucky(forTapAt: outside, in: root)
+            root.layoutIfNeeded()
+        }
+        XCTAssertTrue(collapsedButton.isEnabled)
+        XCTAssertTrue(collapsedButton.isAccessibilityElement)
+        XCTAssertTrue(options.allSatisfy { !$0.isEnabled && !$0.isAccessibilityElement })
+        XCTAssertEqual(card.convert(card.bounds, to: root), frame)
+
+        try expandFeelingLucky(in: card)
+        XCTAssertTrue(options.allSatisfy { $0.isEnabled && $0.isAccessibilityElement })
+        XCTAssertNil(controller.feelingLuckyTask)
+        XCTAssertEqual(router.showQuestionCallCount, 0)
+    }
+
     func testFeelingLuckyAnalyticsTracksRandomFiveQuestionStart() async throws {
         QuizFactory.shared.themes = [makeTheme(name: "Музыка", questionCount: 15)]
         let analytics = HomeAnalyticsTrackingSpy()

@@ -36,6 +36,14 @@ extension ThemesCollectionService {
         visibleFeelingLuckyCard?.render(isExpanded: isFeelingLuckyExpanded, isLoading: isFeelingLuckyLoading)
     }
 
+    func dismissFeelingLucky(forTapAt point: CGPoint, in view: UIView) {
+        guard isFeelingLuckyExpanded, !isFeelingLuckyLoading else { return }
+        let card = visibleFeelingLuckyCard
+        if let card, card.bounds.contains(view.convert(point, to: card)) { return }
+        isFeelingLuckyExpanded = false
+        card?.render(isExpanded: false, isLoading: false, animated: true)
+    }
+
     func makeSecondaryActionButton(
         accessibilityIdentifier: String,
         accessibilityLabel: String,
@@ -363,7 +371,7 @@ extension ThemesCollectionService {
         guard !isFeelingLuckyExpanded, !isFeelingLuckyLoading,
               let card = sender.superview as? FeelingLuckyCardView else { return }
         isFeelingLuckyExpanded = true
-        card.render(isExpanded: true, isLoading: false, animatesExpansion: true)
+        card.render(isExpanded: true, isLoading: false, animated: true)
     }
 
     @objc func feelingLuckyButtonTouchedUpInside(_ sender: UIButton) {
@@ -476,11 +484,11 @@ private final class FeelingLuckyCardView: UIView {
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError() }
 
-    func render(isExpanded: Bool, isLoading: Bool, animatesExpansion: Bool = false) {
+    func render(isExpanded: Bool, isLoading: Bool, animated: Bool = false) {
         let showsOptions = isExpanded && !isLoading
         let showsPrompt = !isExpanded && !isLoading
         let stateChanged = self.showsOptions != showsOptions
-        let animates = stateChanged && (animatesExpansion || isLoading) && window != nil
+        let animates = stateChanged && (animated || isLoading) && window != nil
             && !UIAccessibility.isReduceMotionEnabled
         if animates {
             layoutIfNeeded()
@@ -515,7 +523,7 @@ private final class FeelingLuckyCardView: UIView {
             self.buttons[2].alpha = showsOptions ? 1 : 0
         }
         let focusFirstOption = {
-            guard animatesExpansion, UIAccessibility.isVoiceOverRunning,
+            guard animated, showsOptions, UIAccessibility.isVoiceOverRunning,
                   self.showsOptions else { return }
             UIAccessibility.post(notification: .layoutChanged, argument: self.buttons.first)
         }
