@@ -36,7 +36,7 @@ extension ThemesCollectionService {
         visibleFeelingLuckyCard?.render(isExpanded: isFeelingLuckyExpanded, isLoading: isFeelingLuckyLoading)
     }
 
-    func dismissFeelingLucky(forTapAt point: CGPoint, in view: UIView) {
+    func dismissFeelingLucky(forTouchAt point: CGPoint, in view: UIView) {
         guard isFeelingLuckyExpanded, !isFeelingLuckyLoading else { return }
         let card = visibleFeelingLuckyCard
         if let card, card.bounds.contains(view.convert(point, to: card)) { return }

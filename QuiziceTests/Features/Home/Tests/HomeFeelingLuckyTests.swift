@@ -73,12 +73,18 @@ final class HomeFeelingLuckyTests: HomeScreenVisualStateTestCase {
         }
     }
 
-    func testFeelingLuckyCollapsesOnlyForTapsOutsideTheCard() throws {
+    func testFeelingLuckyCollapsesOnlyForTouchesOutsideTheCard() throws {
         QuizFactory.shared.themes = [makeTheme(name: "Музыка", questionCount: 15)]
         let controller = makeHomeViewController(in: CGRect(x: 0, y: 0, width: 390, height: 844))
         let router = HomeRouterSpy()
         controller.router = router
         let root = try XCTUnwrap(controller.view)
+        let dismissalRecognizer = try XCTUnwrap(root.gestureRecognizers?.first {
+            $0.delegate === controller.themesCollectionService
+        })
+        XCTAssertFalse(dismissalRecognizer.cancelsTouchesInView)
+        XCTAssertFalse(dismissalRecognizer.delaysTouchesBegan)
+        XCTAssertFalse(dismissalRecognizer.delaysTouchesEnded)
         let card = try XCTUnwrap(root.descendant(withAccessibilityIdentifier: "homeFeelingLuckyCard"))
         let collapsedButton = try XCTUnwrap(card.descendant(
             withAccessibilityIdentifier: "homeFeelingLuckyButton"
@@ -93,14 +99,14 @@ final class HomeFeelingLuckyTests: HomeScreenVisualStateTestCase {
         let gap = CGPoint(x: (firstFrame.maxX + secondFrame.minX) / 2, y: frame.midY)
         XCTAssertTrue(frame.contains(gap))
         XCTAssertGreaterThan(secondFrame.minX, firstFrame.maxX)
-        controller.themesCollectionService.dismissFeelingLucky(forTapAt: gap, in: root)
+        controller.themesCollectionService.dismissFeelingLucky(forTouchAt: gap, in: root)
         XCTAssertFalse(collapsedButton.isAccessibilityElement)
         XCTAssertTrue(options.allSatisfy { $0.isEnabled && $0.isAccessibilityElement })
 
         let outside = CGPoint(x: frame.midX, y: frame.minY - 1)
         XCTAssertTrue(root.bounds.contains(outside))
         UIView.performWithoutAnimation {
-            controller.themesCollectionService.dismissFeelingLucky(forTapAt: outside, in: root)
+            controller.themesCollectionService.dismissFeelingLucky(forTouchAt: outside, in: root)
             root.layoutIfNeeded()
         }
         XCTAssertTrue(collapsedButton.isEnabled)
