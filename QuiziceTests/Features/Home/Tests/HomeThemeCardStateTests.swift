@@ -166,6 +166,8 @@ final class HomeThemeCardStateTests: HomeScreenVisualStateTestCase {
 
     func testPreparationFailureUsesCustomAlertAboveExpandedCardAndRetryStartsQuiz() async throws {
         let (controller, repository, router, startButton) = try await makeBackendLaunchHarness()
+        let activityIndicator = try XCTUnwrap(startButton.descendant(
+            withAccessibilityIdentifier: "descriptionStartActivityIndicator") as? UIActivityIndicatorView)
         repository.preparationError = URLError(.notConnectedToInternet)
         startButton.sendActions(for: .touchUpInside)
         try await waitUntil { controller.presentedViewController != nil }
@@ -181,12 +183,15 @@ final class HomeThemeCardStateTests: HomeScreenVisualStateTestCase {
         XCTAssertEqual(alert.secondaryAction?.title, L10n.Common.back)
         XCTAssertEqual(controller.homeCardState.phase, .expandedBack)
         XCTAssertTrue(startButton.isEnabled)
+        XCTAssertFalse(activityIndicator.isAnimating)
         XCTAssertEqual(router.showQuestionCallCount, 0)
 
         repository.preparationError = nil
         router.onShowQuestion = { [weak controller] in
             XCTAssertNil(controller?.presentedViewController)
             XCTAssertNil(controller?.activeQuizPreparationAlert)
+            XCTAssertTrue(activityIndicator.isAnimating)
+            XCTAssertFalse(startButton.isEnabled)
         }
         alert.primaryAction.action()
         try await waitUntil { router.showQuestionCallCount == 1 }
@@ -470,6 +475,11 @@ final class HomeThemeCardStateTests: HomeScreenVisualStateTestCase {
         XCTAssertFalse(startButton.isEnabled)
         XCTAssertTrue(activityIndicator.isAnimating)
         try await waitUntil { repository.prepareQuizCallCount == 1 }
+
+        viewController.applyBackendCatalogRefresh(didRefresh: true, locale: AppLocalizationStore.shared.resolvedLanguageCode)
+
+        XCTAssertTrue(activityIndicator.isAnimating)
+        XCTAssertFalse(startButton.isEnabled)
         XCTAssertEqual(router.showQuestionCallCount, 0)
         viewController.removeExpandedThemeCardViews()
         XCTAssertFalse(activityIndicator.isAnimating)

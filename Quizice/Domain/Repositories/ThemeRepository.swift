@@ -4,6 +4,7 @@ enum QuizPreparationError: Error, Equatable {
     case unavailable
     case offlineQuestionsUnavailable
     case insufficientQuestions
+    case timedOut
     case progressComplete(userID: String)
 
     static func isCancellation(_ error: Error) -> Bool {

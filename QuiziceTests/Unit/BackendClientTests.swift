@@ -284,7 +284,7 @@ final class BackendClientTests: XCTestCase {
         let backend = RecordingBackendContentAPI(
             questionError: URLError(.timedOut)
         )
-        let repository = ThemeCatalogRepository(backendContentAPI: backend)
+        let repository = ThemeCatalogRepository(backendContentAPI: backend, accessTokenProvider: NoopBackendAccessTokenProvider())
         repository.themes = [Self.localTheme(questionCount: 15)]
         let locale = AppLocalizationStore.shared.resolvedLanguageCode
         let didRefresh = await repository.refreshBackendCatalog(locale: locale)
@@ -305,7 +305,7 @@ final class BackendClientTests: XCTestCase {
 
     func testEachQuizPreparationUsesANewLowercaseUUIDSeed() async throws {
         let backend = RecordingBackendContentAPI()
-        let repository = ThemeCatalogRepository(backendContentAPI: backend)
+        let repository = ThemeCatalogRepository(backendContentAPI: backend, accessTokenProvider: NoopBackendAccessTokenProvider())
         repository.themes = [Self.localTheme(questionCount: 15)]
         let locale = AppLocalizationStore.shared.resolvedLanguageCode
         let didRefresh = await repository.refreshBackendCatalog(locale: locale)
@@ -359,7 +359,10 @@ final class BackendClientTests: XCTestCase {
                 )
             ]
         )
-        let repository = ThemeCatalogRepository(backendContentAPI: backend)
+        let (store, defaults, suiteName) = makePreferenceStore()
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let repository = ThemeCatalogRepository(backendContentAPI: backend, preferenceStore: store,
+            accessTokenProvider: NoopBackendAccessTokenProvider())
         repository.themes = [Self.localTheme(questionCount: 15)]
         let locale = AppLocalizationStore.shared.resolvedLanguageCode
 
@@ -1200,7 +1203,8 @@ extension BackendClientTests {
             countries: ["DE", "US", "ES", "FR", "IT", "RU"]
         )])
         var country: String? = "US"
-        let repository = ThemeCatalogRepository(backendContentAPI: backend, countryProvider: { country })
+        let repository = ThemeCatalogRepository(backendContentAPI: backend,
+            accessTokenProvider: NoopBackendAccessTokenProvider(), countryProvider: { country })
         let locale = AppLocalizationStore.shared.resolvedLanguageCode
         let refreshed = await repository.refreshBackendCatalog(locale: locale)
         XCTAssertTrue(refreshed)
@@ -1239,7 +1243,8 @@ extension BackendClientTests {
     @MainActor
     func testRepositoryUsesSavedCountryInBothRandomModesButOmitsItForMusic() async throws {
         let backend = RecordingBackendContentAPI()
-        let repository = ThemeCatalogRepository(backendContentAPI: backend, countryProvider: { "US" })
+        let repository = ThemeCatalogRepository(backendContentAPI: backend,
+            accessTokenProvider: NoopBackendAccessTokenProvider(), countryProvider: { "US" })
         let locale = AppLocalizationStore.shared.resolvedLanguageCode
         let refreshed = await repository.refreshBackendCatalog(locale: locale)
         XCTAssertTrue(refreshed)

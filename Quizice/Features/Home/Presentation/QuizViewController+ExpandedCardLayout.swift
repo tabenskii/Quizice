@@ -83,7 +83,7 @@ extension QuizViewController {
                 guard QuizQuestionCountPolicy.usableQuestionCount(
                     in: preparedTheme.questions.map(QuestionModel.init(quizQuestion:))
                 ) > 0 else { throw QuizPreparationError.unavailable }
-                self.stopQuizPreparationProgress()
+                self.finishQuizPreparationRequest()
                 self.session.chosenTheme = ThemeModel(quizTheme: preparedTheme)
                 self.session.questionsCount = questionCount
                 self.hasQuizLaunchStarted = true
@@ -130,7 +130,8 @@ extension QuizViewController {
     }
 
     private func finishFailedQuizPreparation() {
-        stopQuizPreparationProgress()
+        finishQuizPreparationRequest()
+        expandedThemeCardView?.setStartLoading(false)
         guard isQuizLaunchPending, !hasQuizLaunchStarted else { return }
         homeStore.send(.launchFailed)
         isQuizLaunchPending = false
@@ -304,10 +305,9 @@ extension QuizViewController {
         }
     }
 
-    private func stopQuizPreparationProgress() {
+    private func finishQuizPreparationRequest() {
         quizPreparationTask = nil
         quizPreparationRequestID = nil
-        expandedThemeCardView?.setStartLoading(false)
     }
 
     func makeExpandedCardBackdrop(appearance: AppAppearance) -> UIView {
