@@ -123,6 +123,17 @@ final class ThemesCollectionService: NSObject, UICollectionViewDelegate, UIColle
 
     var pendingScrollAnchor: HomeThemeScrollAnchor?
 
+    var maintenanceNotice: String? {
+        didSet {
+            guard maintenanceNotice != oldValue, let collectionView = observedCollectionView else { return }
+            if collectionView.contentOffset.y > -collectionView.adjustedContentInset.top {
+                captureScrollAnchor()
+            }
+            collectionView.reloadData()
+            collectionView.collectionViewLayout.invalidateLayout()
+        }
+    }
+
     var usesOuterScrolling = false {
         didSet {
             guard oldValue != usesOuterScrolling else { return }
@@ -249,6 +260,22 @@ final class ThemesCollectionService: NSObject, UICollectionViewDelegate, UIColle
         }
         observedCollectionView = collectionView
         return outerItemCount
+    }
+
+    func collectionView(
+        _ collectionView: UICollectionView,
+        viewForSupplementaryElementOfKind kind: String,
+        at indexPath: IndexPath
+    ) -> UICollectionReusableView {
+        let view = collectionView.dequeueReusableSupplementaryView(
+            ofKind: kind, withReuseIdentifier: HomeMaintenanceBannerView.reuseIdentifier, for: indexPath
+        )
+        if let banner = view as? HomeMaintenanceBannerView {
+            banner.configure(message: maintenanceNotice ?? "",
+                appearance: appearanceStore.appearance(compatibleWith: collectionView.traitCollection),
+                spacing: maintenanceBannerSpacing(in: collectionView))
+        }
+        return view
     }
 
     func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {

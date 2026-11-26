@@ -107,6 +107,19 @@ extension ThemesCollectionService {
         isThemeItemsCollectionView(collectionView) ? .zero : Layout.sectionInsets
     }
 
+    func collectionView(
+        _ collectionView: UICollectionView,
+        layout collectionViewLayout: UICollectionViewLayout,
+        referenceSizeForHeaderInSection section: Int
+    ) -> CGSize {
+        guard !isThemeItemsCollectionView(collectionView) else { return .zero }
+        let width = collectionView.bounds.width
+        let contentWidth = width - Layout.sectionInsets.left - Layout.sectionInsets.right
+        let height = maintenanceBannerHeight(width: contentWidth, traits: collectionView.traitCollection,
+            availableHeight: availableContentHeight(in: collectionView))
+        return CGSize(width: width, height: height)
+    }
+
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
         if let collectionView = scrollView as? UICollectionView,
            isThemeItemsCollectionView(collectionView) {
@@ -169,10 +182,12 @@ extension ThemesCollectionService {
             + lastItemBottomInset(availableHeight: availableOuterHeight)
             + outerItemSpacing(availableHeight: availableOuterHeight)
                 * CGFloat(outerItemCount - 1)
+        let viewportBudget = availableOuterHeight - fixedOuterContentHeight
+            - maintenanceBannerHeight(width: width, traits: traitCollection, availableHeight: availableOuterHeight)
         let minimumViewportHeight = geometry.frames.prefix(grid.columnCount).map(\.maxY).max()
             ?? ThemeCardLayoutMetrics.singleLineHeight
         usesOuterScrolling = usesAccessibilityLayout
-            || fixedOuterContentHeight + minimumViewportHeight > availableOuterHeight
+            || minimumViewportHeight > viewportBudget
         if usesOuterScrolling {
             catalogCanScroll = false
             return geometry.contentSize.height
@@ -181,7 +196,6 @@ extension ThemesCollectionService {
         let maximumViewportHeight = geometry.frames
             .prefix(Layout.viewportCardsPerColumn * grid.columnCount)
             .map(\.maxY).max() ?? minimumViewportHeight
-        let viewportBudget = availableOuterHeight - fixedOuterContentHeight
         let viewportHeight = min(maximumViewportHeight, max(viewportBudget, minimumViewportHeight))
         catalogCanScroll = geometry.contentSize.height > viewportHeight + 0.5
         return viewportHeight
@@ -194,6 +208,17 @@ extension ThemesCollectionService {
                 - collectionView.adjustedContentInset.bottom,
             0
         )
+    }
+
+    func maintenanceBannerSpacing(in collectionView: UICollectionView) -> CGFloat {
+        outerItemSpacing(availableHeight: availableContentHeight(in: collectionView))
+    }
+
+    private func maintenanceBannerHeight(width: CGFloat, traits: UITraitCollection, availableHeight: CGFloat) -> CGFloat {
+        guard let maintenanceNotice, width > 0 else { return 0 }
+        return HomeMaintenanceBannerView.height(message: maintenanceNotice, width: width,
+            appearance: appearanceStore.appearance(compatibleWith: traits), traits: traits)
+            + outerItemSpacing(availableHeight: availableHeight)
     }
 
     private func outerItemSpacing(availableHeight: CGFloat) -> CGFloat {

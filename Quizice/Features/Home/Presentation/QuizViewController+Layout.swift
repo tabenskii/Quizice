@@ -42,6 +42,11 @@ extension QuizViewController {
             SubscriptionPromoBannerCollectionViewCell.self,
             forCellWithReuseIdentifier: SubscriptionPromoBannerCollectionViewCell.reuseIdentifier
         )
+        themesCollectionView.register(
+            HomeMaintenanceBannerView.self,
+            forSupplementaryViewOfKind: UICollectionView.elementKindSectionHeader,
+            withReuseIdentifier: HomeMaintenanceBannerView.reuseIdentifier
+        )
     }
 
     func configureHeaderViews() {

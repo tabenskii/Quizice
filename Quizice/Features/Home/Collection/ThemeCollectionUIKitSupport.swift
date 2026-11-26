@@ -32,6 +32,64 @@ final class InsetLabel: UILabel {
     }
 }
 
+final class HomeMaintenanceBannerView: UICollectionReusableView {
+    static let reuseIdentifier = "homeMaintenanceBanner"
+    private static let textInsets = UIEdgeInsets(top: 12, left: 16, bottom: 12, right: 16)
+    private let panel = UIView()
+    private let label = UILabel()
+    private var bottomConstraint: NSLayoutConstraint!
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        panel.translatesAutoresizingMaskIntoConstraints = false
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.accessibilityIdentifier = Self.reuseIdentifier
+        label.isAccessibilityElement = true
+        label.numberOfLines = 0
+        addSubview(panel)
+        panel.addSubview(label)
+        bottomConstraint = panel.bottomAnchor.constraint(equalTo: bottomAnchor)
+        let section = ThemesCollectionService.Layout.sectionInsets
+        let insets = Self.textInsets
+        NSLayoutConstraint.activate([
+            panel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: section.left),
+            panel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -section.right),
+            panel.topAnchor.constraint(equalTo: topAnchor),
+            bottomConstraint,
+            label.leadingAnchor.constraint(equalTo: panel.leadingAnchor, constant: insets.left),
+            label.trailingAnchor.constraint(equalTo: panel.trailingAnchor, constant: -insets.right),
+            label.topAnchor.constraint(equalTo: panel.topAnchor, constant: insets.top),
+            label.bottomAnchor.constraint(equalTo: panel.bottomAnchor, constant: -insets.bottom)
+        ])
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { nil }
+
+    func configure(message: String, appearance: AppAppearance, spacing: CGFloat) {
+        panel.applySurfaceStyle(appearance.row)
+        label.font = Self.font(appearance: appearance, traits: traitCollection)
+        label.textColor = appearance.surfaceTextColor
+        label.text = message
+        bottomConstraint.constant = -spacing
+    }
+
+    static func height(message: String, width: CGFloat, appearance: AppAppearance, traits: UITraitCollection) -> CGFloat {
+        let insets = Self.textInsets
+        let textHeight = (message as NSString).boundingRect(
+            with: CGSize(width: max(1, width - insets.left - insets.right), height: .greatestFiniteMagnitude),
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            attributes: [.font: font(appearance: appearance, traits: traits)],
+            context: nil
+        ).height
+        return ceil(textHeight) + insets.top + insets.bottom
+    }
+
+    private static func font(appearance: AppAppearance, traits: UITraitCollection) -> UIFont {
+        appearance.typography.font(size: 15, weight: .semibold, compatibleWith: traits)
+    }
+}
+
 final class GradientBorderView: UIView {
     private let gradientLayer = CAGradientLayer()
     private let borderMaskLayer = CAShapeLayer()

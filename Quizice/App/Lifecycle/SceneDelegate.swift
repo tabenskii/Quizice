@@ -70,15 +70,18 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             backendAccessProvider: AIQuizAccessStore.shared,
             usesDebugBackendAuthentication: usesDebugBackendAuthentication
         )
+        let backendConfiguration = BackendConfiguration.load()
         let coordinator = QuizFlowCoordinator(
             window: window,
             aiQuizThemeService: aiRuntimeDependencies.themeService,
             aiQuizAccessProvider: aiRuntimeDependencies.accessProvider,
-            aiServiceStatusAPI: BackendConfiguration.load().map { HTTPAIServiceStatusAPI(configuration: $0) },
+            aiServiceStatusAPI: backendConfiguration.map { HTTPAIServiceStatusAPI(configuration: $0) },
             accountManager: authenticationService,
             statisticsHistoryStore: .live()
         )
-        coordinator.start()
+        coordinator.start(maintenanceStatusAPI: backendConfiguration.map {
+            HTTPMaintenanceStatusAPI(configuration: $0)
+        })
         self.coordinator = coordinator
         monitorAccountConnectivity(for: coordinator)
         let appearance = AppAppearanceStore.shared.appearance(
@@ -106,15 +109,18 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     private func startSimulatorContent(in window: UIWindow, authenticationService: GameCenterAuthenticationService? = nil) {
         StatisticsStore().activateGuest()
         let aiDependencies = AIQuizRuntimeDependencies.live(usesDebugBackendAuthentication: authenticationService != nil)
+        let backendConfiguration = BackendConfiguration.load()
         let coordinator = QuizFlowCoordinator(
             window: window,
             aiQuizThemeService: aiDependencies.themeService,
             aiQuizAccessProvider: aiDependencies.accessProvider,
-            aiServiceStatusAPI: BackendConfiguration.load().map { HTTPAIServiceStatusAPI(configuration: $0) },
+            aiServiceStatusAPI: backendConfiguration.map { HTTPAIServiceStatusAPI(configuration: $0) },
             accountManager: authenticationService,
             statisticsHistoryStore: authenticationService.map { _ in .live() }
         )
-        coordinator.start()
+        coordinator.start(maintenanceStatusAPI: backendConfiguration.map {
+            HTTPMaintenanceStatusAPI(configuration: $0)
+        })
         self.coordinator = coordinator
         monitorAccountConnectivity(for: coordinator)
         launchOverlayPresenter.present(

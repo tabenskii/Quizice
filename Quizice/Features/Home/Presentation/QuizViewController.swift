@@ -181,6 +181,8 @@ final class QuizViewController: BaseQuizViewController, ThemeCollectionDelegate,
     let aiQuizThemeService: AIQuizThemeServiceProtocol
     let aiQuizAccessProvider: AIQuizAccessProviding
     let aiServiceStatusAPI: AIServiceStatusAPI?
+    private let maintenanceStatusAPI: MaintenanceStatusAPI?
+    private(set) var maintenanceNoticeTask: Task<Void, Never>?
     let analytics: AnalyticsTracking
     let themesCollectionService: ThemesCollectionService
     let motivationPromptProvider: (String?) -> String
@@ -269,6 +271,7 @@ final class QuizViewController: BaseQuizViewController, ThemeCollectionDelegate,
         aiQuizThemeService: AIQuizThemeServiceProtocol = MockAIQuizThemeService(),
         aiQuizAccessProvider: AIQuizAccessProviding = AIQuizAccessStore.shared,
         aiServiceStatusAPI: AIServiceStatusAPI? = nil,
+        maintenanceStatusAPI: MaintenanceStatusAPI? = nil,
         analytics: AnalyticsTracking = AppMetricaAnalyticsTracker.shared,
         motivationPromptProvider: @escaping (String?) -> String = QuizViewController.randomMotivationPrompt,
         randomQuestionsProvider: @escaping ([QuizQuestion]) -> [QuizQuestion] = { $0.shuffled() },
@@ -292,6 +295,7 @@ final class QuizViewController: BaseQuizViewController, ThemeCollectionDelegate,
         self.aiQuizThemeService = aiQuizThemeService
         self.aiQuizAccessProvider = aiQuizAccessProvider
         self.aiServiceStatusAPI = aiServiceStatusAPI
+        self.maintenanceStatusAPI = maintenanceStatusAPI
         self.analytics = analytics
         self.motivationPromptProvider = motivationPromptProvider
         self.randomQuestionsProvider = randomQuestionsProvider
@@ -315,6 +319,7 @@ final class QuizViewController: BaseQuizViewController, ThemeCollectionDelegate,
     deinit {
         accountDataObservers.forEach { NotificationCenter.default.removeObserver($0) }
         aiServiceNoticeTask?.cancel()
+        maintenanceNoticeTask?.cancel()
         aiSubmissionTask?.cancel()
         aiProgressTask?.cancel()
         aiAlertPresentationTask?.cancel()
@@ -349,6 +354,18 @@ final class QuizViewController: BaseQuizViewController, ThemeCollectionDelegate,
             NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
                 Task { @MainActor [weak self] in self?.refreshVisibleAccountData() }
             }
+        }
+        if maintenanceStatusAPI != nil {
+            let observer = NotificationCenter.default.addObserver(
+                forName: UIScene.didActivateNotification, object: nil, queue: .main
+            ) { [weak self] notification in
+                guard let scene = notification.object as? UIWindowScene else { return }
+                Task { @MainActor [weak self, weak scene] in
+                    guard let self, let scene, self.view.window?.windowScene === scene else { return }
+                    self.refreshMaintenanceNotice()
+                }
+            }
+            accountDataObservers.append(observer)
         }
         updateThemeAvailabilityMessage()
         statisticsHistoryStore.onChange = { [weak self] in self?.refreshStatisticsCharts() }
@@ -401,12 +418,28 @@ final class QuizViewController: BaseQuizViewController, ThemeCollectionDelegate,
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        refreshMaintenanceNotice()
         restoreHomeAfterQuizIfNeeded()
         themesCollectionView.reloadData()
         Task { @MainActor [weak self] in
             await self?.router?.refreshAccountData()
             guard !Task.isCancelled else { return }
             self?.themesCollectionService.refreshStatistics()
+        }
+    }
+
+    @MainActor
+    func refreshMaintenanceNotice() {
+        guard maintenanceNoticeTask == nil, let maintenanceStatusAPI else { return }
+        maintenanceNoticeTask = Task { [weak self] in
+            defer { self?.maintenanceNoticeTask = nil }
+            do {
+                let notice = try await maintenanceStatusAPI.fetchMaintenanceNotice()
+                try Task.checkCancellation()
+                self?.themesCollectionService.maintenanceNotice = notice
+            } catch {
+                // Only a successful server response changes the last known status.
+            }
         }
     }
 
