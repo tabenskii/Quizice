@@ -34,8 +34,12 @@ final class InsetLabel: UILabel {
 
 final class HomeMaintenanceBannerView: UICollectionReusableView {
     static let reuseIdentifier = "homeMaintenanceBanner"
+    private static let defaultSymbol = "exclamationmark.triangle.fill"
+    private static let symbolSize: CGFloat = 20
+    private static let symbolSpacing: CGFloat = 10
     private static let textInsets = UIEdgeInsets(top: 12, left: 16, bottom: 12, right: 16)
     private let panel = UIView()
+    private let symbolView = UIImageView()
     private let label = UILabel()
     private var bottomConstraint: NSLayoutConstraint!
 
@@ -43,11 +47,15 @@ final class HomeMaintenanceBannerView: UICollectionReusableView {
         super.init(frame: frame)
         panel.translatesAutoresizingMaskIntoConstraints = false
         label.translatesAutoresizingMaskIntoConstraints = false
+        symbolView.translatesAutoresizingMaskIntoConstraints = false
+        symbolView.contentMode = .scaleAspectFit
+        symbolView.isAccessibilityElement = false
         label.accessibilityIdentifier = Self.reuseIdentifier
         label.isAccessibilityElement = true
         label.numberOfLines = 0
         addSubview(panel)
         panel.addSubview(label)
+        panel.addSubview(symbolView)
         bottomConstraint = panel.bottomAnchor.constraint(equalTo: bottomAnchor)
         let section = ThemesCollectionService.Layout.sectionInsets
         let insets = Self.textInsets
@@ -56,7 +64,11 @@ final class HomeMaintenanceBannerView: UICollectionReusableView {
             panel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -section.right),
             panel.topAnchor.constraint(equalTo: topAnchor),
             bottomConstraint,
-            label.leadingAnchor.constraint(equalTo: panel.leadingAnchor, constant: insets.left),
+            symbolView.leadingAnchor.constraint(equalTo: panel.leadingAnchor, constant: insets.left),
+            symbolView.centerYAnchor.constraint(equalTo: panel.centerYAnchor),
+            symbolView.widthAnchor.constraint(equalToConstant: Self.symbolSize),
+            symbolView.heightAnchor.constraint(equalToConstant: Self.symbolSize),
+            label.leadingAnchor.constraint(equalTo: symbolView.trailingAnchor, constant: Self.symbolSpacing),
             label.trailingAnchor.constraint(equalTo: panel.trailingAnchor, constant: -insets.right),
             label.topAnchor.constraint(equalTo: panel.topAnchor, constant: insets.top),
             label.bottomAnchor.constraint(equalTo: panel.bottomAnchor, constant: -insets.bottom)
@@ -66,23 +78,30 @@ final class HomeMaintenanceBannerView: UICollectionReusableView {
     @available(*, unavailable)
     required init?(coder: NSCoder) { nil }
 
-    func configure(message: String, appearance: AppAppearance, spacing: CGFloat) {
+    func configure(message: String, sfSymbol: String? = nil, appearance: AppAppearance, spacing: CGFloat) {
         panel.applySurfaceStyle(appearance.row)
         label.font = Self.font(appearance: appearance, traits: traitCollection)
         label.textColor = appearance.surfaceTextColor
         label.text = message
+        let customImage: UIImage? = sfSymbol.flatMap {
+            let name = $0.trimmingCharacters(in: .whitespacesAndNewlines)
+            return name.isEmpty ? nil : UIImage(systemName: name)
+        }
+        symbolView.image = (customImage ?? UIImage(systemName: Self.defaultSymbol))?.withRenderingMode(.alwaysTemplate)
+        symbolView.tintColor = appearance.surfaceTextColor
         bottomConstraint.constant = -spacing
     }
 
     static func height(message: String, width: CGFloat, appearance: AppAppearance, traits: UITraitCollection) -> CGFloat {
         let insets = Self.textInsets
+        let textWidth = max(1, width - insets.left - insets.right - symbolSize - symbolSpacing)
         let textHeight = (message as NSString).boundingRect(
-            with: CGSize(width: max(1, width - insets.left - insets.right), height: .greatestFiniteMagnitude),
+            with: CGSize(width: textWidth, height: .greatestFiniteMagnitude),
             options: [.usesLineFragmentOrigin, .usesFontLeading],
             attributes: [.font: font(appearance: appearance, traits: traits)],
             context: nil
         ).height
-        return ceil(textHeight) + insets.top + insets.bottom
+        return max(ceil(textHeight), symbolSize) + insets.top + insets.bottom
     }
 
     private static func font(appearance: AppAppearance, traits: UITraitCollection) -> UIFont {
