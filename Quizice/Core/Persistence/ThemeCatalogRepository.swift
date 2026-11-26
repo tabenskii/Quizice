@@ -225,6 +225,9 @@ final class ThemeCatalogRepository: ThemeRepository {
         guard let backendContentAPI else { return false }
         let principal = accessTokenProvider.currentSession()?.userID
         let generation = personalizationGeneration
+        if !Task.isCancelled, AppLocalizationStore.shared.resolvedLanguageCode == locale {
+            offlineDownloader.start(locale: locale)
+        }
         do {
             let response = try await backendContentAPI.fetchThemes(locale: locale)
             try Task.checkCancellation()
@@ -485,6 +488,11 @@ final class ThemeCatalogRepository: ThemeRepository {
         } catch is CancellationError {
             throw CancellationError()
         } catch let error as QuizPreparationError {
+            if case .timedOut = error {
+                AppLog.content.notice(
+                    "Question preparation timed out: theme=\(themeID, privacy: .public) locale=\(locale, privacy: .public) has_account=\(userID != nil, privacy: .public)"
+                )
+            }
             throw error
         } catch {
             if OfflineQuestionDownloader.permitsFallback(error), let userID {

@@ -156,6 +156,7 @@ final class RecordingBackendContentAPI: BackendContentAPI {
     private let catalogThemes: [BackendThemeDTO]
     private let questionError: Error?
     var returnedQuestionCount: Int?
+    var onThemes: (() async throws -> Void)?
     var onQuestions: (() async throws -> Void)?
     private(set) var themeRequestCount = 0
     private(set) var seeds: [String] = []
@@ -181,6 +182,7 @@ final class RecordingBackendContentAPI: BackendContentAPI {
 
     func fetchThemes(locale: String) async throws -> BackendThemeCatalogResponse {
         themeRequestCount += 1
+        try await onThemes?()
         return BackendThemeCatalogResponse(locale: locale, themes: catalogThemes)
     }
 

@@ -283,6 +283,45 @@ final class OfflineQuestionTests: XCTestCase {
         XCTAssertTrue(needsDownload)
     }
 
+    func testSlowCatalogDoesNotBlockPersistingOfflinePack() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let cache = OfflineQuestionCache(directory: directory)
+        let api = RecordingBackendContentAPI()
+        api.offlinePack = try pack()
+
+        let catalogGate = ProgressUploadGate()
+        let catalogStarted = expectation(description: "Catalog request started")
+        api.onThemes = {
+            catalogStarted.fulfill()
+            await catalogGate.wait()
+        }
+        let packPersisted = XCTNSPredicateExpectation(
+            predicate: NSPredicate { _, _ in
+                let files = try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
+                return files?.contains { $0.pathExtension == "json" } == true
+            },
+            object: nil
+        )
+
+        let repository = ThemeCatalogRepository(backendContentAPI: api, offlineCache: cache,
+            automaticallyDownloadsOfflineQuestions: true, accessTokenProvider: ProgressSessionProvider(),
+            answerOutbox: ProgressOutboxSpy(), countryProvider: { nil })
+        let refresh = Task { await repository.refreshBackendCatalog(locale: locale) }
+
+        await fulfillment(of: [catalogStarted, packPersisted], timeout: 5)
+        XCTAssertEqual(repository.catalogOrigin, .bundled)
+        await catalogGate.open()
+        let refreshed = await refresh.value
+
+        XCTAssertTrue(refreshed)
+        XCTAssertEqual(api.requestedOfflineLocales, [locale])
+        let restored = OfflineQuestionCache(directory: directory)
+        let questions = try await restored.questions(locale: locale, userID: "A", themeIDs: ["music"], count: 5,
+            difficulty: .medium, strategy: .hideAnswered, country: nil)
+        XCTAssertEqual(Set(questions.compactMap(\.questionID)), Set((3..<8).map { "music:\($0)" }))
+    }
+
     func testBackgroundDownloadDoesNotDelayCatalogAndCoalescesRequests() async throws {
         let cache = OfflineQuestionCache()
         let provider = ProgressSessionProvider()
