@@ -183,6 +183,7 @@ final class QuizViewController: BaseQuizViewController, ThemeCollectionDelegate,
     let aiServiceStatusAPI: AIServiceStatusAPI?
     private let maintenanceStatusAPI: MaintenanceStatusAPI?
     private(set) var maintenanceNoticeTask: Task<Void, Never>?
+    private var maintenanceNoticeLocale: String?
     let analytics: AnalyticsTracking
     let themesCollectionService: ThemesCollectionService
     let motivationPromptProvider: (String?) -> String
@@ -430,12 +431,21 @@ final class QuizViewController: BaseQuizViewController, ThemeCollectionDelegate,
 
     @MainActor
     func refreshMaintenanceNotice() {
-        guard maintenanceNoticeTask == nil, let maintenanceStatusAPI else { return }
+        guard let maintenanceStatusAPI else { return }
+        let locale = AppLocalizationStore.shared.resolvedLanguageCode
+        guard maintenanceNoticeTask == nil || maintenanceNoticeLocale != locale else { return }
+        maintenanceNoticeTask?.cancel()
+        maintenanceNoticeLocale = locale
         maintenanceNoticeTask = Task { [weak self] in
-            defer { self?.maintenanceNoticeTask = nil }
+            defer {
+                if !Task.isCancelled {
+                    self?.maintenanceNoticeTask = nil
+                }
+            }
             do {
-                let notice = try await maintenanceStatusAPI.fetchMaintenanceNotice()
+                let notice = try await maintenanceStatusAPI.fetchMaintenanceNotice(locale: locale)
                 try Task.checkCancellation()
+                guard AppLocalizationStore.shared.resolvedLanguageCode == locale else { return }
                 self?.themesCollectionService.maintenanceNotice = notice
             } catch {
                 // Only a successful server response changes the last known status.
@@ -520,5 +530,6 @@ final class QuizViewController: BaseQuizViewController, ThemeCollectionDelegate,
         refreshExpandedThemeCardAppearance()
         refreshBackendCatalog()
         refreshAIServiceNotice()
+        refreshMaintenanceNotice()
     }
 }
