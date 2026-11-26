@@ -6,10 +6,11 @@ final class OfflineQuestionTests: XCTestCase {
     private let generation = UUID(uuidString: "00000000-0000-0000-0000-000000000000")!
     private var locale: String { AppLocalizationStore.shared.resolvedLanguageCode }
 
-    private func pack(userID: String = "A", locale: String? = nil, generation: UUID? = nil) throws -> OfflineQuestionPack {
+    private func pack(userID: String = "A", locale: String? = nil, generation: UUID? = nil,
+                      musicCount: Int = 8) throws -> OfflineQuestionPack {
         var questions: [[String: Any]] = []
-        for index in 0..<12 {
-            let theme = index < 8 ? "music" : "space"
+        for index in 0..<(musicCount + 4) {
+            let theme = index < musicCount ? "music" : "space"
             var item: [String: Any] = ["themeId": theme, "difficulty": index == 0 ? "hard" : "medium"]
             item["country"] = index == 1 ? "US" as Any : NSNull()
             item["wasAnswered"] = index == 2
@@ -21,7 +22,7 @@ final class OfflineQuestionTests: XCTestCase {
             item["answers"] = ["A", "B", "C", "D"]
             item["correctAnswer"] = "B"
             item["explanation"] = "Explanation"
-            item["themeName"] = index < 8 ? "Music" : "Space"
+            item["themeName"] = index < musicCount ? "Music" : "Space"
             questions.append(item)
         }
         let data = try JSONSerialization.data(withJSONObject: ["locale": locale ?? self.locale, "userId": userID, "questions": questions])
@@ -228,5 +229,34 @@ final class OfflineQuestionTests: XCTestCase {
             XCTAssertFalse(OfflineQuestionDownloader.permitsFallback(error))
         }
         XCTAssertTrue(OfflineQuestionDownloader.permitsFallback(BackendContentError.httpStatus(503, nil)))
+    }
+
+    func testRandomQuizUsesCachedQuestionsForAllSelectedLengths() async throws {
+        let cache = OfflineQuestionCache()
+        try await cache.install(pack(musicCount: 20))
+        let backend = RecordingBackendContentAPI()
+        let outbox = ProgressOutboxSpy()
+        let repository = ThemeCatalogRepository(
+            backendContentAPI: backend, offlineCache: cache, accessTokenProvider: ProgressSessionProvider(),
+            answerOutbox: outbox, repeatStrategyProvider: { .showAll }, countryProvider: { nil }
+        )
+        let didRefresh = await repository.refreshBackendCatalog(locale: locale)
+        XCTAssertTrue(didRefresh)
+        outbox.isNetworkUnavailable = true
+        let selection = QuizTheme(
+            id: RandomQuizSelection.themeID, theme: "Random", themeDescription: "", questions: []
+        )
+
+        for mode in CrossThemeQuestionSelectionMode.allCases {
+            for count in QuizQuestionCountPolicy.supportedCounts {
+                let round = try await repository.prepareRandomQuiz(
+                    selectionMode: mode, localFallback: selection, questionCount: count,
+                    difficulty: .medium, locale: locale
+                )
+                XCTAssertEqual(round.questions.count, count)
+                XCTAssertTrue(round.questions.allSatisfy { $0.questionID?.hasPrefix("music:") == true })
+            }
+        }
+        XCTAssertTrue(backend.randomSelectionModes.isEmpty)
     }
 }

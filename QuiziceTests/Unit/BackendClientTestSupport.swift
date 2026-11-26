@@ -487,21 +487,23 @@ final class BackendRandomQuestionTests: XCTestCase {
         )
 
         for selectionMode in CrossThemeQuestionSelectionMode.allCases {
-            let prepared = try await repository.prepareRandomQuiz(
-                selectionMode: selectionMode,
-                localFallback: localFallback,
-                questionCount: 5,
-                locale: locale
-            )
-            XCTAssertEqual(prepared.stableID, RandomQuizSelection.themeID)
-            XCTAssertEqual(prepared.questionOrigin, .backend)
-            XCTAssertEqual(prepared.questions.count, 5)
-            XCTAssertTrue(prepared.questions.allSatisfy { $0.explanation == "Explanation" })
+            for count in QuizQuestionCountPolicy.supportedCounts {
+                let prepared = try await repository.prepareRandomQuiz(
+                    selectionMode: selectionMode,
+                    localFallback: localFallback,
+                    questionCount: count,
+                    locale: locale
+                )
+                XCTAssertEqual(prepared.stableID, RandomQuizSelection.themeID)
+                XCTAssertEqual(prepared.questionOrigin, .backend)
+                XCTAssertEqual(prepared.questions.count, count)
+                XCTAssertTrue(prepared.questions.allSatisfy { $0.explanation == "Explanation" })
+            }
         }
 
-        XCTAssertEqual(backend.randomSelectionModes, [.random, .randomBalanced])
-        XCTAssertEqual(backend.seeds.count, 2)
-        XCTAssertNotEqual(backend.seeds[0], backend.seeds[1])
+        XCTAssertEqual(backend.randomSelectionModes, [.random, .random, .random, .randomBalanced, .randomBalanced, .randomBalanced])
+        XCTAssertEqual(backend.seeds.count, 6)
+        XCTAssertEqual(Set(backend.seeds).count, 6)
     }
 
     func testBundledRandomQuizDoesNotCallBackend() async throws {

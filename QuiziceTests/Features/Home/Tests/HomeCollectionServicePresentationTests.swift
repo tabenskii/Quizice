@@ -327,7 +327,7 @@ final class HomeCollectionServicePresentationTests: HomeScreenVisualStateTestCas
         assertColor(statisticsButton.backgroundColor, equals: .clear)
     }
 
-    func testCollectionServiceKeepsSelectionContractsForThemeStatisticsAndUnknownButtons() {
+    func testCollectionServiceKeepsSelectionContractsForThemeStatisticsAndUnknownButtons() throws {
         QuizFactory.shared.themes = [makeTheme(name: "Музыка")]
         let service = ThemesCollectionService()
         let delegate = ThemeCollectionDelegateSpy()
@@ -341,8 +341,16 @@ final class HomeCollectionServicePresentationTests: HomeScreenVisualStateTestCas
         aiThemeButton.accessibilityIdentifier = "homeCreateWithAIButton"
         let subscriptionButton = UIButton(type: .system)
         subscriptionButton.accessibilityIdentifier = "homeSubscriptionPromoBanner"
-        let feelingLuckyButton = UIButton(type: .system)
-        feelingLuckyButton.accessibilityIdentifier = "homeFeelingLuckyButton"
+        let collectionView = makeCollectionView()
+        let feelingLuckyCell = service.collectionView(
+            collectionView, cellForItemAt: IndexPath(item: service.feelingLuckyIndex, section: 0)
+        )
+        let feelingLuckyButton = try XCTUnwrap(feelingLuckyCell.contentView.descendant(
+            withAccessibilityIdentifier: "homeFeelingLuckyButton"
+        ) as? UIButton)
+        let fifteenQuestionsButton = try XCTUnwrap(feelingLuckyCell.contentView.descendant(
+            withAccessibilityIdentifier: "homeFeelingLuckyButton-15"
+        ) as? UIButton)
         let statisticsButton = UIButton(type: .system)
         statisticsButton.accessibilityIdentifier = "homeStatisticsCard"
 
@@ -350,13 +358,18 @@ final class HomeCollectionServicePresentationTests: HomeScreenVisualStateTestCas
         service.buttonTouchedUpInside(unknownButton)
         service.aiThemeButtonTouchedUpInside(aiThemeButton)
         service.subscriptionPromoButtonTouchedUpInside(subscriptionButton)
-        service.feelingLuckyButtonTouchedUpInside(feelingLuckyButton)
+        XCTAssertFalse(fifteenQuestionsButton.isEnabled)
+        fifteenQuestionsButton.sendActions(for: .touchUpInside)
+        feelingLuckyButton.sendActions(for: .touchUpInside)
+        XCTAssertTrue(delegate.feelingLuckyQuestionCounts.isEmpty)
+        XCTAssertTrue(fifteenQuestionsButton.isEnabled)
+        fifteenQuestionsButton.sendActions(for: .touchUpInside)
         service.statisticsButtonTouchedUpInside(statisticsButton)
 
         XCTAssertEqual(delegate.selectedThemeIDs, ["music"])
         XCTAssertEqual(delegate.aiThemeTapCount, 1)
         XCTAssertEqual(delegate.subscriptionPromoTapCount, 1)
-        XCTAssertEqual(delegate.feelingLuckyTapCount, 1)
+        XCTAssertEqual(delegate.feelingLuckyQuestionCounts, [15])
         XCTAssertEqual(delegate.statisticsTapCount, 1)
     }
 
@@ -374,7 +387,7 @@ final class HomeCollectionServicePresentationTests: HomeScreenVisualStateTestCas
 
         XCTAssertTrue(viewportCell is ThemesViewportCollectionViewCell)
         XCTAssertNotNil(aiThemeCell.contentView.descendant(withAccessibilityIdentifier: "homeCreateWithAIButton"))
-        XCTAssertNotNil(feelingLuckyCell.contentView.descendant(withAccessibilityIdentifier: "homeFeelingLuckyButton"))
+        XCTAssertNotNil(feelingLuckyCell.contentView.descendant(withAccessibilityIdentifier: "homeFeelingLuckyCard"))
         XCTAssertNotNil(statisticsCell.contentView.descendant(withAccessibilityIdentifier: "homeStatisticsCard"))
     }
 }

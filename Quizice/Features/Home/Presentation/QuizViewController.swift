@@ -343,6 +343,7 @@ final class QuizViewController: BaseQuizViewController, ThemeCollectionDelegate,
         installAppearanceTraitObserver()
 
         configureThemesCollectionService()
+        themesCollectionService.installFeelingLuckyDismissal(in: view)
         installLocalizationObserver()
         accountDataObservers = [Notification.Name.statisticsDidChange, .favoritesDidChange].map { name in
             NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in

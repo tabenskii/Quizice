@@ -24,105 +24,30 @@ extension ThemesCollectionService {
         return button
     }
 
-    func configureFeelingLuckyContent(in button: UIButton, appearance: AppAppearance) {
-        let activityIndicator = UIActivityIndicatorView(style: .medium)
-        activityIndicator.accessibilityIdentifier = Content.feelingLuckyProgressAccessibilityID
-        activityIndicator.color = appearance.screenTextColor
-        activityIndicator.hidesWhenStopped = true
-        activityIndicator.isUserInteractionEnabled = false
-
-        let titleLabel = UILabel()
-        titleLabel.text = isFeelingLuckyLoading ? L10n.Home.feelingLuckyLoading : L10n.Home.feelingLucky
-        titleLabel.textColor = appearance.screenTextColor
-        titleLabel.font = appearance.typography.font(size: Appearance.luckyFontSize, weight: .semibold)
-        titleLabel.adjustsFontForContentSizeCategory = true
-        titleLabel.minimumScaleFactor = 0.78
-        titleLabel.adjustsFontSizeToFitWidth = true
-        titleLabel.isUserInteractionEnabled = false
-
-        let contentStack = UIStackView(arrangedSubviews: [activityIndicator, titleLabel])
-        contentStack.axis = .horizontal
-        contentStack.alignment = .center
-        contentStack.spacing = 10
-        contentStack.isUserInteractionEnabled = false
-        contentStack.translatesAutoresizingMaskIntoConstraints = false
-        button.addSubview(contentStack)
-        NSLayoutConstraint.activate([
-            contentStack.centerXAnchor.constraint(equalTo: button.centerXAnchor),
-            contentStack.centerYAnchor.constraint(equalTo: button.centerYAnchor),
-            contentStack.leadingAnchor.constraint(greaterThanOrEqualTo: button.leadingAnchor, constant: 20),
-            contentStack.trailingAnchor.constraint(lessThanOrEqualTo: button.trailingAnchor, constant: -20)
-        ])
-
-        applyFeelingLuckyLoadingState(
-            to: button,
-            loadingContentView: contentStack,
-            activityIndicator: activityIndicator,
-            titleLabel: titleLabel
-        )
-    }
-
-    func applyFeelingLuckyLoadingState(
-        to button: UIButton,
-        loadingContentView: UIStackView,
-        activityIndicator: UIActivityIndicatorView,
-        titleLabel: UILabel
-    ) {
-        button.isEnabled = !isFeelingLuckyLoading
-        button.accessibilityLabel = isFeelingLuckyLoading
-            ? L10n.Home.feelingLuckyLoading
-            : L10n.Home.feelingLucky
-        button.accessibilityHint = isFeelingLuckyLoading
-            ? nil
-            : L10n.Home.feelingLuckyAccessibilityHint
-        if isFeelingLuckyLoading {
-            button.setTitle(nil, for: .normal)
-            titleLabel.text = L10n.Home.feelingLuckyLoading
-            loadingContentView.isHidden = false
-            button.accessibilityTraits.insert(.updatesFrequently)
-            activityIndicator.startAnimating()
-        } else {
-            button.setTitle(L10n.Home.feelingLucky, for: .normal)
-            loadingContentView.isHidden = true
-            button.accessibilityTraits.remove(.updatesFrequently)
-            activityIndicator.stopAnimating()
-        }
-    }
-
-    func refreshVisibleFeelingLuckyButton() {
-        guard let collectionView = observedCollectionView else { return }
-        let button = collectionView.visibleCells
+    private var visibleFeelingLuckyCard: FeelingLuckyCardView? {
+        observedCollectionView?.visibleCells
             .lazy
             .flatMap(\.contentView.subviews)
-            .compactMap { $0 as? UIButton }
-            .first(where: { $0.accessibilityIdentifier == Content.feelingLuckyAccessibilityID })
-        guard
-            let button,
-            let activityIndicator = button.subviews
-                .lazy
-                .flatMap(\.subviews)
-                .compactMap({ $0 as? UIActivityIndicatorView })
-                .first(where: { $0.accessibilityIdentifier == Content.feelingLuckyProgressAccessibilityID }),
-            let loadingContentView = activityIndicator.superview as? UIStackView,
-            let titleLabel = button.subviews
-                .lazy
-                .flatMap(\.subviews)
-                .compactMap({ $0 as? UILabel })
-                .first
-        else { return }
+            .compactMap { $0 as? FeelingLuckyCardView }
+            .first
+    }
 
-        applyFeelingLuckyLoadingState(
-            to: button,
-            loadingContentView: loadingContentView,
-            activityIndicator: activityIndicator,
-            titleLabel: titleLabel
-        )
+    func refreshVisibleFeelingLuckyCard() {
+        visibleFeelingLuckyCard?.render(isExpanded: isFeelingLuckyExpanded, isLoading: isFeelingLuckyLoading)
+    }
+
+    func dismissFeelingLucky(forTouchAt point: CGPoint, in view: UIView) {
+        guard isFeelingLuckyExpanded, !isFeelingLuckyLoading else { return }
+        let card = visibleFeelingLuckyCard
+        if let card, card.bounds.contains(view.convert(point, to: card)) { return }
+        isFeelingLuckyExpanded = false
+        card?.render(isExpanded: false, isLoading: false, animated: true)
     }
 
     func makeSecondaryActionButton(
         accessibilityIdentifier: String,
         accessibilityLabel: String,
-        accessibilityHint: String,
+        accessibilityHint: String?,
         title: String,
         action: Selector,
         appearance: AppAppearance
@@ -150,14 +75,14 @@ extension ThemesCollectionService {
     }
 
     func applyCleanOutlineStyleIfNeeded(
-        to button: UIButton,
+        to view: UIView,
         appearance: AppAppearance,
         borderColor: UIColor
     ) {
         guard appearance.designStyle == .clean else { return }
-        button.backgroundColor = appearance.card.backgroundColor
-        button.layer.borderColor = borderColor.cgColor
-        button.layer.borderWidth = max(button.layer.borderWidth, Appearance.buttonBorderWidth)
+        view.backgroundColor = appearance.card.backgroundColor
+        view.layer.borderColor = borderColor.cgColor
+        view.layer.borderWidth = max(view.layer.borderWidth, Appearance.buttonBorderWidth)
     }
 
     func applyRadarTransparentStyleIfNeeded(to button: UIButton, appearance: AppAppearance) {
@@ -189,21 +114,34 @@ extension ThemesCollectionService {
         ])
     }
 
-    func configureFeelingLuckyCard(
-        in cell: UICollectionViewCell,
-        appearance: AppAppearance
-    ) {
+    func configureFeelingLuckyCard(in cell: UICollectionViewCell, appearance: AppAppearance) {
         cell.applyShadow(.none)
-        let button = configureSecondaryActionCard(
-            in: cell,
-            accessibilityIdentifier: Content.feelingLuckyAccessibilityID,
-            accessibilityLabel: L10n.Home.feelingLucky,
-            accessibilityHint: L10n.Home.feelingLuckyAccessibilityHint,
-            title: L10n.Home.feelingLucky,
-            action: #selector(feelingLuckyButtonTouchedUpInside(_:)),
-            appearance: appearance
-        )
-        configureFeelingLuckyContent(in: button, appearance: appearance)
+        let prompt = UIButton(type: .system)
+        prompt.accessibilityIdentifier = Content.feelingLuckyButtonAccessibilityID
+        prompt.setTitle(L10n.Home.feelingLucky, for: .normal)
+        prompt.setTitleColor(appearance.screenTextColor, for: .normal)
+        prompt.titleLabel?.font = appearance.typography.font(size: Appearance.luckyFontSize, weight: .semibold)
+        prompt.titleLabel?.adjustsFontForContentSizeCategory = true
+        prompt.titleLabel?.adjustsFontSizeToFitWidth = true
+        prompt.titleLabel?.minimumScaleFactor = 0.65
+        prompt.addTarget(self, action: #selector(expandFeelingLucky(_:)), for: .touchUpInside)
+
+        let buttons = QuizQuestionCountPolicy.supportedCounts.map { count in
+            let button = makeSecondaryActionButton(
+                accessibilityIdentifier: "\(Content.feelingLuckyButtonAccessibilityID)-\(count)",
+                accessibilityLabel: L10n.Home.feelingLuckyQuestionCount(count),
+                accessibilityHint: nil,
+                title: String(count),
+                action: #selector(feelingLuckyButtonTouchedUpInside(_:)),
+                appearance: appearance
+            )
+            button.tag = count
+            button.addTarget(self, action: #selector(buttonTouchedUpOutside(_:)), for: .touchCancel)
+            return button
+        }
+        let card = FeelingLuckyCardView(appearance: appearance, prompt: prompt, buttons: buttons)
+        card.render(isExpanded: isFeelingLuckyExpanded, isLoading: isFeelingLuckyLoading)
+        pin(card, to: cell.contentView)
     }
 
     private func makeAIThemeTitleLabel(
@@ -429,8 +367,19 @@ extension ThemesCollectionService {
         }
     }
 
+    @objc private func expandFeelingLucky(_ sender: UIButton) {
+        guard !isFeelingLuckyExpanded, !isFeelingLuckyLoading,
+              let card = sender.superview as? FeelingLuckyCardView else { return }
+        isFeelingLuckyExpanded = true
+        card.render(isExpanded: true, isLoading: false, animated: true)
+    }
+
     @objc func feelingLuckyButtonTouchedUpInside(_ sender: UIButton) {
-        delegate?.feelingLuckyButtonTouchedUpInside(sender)
+        guard isFeelingLuckyExpanded, !isFeelingLuckyLoading, sender.isEnabled,
+              QuizQuestionCountPolicy.supportedCounts.contains(sender.tag) else { return }
+        delegate?.feelingLuckyButtonTouchedUpInside(
+            sender, questionCount: sender.tag, sourceView: sender.superview as? FeelingLuckyCardView ?? sender
+        )
     }
 
     @objc func aiThemeButtonTouchedUpInside(_ sender: UIButton) {
@@ -443,5 +392,157 @@ extension ThemesCollectionService {
 
     @objc func statisticsButtonTouchedUpInside(_ sender: UIButton) {
         delegate?.statisticsButtonTouchedUpInside(sender)
+    }
+}
+
+private final class FeelingLuckyCardView: UIView {
+    private let prompt: UIButton
+    private let buttons: [UIButton]
+    private let middleTitle = UILabel()
+    private let progress: UIActivityIndicatorView
+    private let loadingContent: UIStackView
+    private var joinedConstraints: [NSLayoutConstraint] = []
+    private var separatedConstraints: [NSLayoutConstraint] = []
+    private var showsOptions = false
+
+    init(appearance: AppAppearance, prompt: UIButton, buttons: [UIButton]) {
+        self.prompt = prompt
+        self.buttons = buttons
+        let progress = UIActivityIndicatorView(style: .medium)
+        self.progress = progress
+        let loadingLabel = UILabel()
+        loadingContent = UIStackView(arrangedSubviews: [progress, loadingLabel])
+        super.init(frame: .zero)
+
+        accessibilityIdentifier = ThemesCollectionService.Content.feelingLuckyAccessibilityID
+        translatesAutoresizingMaskIntoConstraints = false
+
+        let first = buttons[0]
+        let middle = buttons[1]
+        let last = buttons[2]
+        for button in [first, last, middle, prompt] {
+            button.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(button)
+            NSLayoutConstraint.activate([
+                button.topAnchor.constraint(equalTo: topAnchor),
+                button.bottomAnchor.constraint(equalTo: bottomAnchor)
+            ])
+        }
+        middleTitle.text = middle.title(for: .normal)
+        middleTitle.font = middle.titleLabel?.font
+        middleTitle.textColor = appearance.screenTextColor
+        middleTitle.adjustsFontForContentSizeCategory = true
+        middleTitle.translatesAutoresizingMaskIntoConstraints = false
+        middleTitle.isAccessibilityElement = false
+        middleTitle.isUserInteractionEnabled = false
+        middle.setTitle(nil, for: .normal)
+        middle.addSubview(middleTitle)
+
+        let spacing = ThemesCollectionService.Layout.compactOuterItemSpacing
+        NSLayoutConstraint.activate([
+            prompt.leadingAnchor.constraint(equalTo: leadingAnchor),
+            prompt.trailingAnchor.constraint(equalTo: trailingAnchor),
+            middleTitle.centerXAnchor.constraint(equalTo: middle.centerXAnchor),
+            middleTitle.centerYAnchor.constraint(equalTo: middle.centerYAnchor),
+            middle.centerXAnchor.constraint(equalTo: centerXAnchor),
+            first.widthAnchor.constraint(equalTo: widthAnchor, multiplier: 1.0 / 3.0, constant: -2 * spacing / 3),
+            last.widthAnchor.constraint(equalTo: first.widthAnchor)
+        ])
+        joinedConstraints = [
+            middle.widthAnchor.constraint(equalTo: widthAnchor),
+            first.centerXAnchor.constraint(equalTo: middle.centerXAnchor),
+            last.centerXAnchor.constraint(equalTo: middle.centerXAnchor)
+        ]
+        separatedConstraints = [
+            middle.widthAnchor.constraint(equalTo: first.widthAnchor),
+            first.leadingAnchor.constraint(equalTo: leadingAnchor),
+            last.trailingAnchor.constraint(equalTo: trailingAnchor)
+        ]
+        NSLayoutConstraint.activate(joinedConstraints)
+
+        progress.accessibilityIdentifier = ThemesCollectionService.Content.feelingLuckyProgressAccessibilityID
+        progress.color = appearance.screenTextColor
+        loadingLabel.text = L10n.Home.feelingLuckyLoading
+        loadingLabel.textColor = appearance.screenTextColor
+        loadingLabel.font = appearance.typography.font(size: ThemesCollectionService.Appearance.luckyFontSize, weight: .semibold)
+        loadingLabel.adjustsFontForContentSizeCategory = true
+        loadingLabel.adjustsFontSizeToFitWidth = true
+        loadingLabel.minimumScaleFactor = 0.78
+        loadingContent.alignment = .center
+        loadingContent.spacing = 10
+        loadingContent.translatesAutoresizingMaskIntoConstraints = false
+        loadingContent.isUserInteractionEnabled = false
+        addSubview(loadingContent)
+        NSLayoutConstraint.activate([
+            loadingContent.centerXAnchor.constraint(equalTo: centerXAnchor),
+            loadingContent.centerYAnchor.constraint(equalTo: centerYAnchor),
+            loadingContent.leadingAnchor.constraint(greaterThanOrEqualTo: leadingAnchor, constant: 20),
+            loadingContent.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -20)
+        ])
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError() }
+
+    func render(isExpanded: Bool, isLoading: Bool, animated: Bool = false) {
+        let showsOptions = isExpanded && !isLoading
+        let showsPrompt = !isExpanded && !isLoading
+        let stateChanged = self.showsOptions != showsOptions
+        let animates = stateChanged && (animated || isLoading) && window != nil
+            && !UIAccessibility.isReduceMotionEnabled
+        if animates {
+            layoutIfNeeded()
+        }
+        if stateChanged {
+            NSLayoutConstraint.deactivate(showsOptions ? joinedConstraints : separatedConstraints)
+            NSLayoutConstraint.activate(showsOptions ? separatedConstraints : joinedConstraints)
+            self.showsOptions = showsOptions
+        }
+
+        isAccessibilityElement = isLoading
+        accessibilityLabel = isLoading ? L10n.Home.feelingLuckyLoading : nil
+        accessibilityTraits = isLoading ? [.staticText, .updatesFrequently] : []
+        accessibilityElements = isLoading ? nil : (showsOptions ? buttons : [prompt])
+        prompt.isEnabled = showsPrompt
+        prompt.isAccessibilityElement = showsPrompt
+        for button in buttons {
+            button.isEnabled = showsOptions
+            button.isAccessibilityElement = showsOptions
+        }
+        loadingContent.isHidden = !isLoading
+        if isLoading {
+            progress.startAnimating()
+        } else {
+            progress.stopAnimating()
+        }
+
+        let updateOpacity = {
+            self.prompt.alpha = showsPrompt ? 1 : 0
+            self.buttons[0].alpha = showsOptions ? 1 : 0
+            self.middleTitle.alpha = showsOptions ? 1 : 0
+            self.buttons[2].alpha = showsOptions ? 1 : 0
+        }
+        let focusFirstOption = {
+            guard animated, showsOptions, UIAccessibility.isVoiceOverRunning,
+                  self.showsOptions else { return }
+            UIAccessibility.post(notification: .layoutChanged, argument: self.buttons.first)
+        }
+        if animates {
+            UIView.animate(
+                withDuration: 0.34,
+                delay: 0,
+                usingSpringWithDamping: 0.86,
+                initialSpringVelocity: 0,
+                options: [.allowUserInteraction, .beginFromCurrentState],
+                animations: {
+                    self.layoutIfNeeded()
+                    updateOpacity()
+                },
+                completion: { _ in focusFirstOption() }
+            )
+        } else {
+            updateOpacity()
+            focusFirstOption()
+        }
     }
 }

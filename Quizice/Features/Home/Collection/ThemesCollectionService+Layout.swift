@@ -88,10 +88,6 @@ extension ThemesCollectionService {
             ))
         }
 
-        if indexPath.item == feelingLuckyIndex {
-            return CGSize(width: availableWidth, height: Layout.secondaryActionButtonHeight)
-        }
-
         return CGSize(width: availableWidth, height: Layout.secondaryActionButtonHeight)
     }
 

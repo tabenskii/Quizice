@@ -1,4 +1,5 @@
 import UIKit
+import UIKit.UIGestureRecognizerSubclass
 
 final class ThemesCollectionService: NSObject, UICollectionViewDelegate, UICollectionViewDataSource, UICollectionViewDelegateFlowLayout, HomeThemeMasonryLayoutDelegate, UIGestureRecognizerDelegate {
     enum Content {
@@ -13,7 +14,8 @@ final class ThemesCollectionService: NSObject, UICollectionViewDelegate, UIColle
         static let aiThemeBadgeAccessibilityID = "homeCreateWithAIBadge"
         static let aiThemeSubtitleAccessibilityID = "homeCreateWithAISubtitle"
         static let aiThemeGradientBorderAccessibilityID = "homeCreateWithAIGradientBorder"
-        static let feelingLuckyAccessibilityID = "homeFeelingLuckyButton"
+        static let feelingLuckyAccessibilityID = "homeFeelingLuckyCard"
+        static let feelingLuckyButtonAccessibilityID = "homeFeelingLuckyButton"
         static let feelingLuckyProgressAccessibilityID = "homeFeelingLuckyProgressView"
         static let statisticsAccessibilityID = "homeStatisticsCard"
         static let statisticsTitleAccessibilityID = "homeStatisticsTitleLabel"
@@ -97,10 +99,12 @@ final class ThemesCollectionService: NSObject, UICollectionViewDelegate, UIColle
         }
     }
 
+    var isFeelingLuckyExpanded = false
+
     var isFeelingLuckyLoading = false {
         didSet {
             guard oldValue != isFeelingLuckyLoading else { return }
-            refreshVisibleFeelingLuckyButton()
+            refreshVisibleFeelingLuckyCard()
         }
     }
 
@@ -115,6 +119,7 @@ final class ThemesCollectionService: NSObject, UICollectionViewDelegate, UIColle
     weak var themeItemsCollectionView: UICollectionView?
     private weak var moreThemesButton: MoreThemesFadeButton?
     private weak var moreThemesTapGestureRecognizer: UITapGestureRecognizer?
+    private weak var feelingLuckyDismissalTouch: TouchDownGestureRecognizer?
 
     var pendingScrollAnchor: HomeThemeScrollAnchor?
 
@@ -513,10 +518,27 @@ final class ThemesCollectionService: NSObject, UICollectionViewDelegate, UIColle
         moreThemesButtonTapped()
     }
 
+    func installFeelingLuckyDismissal(in view: UIView) {
+        let touch = TouchDownGestureRecognizer(target: self, action: #selector(feelingLuckyTouchBegan(_:)))
+        touch.delegate = self
+        touch.cancelsTouchesInView = false
+        touch.delaysTouchesEnded = false
+        view.addGestureRecognizer(touch)
+        feelingLuckyDismissalTouch = touch
+    }
+
+    @objc private func feelingLuckyTouchBegan(_ gesture: TouchDownGestureRecognizer) {
+        guard let view = gesture.view else { return }
+        dismissFeelingLucky(forTouchAt: gesture.location(in: view), in: view)
+    }
+
     func gestureRecognizer(
         _ gestureRecognizer: UIGestureRecognizer,
         shouldReceive touch: UITouch
     ) -> Bool {
+        if gestureRecognizer === feelingLuckyDismissalTouch {
+            return isFeelingLuckyExpanded && !isFeelingLuckyLoading
+        }
         guard gestureRecognizer === moreThemesTapGestureRecognizer else { return true }
         guard let collectionView = gestureRecognizer.view as? HomeThemesCollectionView else {
             return false
@@ -539,4 +561,15 @@ final class ThemesCollectionService: NSObject, UICollectionViewDelegate, UIColle
     @objc func buttonTouchedUpOutside(_ sender: UIButton) {
         delegate?.themeButtonTouchedUpOutside(sender)
     }
+}
+
+private final class TouchDownGestureRecognizer: UIGestureRecognizer {
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent) {
+        super.touchesBegan(touches, with: event)
+        state = .ended
+    }
+
+    override func canPrevent(_ preventedGestureRecognizer: UIGestureRecognizer) -> Bool { false }
+
+    override func canBePrevented(by preventingGestureRecognizer: UIGestureRecognizer) -> Bool { false }
 }

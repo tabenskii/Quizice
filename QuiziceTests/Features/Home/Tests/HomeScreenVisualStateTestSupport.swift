@@ -311,7 +311,7 @@ final class ThemeCollectionDelegateSpy: ThemeCollectionDelegate {
     private(set) var selectedThemeIDs: [String] = []
     private(set) var aiThemeTapCount = 0
     private(set) var subscriptionPromoTapCount = 0
-    private(set) var feelingLuckyTapCount = 0
+    private(set) var feelingLuckyQuestionCounts: [Int] = []
     private(set) var statisticsTapCount = 0
 
     func themeButtonTouchedDown(_ sender: UIButton) {}
@@ -330,8 +330,8 @@ final class ThemeCollectionDelegateSpy: ThemeCollectionDelegate {
         subscriptionPromoTapCount += 1
     }
 
-    func feelingLuckyButtonTouchedUpInside(_ sender: UIButton) {
-        feelingLuckyTapCount += 1
+    func feelingLuckyButtonTouchedUpInside(_ sender: UIButton, questionCount: Int, sourceView: UIView) {
+        feelingLuckyQuestionCounts.append(questionCount)
     }
 
     func statisticsButtonTouchedUpInside(_ sender: UIButton) {

@@ -33,7 +33,7 @@ final class HomeIPadLayoutTests: HomeScreenVisualStateTestCase {
             XCTAssertEqual(first.frame.minY, second.frame.minY)
             XCTAssertGreaterThan(first.frame.height, second.frame.height)
             let ai = try XCTUnwrap(controller.sourceAIThemeButton())
-            let lucky = try XCTUnwrap(controller.view.descendant(withAccessibilityIdentifier: "homeFeelingLuckyButton"))
+            let lucky = try XCTUnwrap(controller.view.descendant(withAccessibilityIdentifier: "homeFeelingLuckyCard"))
             XCTAssertLessThanOrEqual(ai.bounds.width, 640)
             XCTAssertEqual(ai.convert(ai.bounds, to: controller.view).midX, controller.view.bounds.midX, accuracy: 1)
             XCTAssertGreaterThan(lucky.convert(lucky.bounds, to: controller.view).minY, ai.convert(ai.bounds, to: controller.view).maxY)

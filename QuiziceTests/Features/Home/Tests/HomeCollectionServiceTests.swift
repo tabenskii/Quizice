@@ -39,7 +39,7 @@ final class HomeCollectionServiceTests: HomeScreenVisualStateTestCase {
         XCTAssertNotNil(firstThemeCell?.contentView.descendant(withAccessibilityIdentifier: "music"))
         XCTAssertNotNil(secondThemeCell?.contentView.descendant(withAccessibilityIdentifier: "technology"))
         XCTAssertNotNil(aiThemeCell.contentView.descendant(withAccessibilityIdentifier: "homeCreateWithAIButton"))
-        XCTAssertNotNil(feelingLuckyCell.contentView.descendant(withAccessibilityIdentifier: "homeFeelingLuckyButton"))
+        XCTAssertNotNil(feelingLuckyCell.contentView.descendant(withAccessibilityIdentifier: "homeFeelingLuckyCard"))
         XCTAssertNotNil(statisticsCell.contentView.descendant(withAccessibilityIdentifier: "homeStatisticsCard"))
     }
 
@@ -280,6 +280,12 @@ final class HomeCollectionServiceTests: HomeScreenVisualStateTestCase {
         XCTAssertEqual(inset.bottom, 0)
         XCTAssertEqual(lineSpacing, 16)
         XCTAssertEqual(interitemSpacing, 16)
+
+        collectionView.traitOverrides.preferredContentSizeCategory = .accessibilityExtraExtraExtraLarge
+        let accessibilityFeelingLuckySize = service.collectionView(
+            collectionView, layout: collectionView.collectionViewLayout, sizeForItemAt: IndexPath(item: 2, section: 0)
+        )
+        XCTAssertEqual(accessibilityFeelingLuckySize, feelingLuckySize)
     }
 
     func testCollectionServiceSizesEachThemeIndependentlyOfItsNeighbors() {
@@ -817,7 +823,9 @@ final class HomeCollectionServiceTests: HomeScreenVisualStateTestCase {
             withAccessibilityIdentifier: "homeCreateWithAISubtitle"
         ) as? UILabel
         let aiThemeGradientBorder = aiThemeCell.contentView.descendant(withAccessibilityIdentifier: "homeCreateWithAIGradientBorder")
-        let feelingLuckyButton = feelingLuckyCell.contentView.descendant(withAccessibilityIdentifier: "homeFeelingLuckyButton") as? UIButton
+        let feelingLuckyCard = feelingLuckyCell.contentView.descendant(withAccessibilityIdentifier: "homeFeelingLuckyCard")
+        let feelingLuckyButton = feelingLuckyCard?.descendant(withAccessibilityIdentifier: "homeFeelingLuckyButton") as? UIButton
+        let feelingLuckySurface = feelingLuckyCard?.descendant(withAccessibilityIdentifier: "homeFeelingLuckyButton-10")
         let statisticsButton = statisticsCell.contentView.descendant(withAccessibilityIdentifier: "homeStatisticsCard") as? UIButton
         let themeTitleLabel = themeCell.contentView.descendant(withAccessibilityIdentifier: "homeThemeTitleLabel-music") as? UILabel
 
@@ -839,15 +847,16 @@ final class HomeCollectionServiceTests: HomeScreenVisualStateTestCase {
         XCTAssertEqual(aiThemeSubtitle?.text, L10n.Subscription.aiCardSubtitle)
         XCTAssertTrue(aiThemeGradientBorder?.layer.sublayers?.first is CAGradientLayer)
         XCTAssertGreaterThanOrEqual(aiThemeCell.layer.shadowOpacity, 0)
-        XCTAssertEqual(feelingLuckyButton?.accessibilityLabel, L10n.Home.feelingLucky)
-        XCTAssertEqual(feelingLuckyButton?.layer.cornerRadius, 22)
-        assertColor(feelingLuckyButton?.backgroundColor, equals: assetColor("themeWhite"))
+        XCTAssertFalse(feelingLuckyCard?.isAccessibilityElement ?? true)
+        XCTAssertEqual(feelingLuckyButton?.accessibilityLabel ?? feelingLuckyButton?.currentTitle, L10n.Home.feelingLucky)
+        XCTAssertEqual(feelingLuckySurface?.layer.cornerRadius, 22)
+        assertColor(feelingLuckySurface?.backgroundColor, equals: assetColor("themeWhite"))
         assertColor(
-            UIColor(cgColor: feelingLuckyButton?.layer.borderColor ?? UIColor.clear.cgColor),
+            UIColor(cgColor: feelingLuckySurface?.layer.borderColor ?? UIColor.clear.cgColor),
             equals: assetColor("themeCleanScreenText").withAlphaComponent(0.18)
         )
-        XCTAssertEqual(feelingLuckyButton?.layer.borderWidth, 1)
-        XCTAssertTrue(feelingLuckyButton?.clipsToBounds ?? false)
+        XCTAssertEqual(feelingLuckySurface?.layer.borderWidth, 1)
+        XCTAssertTrue(feelingLuckySurface?.clipsToBounds ?? false)
         XCTAssertGreaterThanOrEqual(feelingLuckyCell.layer.shadowOpacity, 0)
         XCTAssertEqual(statisticsButton?.accessibilityLabel, L10n.Home.statisticsAccessibilityLabel)
         XCTAssertEqual(statisticsButton?.layer.cornerRadius, 22)

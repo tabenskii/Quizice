@@ -108,9 +108,18 @@ final class QuizFlowCoordinatorNavigationTests: QuizFlowCoordinatorTestCase {
         let collectionView = try XCTUnwrap(
             descendant(in: home.view, accessibilityIdentifier: "homeThemesCollectionView") as? UICollectionView
         )
-        let luckyButton = try XCTUnwrap(
+        let expandButton = try XCTUnwrap(
             descendant(in: home.view, accessibilityIdentifier: "homeFeelingLuckyButton") as? UIButton
         )
+        UIView.performWithoutAnimation {
+            expandButton.sendActions(for: .touchUpInside)
+            home.view.layoutIfNeeded()
+        }
+        XCTAssertTrue(navigationController.presentedControllers.isEmpty)
+        let luckyButton = try XCTUnwrap(
+            descendant(in: home.view, accessibilityIdentifier: "homeFeelingLuckyButton-5") as? UIButton
+        )
+        XCTAssertTrue(luckyButton.isEnabled)
 
         luckyButton.sendActions(for: .touchUpInside)
         try await waitUntil(timeout: 1.5) {
@@ -118,11 +127,22 @@ final class QuizFlowCoordinatorNavigationTests: QuizFlowCoordinatorTestCase {
         }
         XCTAssertEqual(navigationController.presentedControllers.count, 1)
 
-        luckyButton.isHidden = true
+        let luckyCard = try XCTUnwrap(descendant(in: home.view, accessibilityIdentifier: "homeFeelingLuckyCard"))
+        luckyCard.isHidden = true
         coordinator.returnToThemes()
 
         XCTAssertTrue(collectionView.isUserInteractionEnabled)
-        XCTAssertFalse(luckyButton.isHidden)
+        XCTAssertFalse(luckyCard.isHidden)
+        let restoredButton = try XCTUnwrap(
+            descendant(in: home.view, accessibilityIdentifier: "homeFeelingLuckyButton") as? UIButton
+        )
+        let restoredOption = try XCTUnwrap(
+            descendant(in: home.view, accessibilityIdentifier: "homeFeelingLuckyButton-5") as? UIButton
+        )
+        XCTAssertTrue(restoredButton.isEnabled)
+        XCTAssertTrue(restoredButton.isAccessibilityElement)
+        XCTAssertFalse(restoredOption.isEnabled)
+        XCTAssertFalse(restoredOption.isAccessibilityElement)
 
         let themeButton = try XCTUnwrap(
             descendant(in: home.view, accessibilityIdentifier: "music") as? UIButton
@@ -254,8 +274,9 @@ final class QuizFlowCoordinatorNavigationTests: QuizFlowCoordinatorTestCase {
         XCTAssertFalse(activityIndicator.isAnimating)
     }
 
-    func testRandomSelectionReplayChoosesAChangedFiveQuestionSetFromTheFullCatalog() async throws {
-        let catalogQuestions = (0..<8).map { index in
+    func testRandomSelectionReplayKeepsSelectedCountAndUsesFullCatalog() async throws {
+        let questionCount = 15
+        let catalogQuestions = (0..<18).map { index in
             QuizQuestion(
                 question: "Catalog question \(index)?",
                 answers: ["A", "B", "C", "D"],
@@ -270,6 +291,7 @@ final class QuizFlowCoordinatorNavigationTests: QuizFlowCoordinatorTestCase {
         let initialRandomTheme = try XCTUnwrap(
             RandomQuizSelection.makeTheme(
                 from: [catalogTheme],
+                questionCount: questionCount,
                 title: L10n.Home.randomSelection,
                 description: L10n.Home.feelingLucky,
                 randomizing: { $0 }
@@ -281,7 +303,7 @@ final class QuizFlowCoordinatorNavigationTests: QuizFlowCoordinatorTestCase {
         let repository = RoutingThemeRepository(themes: [catalogTheme])
         let session = RoutingSession()
         session.chosenTheme = ThemeModel(quizTheme: initialRandomTheme)
-        session.questionsCount = RandomQuizSelection.questionCount
+        session.questionsCount = questionCount
         let coordinator = QuizFlowCoordinator(
             window: window,
             navigationController: navigationController,
@@ -308,12 +330,12 @@ final class QuizFlowCoordinatorNavigationTests: QuizFlowCoordinatorTestCase {
         XCTAssertEqual(replayedTheme.themeID, RandomQuizSelection.themeID)
         XCTAssertEqual(replayedTheme.themeName, L10n.Home.randomSelection)
         XCTAssertTrue(replayedTheme.quizTheme.questions.allSatisfy { $0.sourceThemeName == "Catalog" })
-        XCTAssertEqual(replayedQuestionTexts.count, RandomQuizSelection.questionCount)
+        XCTAssertEqual(replayedQuestionTexts.count, questionCount)
         XCTAssertNotEqual(replayedQuestionTexts, initialQuestionTexts)
-        XCTAssertTrue(replayedQuestionTexts.contains("Catalog question 5?"))
-        XCTAssertTrue(replayedQuestionTexts.contains("Catalog question 6?"))
-        XCTAssertTrue(replayedQuestionTexts.contains("Catalog question 7?"))
-        XCTAssertEqual(session.questionsCount, RandomQuizSelection.questionCount)
+        XCTAssertTrue(replayedQuestionTexts.contains("Catalog question 15?"))
+        XCTAssertTrue(replayedQuestionTexts.contains("Catalog question 16?"))
+        XCTAssertTrue(replayedQuestionTexts.contains("Catalog question 17?"))
+        XCTAssertEqual(session.questionsCount, questionCount)
         XCTAssertTrue(navigationController.presentedControllers.last === questionViewController)
         XCTAssertEqual(navigationController.presentedControllers.count, 1)
     }
