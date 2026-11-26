@@ -446,7 +446,10 @@ final class GameCenterAuthenticationServiceTests: XCTestCase {
         harness.service.start { _ in }
         harness.gameCenter.emit(.authenticated(teamPlayerID: "team-1"))
 
-        await waitUntil { harness.api.authenticatedIdentities.count == 1 }
+        await waitUntil {
+            harness.service.state == .authenticated(userID: "user-1", teamPlayerID: "team-1")
+        }
+        XCTAssertEqual(harness.api.authenticatedIdentities.count, 1)
         XCTAssertEqual(harness.sessionStore.session?.teamPlayerID, "team-1")
         XCTAssertEqual(harness.sessionStore.session?.userID, "user-1")
     }
