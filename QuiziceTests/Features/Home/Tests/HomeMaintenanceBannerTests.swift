@@ -7,13 +7,14 @@ final class HomeMaintenanceBannerTests: HomeScreenVisualStateTestCase {
     private let message = "Обновляем сервер. Вернёмся в 03:00."
 
     func testColdLaunchAndRefreshUseTheLastSuccessfulStatus() async throws {
-        let api = MaintenanceStatusStub(result: .success(message))
+        let notice = MaintenanceNotice(message: message, sfSymbol: "bolt.fill")
+        let api = MaintenanceStatusStub(result: .success(notice))
         let controller = QuizViewController(maintenanceStatusAPI: api)
         let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
         window.rootViewController = controller
         window.makeKeyAndVisible()
         testWindows.append(window)
-        try await waitUntil { controller.themesCollectionService.maintenanceNotice == self.message }
+        try await waitUntil { controller.themesCollectionService.maintenanceNotice == notice }
         controller.view.layoutIfNeeded()
 
         let banner = try XCTUnwrap(controller.themesCollectionView.supplementaryView(
@@ -23,11 +24,17 @@ final class HomeMaintenanceBannerTests: HomeScreenVisualStateTestCase {
         XCTAssertTrue(label.isAccessibilityElement)
         XCTAssertEqual(label.text, message)
         XCTAssertEqual(label.numberOfLines, 0)
+        let picture = try XCTUnwrap(banner.subviews.first?.subviews.compactMap { $0 as? UIImageView }.first)
+        let expectedImage = try XCTUnwrap(UIImage(systemName: "bolt.fill")?.withRenderingMode(.alwaysTemplate))
+        XCTAssertNotNil(picture.image)
+        XCTAssertEqual(picture.image?.pngData(), expectedImage.pngData())
+        XCTAssertFalse(picture.isAccessibilityElement)
+        XCTAssertLessThan(picture.frame.maxX, label.frame.minX)
 
         api.result = .failure(URLError(.timedOut))
         controller.refreshMaintenanceNotice()
         await controller.maintenanceNoticeTask?.value
-        XCTAssertEqual(controller.themesCollectionService.maintenanceNotice, message)
+        XCTAssertEqual(controller.themesCollectionService.maintenanceNotice, notice)
 
         api.result = .success(nil)
         controller.refreshMaintenanceNotice()
@@ -63,7 +70,7 @@ final class HomeMaintenanceBannerTests: HomeScreenVisualStateTestCase {
         await localizedTask.value
 
         XCTAssertEqual(api.requestedLocales, ["ru", "en"])
-        XCTAssertEqual(controller.themesCollectionService.maintenanceNotice, translation)
+        XCTAssertEqual(controller.themesCollectionService.maintenanceNotice, MaintenanceNotice(message: translation, sfSymbol: nil))
         XCTAssertNil(controller.maintenanceNoticeTask)
     }
 
@@ -86,7 +93,42 @@ final class HomeMaintenanceBannerTests: HomeScreenVisualStateTestCase {
         }
 
         let notice = try await api.fetchMaintenanceNotice(locale: "fr")
-        XCTAssertEqual(notice, "Maintenance en cours.")
+        XCTAssertEqual(notice, MaintenanceNotice(message: "Maintenance en cours.", sfSymbol: nil))
+    }
+
+    func testMaintenanceRequestReadsConfiguredSymbolAndIgnoresMalformedOptionalSymbol() async throws {
+        defer { BackendTestURLProtocol.requestHandler = nil }
+        let sessionConfiguration = URLSessionConfiguration.ephemeral
+        sessionConfiguration.protocolClasses = [BackendTestURLProtocol.self]
+        let api = HTTPMaintenanceStatusAPI(
+            configuration: BackendConfiguration(baseURL: URL(string: "https://example.invalid/api")!),
+            session: URLSession(configuration: sessionConfiguration)
+        )
+        for (symbolJSON, expectedSymbol) in [(#""wrench.fill""#, "wrench.fill"), ("7", nil)] {
+            BackendTestURLProtocol.requestHandler = { request in
+                let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+                let json = #"{"active":true,"message":"Server maintenance","sfSymbol":\#(symbolJSON)}"#
+                return (response, Data(json.utf8))
+            }
+
+            let notice = try await api.fetchMaintenanceNotice(locale: "en")
+            XCTAssertEqual(notice, MaintenanceNotice(message: "Server maintenance", sfSymbol: expectedSymbol))
+        }
+    }
+
+    func testBannerUsesWarningTriangleWhenSymbolIsMissingOrUnavailable() throws {
+        let appearance = SnapshotSupport.appearance(designStyle: .classic)
+        let banner = HomeMaintenanceBannerView(frame: CGRect(x: 0, y: 0, width: 390, height: 64))
+        let picture = try XCTUnwrap(banner.subviews.first?.subviews.compactMap { $0 as? UIImageView }.first)
+        let expectedImage = try XCTUnwrap(
+            UIImage(systemName: "exclamationmark.triangle.fill")?.withRenderingMode(.alwaysTemplate)
+        )
+        let symbols: [String?] = [nil, " ", "quizice.nonexistent.maintenance.symbol"]
+        for symbol in symbols {
+            banner.configure(message: message, sfSymbol: symbol, appearance: appearance, spacing: 8)
+            XCTAssertNotNil(picture.image)
+            XCTAssertEqual(picture.image?.pngData(), expectedImage.pngData())
+        }
     }
 
     func testColdLaunchWithUnavailableAPIShowsNoBanner() async throws {
@@ -109,13 +151,13 @@ final class HomeMaintenanceBannerTests: HomeScreenVisualStateTestCase {
 }
 
 private final class MaintenanceStatusStub: MaintenanceStatusAPI {
-    var result: Result<String?, Error>
+    var result: Result<MaintenanceNotice?, Error>
 
-    init(result: Result<String?, Error>) {
+    init(result: Result<MaintenanceNotice?, Error>) {
         self.result = result
     }
 
-    func fetchMaintenanceNotice(locale _: String) async throws -> String? {
+    func fetchMaintenanceNotice(locale _: String) async throws -> MaintenanceNotice? {
         try result.get()
     }
 }
@@ -123,9 +165,9 @@ private final class MaintenanceStatusStub: MaintenanceStatusAPI {
 @MainActor
 private final class PendingMaintenanceStatusStub: MaintenanceStatusAPI {
     private(set) var requestedLocales: [String] = []
-    private var pending: [String: CheckedContinuation<String?, Error>] = [:]
+    private var pending: [String: CheckedContinuation<MaintenanceNotice?, Error>] = [:]
 
-    func fetchMaintenanceNotice(locale: String) async throws -> String? {
+    func fetchMaintenanceNotice(locale: String) async throws -> MaintenanceNotice? {
         try await withCheckedThrowingContinuation { continuation in
             requestedLocales.append(locale)
             pending[locale] = continuation
@@ -134,7 +176,7 @@ private final class PendingMaintenanceStatusStub: MaintenanceStatusAPI {
 
     func completeRequest(for locale: String, with message: String) throws {
         let continuation = try XCTUnwrap(pending.removeValue(forKey: locale))
-        continuation.resume(returning: message)
+        continuation.resume(returning: MaintenanceNotice(message: message, sfSymbol: nil))
     }
 
     func failPendingRequests() {

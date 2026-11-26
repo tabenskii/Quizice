@@ -216,7 +216,7 @@ extension ThemesCollectionService {
 
     private func maintenanceBannerHeight(width: CGFloat, traits: UITraitCollection, availableHeight: CGFloat) -> CGFloat {
         guard let maintenanceNotice, width > 0 else { return 0 }
-        return HomeMaintenanceBannerView.height(message: maintenanceNotice, width: width,
+        return HomeMaintenanceBannerView.height(message: maintenanceNotice.message, width: width,
             appearance: appearanceStore.appearance(compatibleWith: traits), traits: traits)
             + outerItemSpacing(availableHeight: availableHeight)
     }

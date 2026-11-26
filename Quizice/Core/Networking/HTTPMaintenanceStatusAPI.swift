@@ -1,13 +1,30 @@
 import Foundation
 
+struct MaintenanceNotice: Equatable, Sendable {
+    let message: String
+    let sfSymbol: String?
+}
+
 protocol MaintenanceStatusAPI {
-    func fetchMaintenanceNotice(locale: String) async throws -> String?
+    func fetchMaintenanceNotice(locale: String) async throws -> MaintenanceNotice?
 }
 
 final class HTTPMaintenanceStatusAPI: MaintenanceStatusAPI {
     private struct Status: Decodable {
         let active: Bool
         let message: String
+        let sfSymbol: String?
+
+        private enum CodingKeys: String, CodingKey {
+            case active, message, sfSymbol
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            active = try container.decode(Bool.self, forKey: .active)
+            message = try container.decode(String.self, forKey: .message)
+            sfSymbol = try? container.decode(String.self, forKey: .sfSymbol)
+        }
     }
 
     private let url: URL
@@ -18,7 +35,7 @@ final class HTTPMaintenanceStatusAPI: MaintenanceStatusAPI {
         self.session = session
     }
 
-    func fetchMaintenanceNotice(locale: String) async throws -> String? {
+    func fetchMaintenanceNotice(locale: String) async throws -> MaintenanceNotice? {
         guard AppLanguagePreference.explicitPreference(for: locale) != nil,
               var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
         else { throw BackendContentError.invalidRequest }
@@ -37,6 +54,6 @@ final class HTTPMaintenanceStatusAPI: MaintenanceStatusAPI {
         guard status.message.unicodeScalars.count <= 500, !status.active || !message.isEmpty else {
             throw BackendContentError.contractViolation
         }
-        return status.active ? message : nil
+        return status.active ? MaintenanceNotice(message: message, sfSymbol: status.sfSymbol) : nil
     }
 }

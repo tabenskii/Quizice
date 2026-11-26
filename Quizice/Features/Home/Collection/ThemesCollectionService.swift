@@ -123,7 +123,7 @@ final class ThemesCollectionService: NSObject, UICollectionViewDelegate, UIColle
 
     var pendingScrollAnchor: HomeThemeScrollAnchor?
 
-    var maintenanceNotice: String? {
+    var maintenanceNotice: MaintenanceNotice? {
         didSet {
             guard maintenanceNotice != oldValue, let collectionView = observedCollectionView else { return }
             if collectionView.contentOffset.y > -collectionView.adjustedContentInset.top {
@@ -271,9 +271,12 @@ final class ThemesCollectionService: NSObject, UICollectionViewDelegate, UIColle
             ofKind: kind, withReuseIdentifier: HomeMaintenanceBannerView.reuseIdentifier, for: indexPath
         )
         if let banner = view as? HomeMaintenanceBannerView {
-            banner.configure(message: maintenanceNotice ?? "",
+            banner.configure(
+                message: maintenanceNotice?.message ?? "",
+                sfSymbol: maintenanceNotice?.sfSymbol,
                 appearance: appearanceStore.appearance(compatibleWith: collectionView.traitCollection),
-                spacing: maintenanceBannerSpacing(in: collectionView))
+                spacing: maintenanceBannerSpacing(in: collectionView)
+            )
         }
         return view
     }
