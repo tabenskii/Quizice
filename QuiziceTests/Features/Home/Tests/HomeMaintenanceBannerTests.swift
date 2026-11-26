@@ -39,6 +39,56 @@ final class HomeMaintenanceBannerTests: HomeScreenVisualStateTestCase {
         ).isEmpty)
     }
 
+    func testLanguageChangeDiscardsAnInFlightResponseAndRefreshesTheBanner() async throws {
+        let api = PendingMaintenanceStatusStub()
+        defer { api.failPendingRequests() }
+        let controller = QuizViewController(maintenanceStatusAPI: api)
+        controller.loadViewIfNeeded()
+        controller.viewWillAppear(false)
+        try await waitUntil { api.requestedLocales == ["ru"] }
+        let initialTask = try XCTUnwrap(controller.maintenanceNoticeTask)
+
+        AppLocalizationStore.shared.languagePreference = .english
+        try await waitUntil { api.requestedLocales == ["ru", "en"] }
+        let localizedTask = try XCTUnwrap(controller.maintenanceNoticeTask)
+
+        try api.completeRequest(for: "ru", with: message)
+        await initialTask.value
+
+        XCTAssertNil(controller.themesCollectionService.maintenanceNotice)
+        XCTAssertNotNil(controller.maintenanceNoticeTask)
+
+        let translation = "Server maintenance in progress."
+        try api.completeRequest(for: "en", with: translation)
+        await localizedTask.value
+
+        XCTAssertEqual(api.requestedLocales, ["ru", "en"])
+        XCTAssertEqual(controller.themesCollectionService.maintenanceNotice, translation)
+        XCTAssertNil(controller.maintenanceNoticeTask)
+    }
+
+    func testMaintenanceRequestUsesTheAppLocaleAndAcceptsTheExistingResponseShape() async throws {
+        defer { BackendTestURLProtocol.requestHandler = nil }
+        let sessionConfiguration = URLSessionConfiguration.ephemeral
+        sessionConfiguration.protocolClasses = [BackendTestURLProtocol.self]
+        let api = HTTPMaintenanceStatusAPI(
+            configuration: BackendConfiguration(baseURL: URL(string: "https://example.invalid/api")!),
+            session: URLSession(configuration: sessionConfiguration)
+        )
+        BackendTestURLProtocol.requestHandler = { request in
+            XCTAssertEqual(request.httpMethod, "GET")
+            XCTAssertEqual(request.url?.path, "/api/v1/maintenance/status")
+            XCTAssertEqual(request.url?.query, "locale=fr")
+            XCTAssertEqual(request.cachePolicy, .reloadIgnoringLocalCacheData)
+            XCTAssertNil(request.value(forHTTPHeaderField: BackendConfiguration.authorizationHeader))
+            let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (response, Data(#"{"active":true,"message":"Maintenance en cours."}"#.utf8))
+        }
+
+        let notice = try await api.fetchMaintenanceNotice(locale: "fr")
+        XCTAssertEqual(notice, "Maintenance en cours.")
+    }
+
     func testColdLaunchWithUnavailableAPIShowsNoBanner() async throws {
         let controller = QuizViewController(maintenanceStatusAPI: MaintenanceStatusStub(result: .failure(URLError(.cannotConnectToHost))))
         controller.loadViewIfNeeded()
@@ -65,7 +115,32 @@ private final class MaintenanceStatusStub: MaintenanceStatusAPI {
         self.result = result
     }
 
-    func fetchMaintenanceNotice() async throws -> String? {
+    func fetchMaintenanceNotice(locale _: String) async throws -> String? {
         try result.get()
+    }
+}
+
+@MainActor
+private final class PendingMaintenanceStatusStub: MaintenanceStatusAPI {
+    private(set) var requestedLocales: [String] = []
+    private var pending: [String: CheckedContinuation<String?, Error>] = [:]
+
+    func fetchMaintenanceNotice(locale: String) async throws -> String? {
+        try await withCheckedThrowingContinuation { continuation in
+            requestedLocales.append(locale)
+            pending[locale] = continuation
+        }
+    }
+
+    func completeRequest(for locale: String, with message: String) throws {
+        let continuation = try XCTUnwrap(pending.removeValue(forKey: locale))
+        continuation.resume(returning: message)
+    }
+
+    func failPendingRequests() {
+        for continuation in pending.values {
+            continuation.resume(throwing: CancellationError())
+        }
+        pending.removeAll()
     }
 }

@@ -1,7 +1,7 @@
 import Foundation
 
 protocol MaintenanceStatusAPI {
-    func fetchMaintenanceNotice() async throws -> String?
+    func fetchMaintenanceNotice(locale: String) async throws -> String?
 }
 
 final class HTTPMaintenanceStatusAPI: MaintenanceStatusAPI {
@@ -18,8 +18,13 @@ final class HTTPMaintenanceStatusAPI: MaintenanceStatusAPI {
         self.session = session
     }
 
-    func fetchMaintenanceNotice() async throws -> String? {
-        var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 5)
+    func fetchMaintenanceNotice(locale: String) async throws -> String? {
+        guard AppLanguagePreference.explicitPreference(for: locale) != nil,
+              var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        else { throw BackendContentError.invalidRequest }
+        components.queryItems = [URLQueryItem(name: "locale", value: locale)]
+        guard let requestURL = components.url else { throw BackendContentError.invalidRequest }
+        var request = URLRequest(url: requestURL, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 5)
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         let (data, response) = try await session.data(for: request)
         guard let response = response as? HTTPURLResponse else { throw BackendContentError.invalidResponse }
