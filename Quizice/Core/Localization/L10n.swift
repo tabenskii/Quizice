@@ -19,6 +19,17 @@ enum L10n {
         static var yes: String { L10n.localized("common.yes", comment: "Positive alert action title") }
     }
 
+    enum WhatsNew {
+        static func title(version: String) -> String {
+            L10n.formatted("whats_new.title", comment: "Release notes title with app version", version)
+        }
+
+        static var statistics: String { L10n.localized("whats_new.statistics", comment: "Release notes about statistics charts") }
+        static var moreThemes: String { L10n.localized("whats_new.more_themes", comment: "Release notes about the More themes button") }
+        static var launch: String { L10n.localized("whats_new.launch", comment: "Release notes about the launch logo animation") }
+        static var continueAction: String { L10n.localized("whats_new.continue", comment: "Dismiss release notes and continue to the app") }
+    }
+
     enum AccountStart {
         static var connectionFailedMessage: String { L10n.localized("account_start.connection.failed", comment: "Account connection failed; retry without opening Game Center sign-in") }
         static var deletionSignInRequired: String { L10n.localized("account_start.deletion_pending.sign_in", comment: "Sign in to the original Game Center account to finish deletion") }

@@ -132,7 +132,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             },
             prepareContentForReveal: { [weak coordinator] completion in
                 guard let coordinator else { completion(); return }
-                coordinator.presentInitialOnboardingIfNeeded(completion: completion)
+                coordinator.presentInitialContentIfNeeded(completion: completion)
             },
             onDismissed: { [weak coordinator] in
                 coordinator?.restoreInitialAccessibilityFocusAfterLaunch()
@@ -153,7 +153,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             accountManager: authenticationService,
             prepareContentForReveal: { [weak coordinator] completion in
                 guard let coordinator else { completion(); return }
-                coordinator.presentInitialOnboardingIfNeeded(completion: completion)
+                coordinator.presentInitialContentIfNeeded(completion: completion)
             },
             resetContent: { [weak coordinator] completion in
                 guard let coordinator else { completion(); return }

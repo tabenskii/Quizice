@@ -331,3 +331,9 @@
 "statistics.history.error" = "Game history could not be loaded. Check your connection and try again.";
 "statistics.history.retry" = "Retry";
 "statistics.history.undated" = "Charts include games with a recorded date. Older games without a date remain in your overall statistics.";
+
+"whats_new.title" = "What's new in Quizice %@";
+"whats_new.statistics" = "Track your answer accuracy and games played with charts in Statistics.";
+"whats_new.more_themes" = "Open the full catalog with More Themes.";
+"whats_new.launch" = "The Quizice logo grows again when the app launches.";
+"whats_new.continue" = "Continue";

@@ -331,3 +331,9 @@
 "statistics.history.error" = "Der Spielverlauf konnte nicht geladen werden. Prüfe deine Verbindung und versuche es erneut.";
 "statistics.history.retry" = "Erneut versuchen";
 "statistics.history.undated" = "Diagramme enthalten Spiele mit gespeichertem Datum. Ältere Spiele ohne Datum bleiben in der Gesamtstatistik.";
+
+"whats_new.title" = "Neu in Quizice %@";
+"whats_new.statistics" = "Sieh in der Statistik, wie sich deine Trefferquote und die Anzahl gespielter Spiele entwickeln.";
+"whats_new.more_themes" = "Mit „Weitere Themen“ öffnest du den gesamten Katalog.";
+"whats_new.launch" = "Das Quizice-Logo wird beim App-Start wieder größer.";
+"whats_new.continue" = "Weiter";

@@ -331,3 +331,9 @@
 "statistics.history.error" = "Impossible de charger l’historique. Vérifiez votre connexion et réessayez.";
 "statistics.history.retry" = "Réessayer";
 "statistics.history.undated" = "Les graphiques incluent les parties avec une date enregistrée. Les anciennes parties sans date restent dans les statistiques générales.";
+
+"whats_new.title" = "Nouveautés de Quizice %@";
+"whats_new.statistics" = "Suivez votre taux de bonnes réponses et le nombre de parties jouées dans les graphiques des statistiques.";
+"whats_new.more_themes" = "Ouvrez le catalogue complet avec « Plus de thèmes ».";
+"whats_new.launch" = "Le logo Quizice s’agrandit de nouveau au lancement de l’application.";
+"whats_new.continue" = "Continuer";
