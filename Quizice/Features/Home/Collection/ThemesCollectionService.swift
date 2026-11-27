@@ -33,7 +33,6 @@ final class ThemesCollectionService: NSObject, UICollectionViewDelegate, UIColle
         static let viewportCardsPerColumn = 4
         static let prominentActionCardHeight: CGFloat = 72
         static let accessibilityProminentActionCardHeight: CGFloat = 272
-        static let aiThemeButtonHeight = prominentActionCardHeight
         static let secondaryActionButtonHeight: CGFloat = 54
         static let subscriptionPromoHeight = prominentActionCardHeight
         static let accessibilitySubscriptionPromoHeight = accessibilityProminentActionCardHeight
@@ -43,6 +42,8 @@ final class ThemesCollectionService: NSObject, UICollectionViewDelegate, UIColle
         static let compactAvailableHeightThreshold: CGFloat = 600
         static let aiThemeBadgeTrailingInset: CGFloat = 16
         static let aiThemeContentLeadingInset: CGFloat = 18
+        static let aiThemeContentVerticalInset: CGFloat = 5
+        static let aiThemeAccessibleContentVerticalInset: CGFloat = 8
         static let aiThemeContentTrailingSpacing: CGFloat = 12
         static let aiThemeBadgeHorizontalInset: CGFloat = 10
         static let aiThemeBadgeVerticalInset: CGFloat = 5
