@@ -80,8 +80,11 @@ class CrossScreenVisualTestCase: XCTestCase {
                 line: line
             )
             XCTAssertTrue(
-                button.bounds.insetBy(dx: -0.5, dy: -0.5).contains(titleFrame),
-                "Answer title frame \(titleFrame) escapes button bounds \(button.bounds)",
+                button.bounds.insetBy(
+                    dx: QuizQuestionViewController.Layout.answerContentHorizontalInset - 0.5,
+                    dy: -0.5
+                ).contains(titleFrame),
+                "Answer title frame \(titleFrame) escapes the padded content of \(button.bounds)",
                 file: file,
                 line: line
             )

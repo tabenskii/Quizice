@@ -51,10 +51,7 @@ extension ThemesCollectionService {
             )
         }
 
-        let availableWidth = max(
-            collectionView.bounds.width - Layout.sectionInsets.left - Layout.sectionInsets.right,
-            0
-        )
+        let availableWidth = availableActionWidth(in: collectionView)
         if indexPath.item == themesViewportIndex {
             return CGSize(
                 width: availableWidth,
@@ -69,8 +66,8 @@ extension ThemesCollectionService {
         if indexPath.item == statisticsIndex {
             return CGSize(
                 width: availableWidth,
-                height: Layout.statisticsCardHeight
-                    + lastItemBottomInset(availableHeight: availableContentHeight(in: collectionView))
+                height: statisticsCardHeight(width: availableWidth, traits: collectionView.traitCollection)
+                    + lastItemBottomInset(in: collectionView)
             )
         }
 
@@ -178,7 +175,7 @@ extension ThemesCollectionService {
                 : 0)
             + aiThemeCardHeight(width: min(width, 640), traits: traitCollection)
             + Layout.secondaryActionButtonHeight
-            + Layout.statisticsCardHeight
+            + statisticsCardHeight(width: width, traits: traitCollection)
             + lastItemBottomInset(availableHeight: availableOuterHeight)
             + outerItemSpacing(availableHeight: availableOuterHeight)
                 * CGFloat(outerItemCount - 1)
@@ -231,6 +228,22 @@ extension ThemesCollectionService {
         availableHeight < Layout.compactAvailableHeightThreshold
             ? Layout.compactLastItemBottomInset
             : Layout.lastItemBottomInset
+    }
+
+    func lastItemBottomInset(in collectionView: UICollectionView) -> CGFloat {
+        lastItemBottomInset(availableHeight: availableContentHeight(in: collectionView))
+    }
+
+    func availableActionWidth(in collectionView: UICollectionView) -> CGFloat {
+        max(collectionView.bounds.width - Layout.sectionInsets.left - Layout.sectionInsets.right, 0)
+    }
+
+    private func statisticsCardHeight(width: CGFloat, traits: UITraitCollection) -> CGFloat {
+        StatisticsCardCollectionViewCell.height(
+            width: min(width, 640),
+            appearance: appearanceStore.appearance(compatibleWith: traits),
+            traits: traits
+        )
     }
 
     func updateThemeCatalogScrollAvailability() {

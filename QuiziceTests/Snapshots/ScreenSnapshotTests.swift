@@ -55,6 +55,24 @@ final class ScreenSnapshotTests: XCTestCase {
         SnapshotSupport.assertScreen(makeHomeViewController(), named: "clean-home", size: portraitSize)
     }
 
+    func testClassicHomeStatisticsDynamicTypeSnapshots() {
+        SnapshotSupport.setUp(designStyle: .classic)
+        for (category, suffix) in [
+            (UIContentSizeCategory.extraSmall, "small"),
+            (.accessibilityExtraExtraExtraLarge, "accessibility-xxxl")
+        ] {
+            let controller = BottomScrolledHomeSnapshotViewController(
+                homeViewController: makeHomeViewController(statisticsAttempts: [(3, 5), (4, 5)])
+            )
+            SnapshotSupport.assertScreen(
+                controller,
+                named: "classic-home-statistics-\(suffix)",
+                device: .iPhoneX,
+                contentSizeCategory: category
+            )
+        }
+    }
+
     func testHomeMasonryCatalogSnapshot() {
         let titles = [
             "Музыка", "История Древнего Рима", "Кино", "Искусство и культура мира",
@@ -377,6 +395,44 @@ final class ScreenSnapshotTests: XCTestCase {
         )
     }
 
+    func testClassicLongQuizContentCompactSnapshots() {
+        SnapshotSupport.setUp(designStyle: .classic)
+
+        SnapshotSupport.assertScreen(
+            makeLongQuizContentViewController(),
+            named: "classic-long-question-iphone-se",
+            device: .iPhone8,
+            afterPrepare: prepareQuestionSnapshot
+        )
+        SnapshotSupport.assertScreen(
+            makeLongQuizContentViewController(),
+            named: "classic-long-answers-iphone-se",
+            device: .iPhone8,
+            afterPrepare: { viewController in
+                self.prepareQuestionSnapshot(viewController)
+                guard let question = viewController as? QuizQuestionViewController else { return }
+                let scrollView = question.questionBodyScrollView!
+                let maximumOffset = scrollView.contentSize.height - scrollView.bounds.height
+                XCTAssertGreaterThan(maximumOffset, 0)
+                scrollView.setContentOffset(CGPoint(x: 0, y: maximumOffset), animated: false)
+            }
+        )
+        SnapshotSupport.assertScreen(
+            makeLongQuizContentViewController(),
+            named: "classic-long-explanation-iphone-se",
+            device: .iPhone8,
+            afterPrepare: { viewController in
+                self.prepareQuestionSnapshot(viewController)
+                guard let question = viewController as? QuizQuestionViewController else { return }
+                question.answerButtons[3].sendActions(for: .touchUpInside)
+                question.view.layoutIfNeeded()
+                XCTAssertTrue(question.isQuestionExplanationVisible)
+                let explanation = question.questionExplanationScrollView!
+                XCTAssertGreaterThan(explanation.contentSize.height, explanation.bounds.height)
+            }
+        )
+    }
+
     func testResultScreenSnapshot() {
         SnapshotSupport.assertScreen(makeResultViewController(), named: "clean-result", size: portraitSize)
     }
@@ -688,7 +744,8 @@ final class ScreenSnapshotTests: XCTestCase {
         themeName: String = "Музыка",
         questionText: String = "Какой инструмент обычно ассоциируется с рок-группой?",
         questionNumberText: String = L10n.Question.number(1),
-        answerTitles: [String] = ["Гитара", "Скрипка", "Флейта", "Арфа"]
+        answerTitles: [String] = ["Гитара", "Скрипка", "Флейта", "Арфа"],
+        explanation: String? = nil
     ) -> QuizQuestionViewController {
         let viewController = QuizQuestionViewController()
         viewController.configurePresenter(SnapshotQuestionPresenterStub())
@@ -700,10 +757,56 @@ final class ScreenSnapshotTests: XCTestCase {
                 questionNumberText: questionNumberText,
                 answers: answerTitles.enumerated().map { index, title in
                     QuizAnswerOption(id: "\(index)", title: title)
-                }
+                },
+                explanation: explanation
             )
         )
         return viewController
+    }
+
+    private func makeLongQuizContentViewController() -> QuizQuestionViewController {
+        makeQuestionViewController(
+            themeName: "Технологии",
+            questionText: """
+            Редактор готовит каталог выставки. На широком экране подписи и фотографии стоят в нескольких рядах и \
+            столбцах. На узком экране часть карточек переносится ниже, но порядок чтения должен сохраняться. Какую \
+            модель расположения лучше выбрать, чтобы управлять выравниванием по обеим осям и не задавать координаты \
+            каждой карточки вручную?
+            """,
+            answerTitles: [
+                """
+                Задать абсолютные координаты каждой подписи и фотографии для всех поддерживаемых размеров экрана \
+                и вручную пересчитывать положение соседних элементов при каждом изменении ширины.
+                """,
+                """
+                Поместить все карточки в непрерывный поток текста и полагаться на перенос строк, который меняет \
+                расстановку элементов по мере добавления новых подписей к фотографиям.
+                """,
+                """
+                Выстроить карточки в одном направлении и регулировать свободное место только вдоль этой оси, \
+                чтобы остальные элементы занимали оставшиеся участки без общих границ столбцов.
+                """,
+                """
+                Использовать двумерную сетку, которая определяет размеры и промежутки между строками и столбцами \
+                и позволяет карточкам переходить на следующий ряд на узких экранах.
+                """
+            ],
+            explanation: """
+            Двумерная сетка задаёт строки и столбцы одновременно. Размеры колонок и промежутки задаются один раз, \
+            поэтому соседние карточки выравниваются по общим границам даже при разной длине подписей.
+
+            На широком экране сетка может показать больше колонок, а на узком перенести карточки на следующий ряд. \
+            Порядок самих карточек при этом сохраняется. Так каталог остаётся предсказуемым для читателя, \
+            который пролистывает выставку от начала до конца.
+
+            Абсолютные координаты пришлось бы подбирать заново для каждой ширины. При изменении текста подпись \
+            могла бы наложиться на фото, а добавление одной карточки потребовало бы переместить все следующие.
+
+            Одномерный поток подходит для одного ряда или одной колонки. Он помогает распределить свободное \
+            пространство вдоль выбранной оси. Когда нужно связать между собой несколько рядов, общие линии \
+            двумерной сетки позволяют выровнять элементы по двум направлениям.
+            """
+        )
     }
 
     private func makeLongAnswerQuestionViewController() -> QuizQuestionViewController {
