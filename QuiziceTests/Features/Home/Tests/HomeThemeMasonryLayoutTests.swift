@@ -221,6 +221,33 @@ final class HomeThemeMasonryLayoutTests: HomeScreenVisualStateTestCase {
         withExtendedLifetime(catalog) {}
     }
 
+    func testCatalogFadesOnlyEdgesWithMoreContentWhenScrolled() throws {
+        let catalog = try makeCatalog(names: (0..<24).map { "Тема \($0)" })
+        let collectionView = catalog.cell.themesCollectionView
+        let maximumOffset = collectionView.contentSize.height - collectionView.bounds.height
+        XCTAssertGreaterThan(maximumOffset, 32)
+        XCTAssertTrue(collectionView.clipsToBounds)
+        XCTAssertEqual(collectionView.layer.cornerCurve, .continuous)
+        XCTAssertGreaterThan(collectionView.layer.cornerRadius, 0)
+
+        for (offset, topAlpha, bottomAlpha) in [
+            (CGFloat.zero, CGFloat(1), CGFloat.zero),
+            (maximumOffset / 2, .zero, .zero),
+            (maximumOffset, .zero, 1)
+        ] {
+            collectionView.contentOffset.y = offset
+            collectionView.layoutIfNeeded()
+
+            let moreThemesMask = try XCTUnwrap(collectionView.layer.mask)
+            let edgeMask = try XCTUnwrap(moreThemesMask.mask as? CAGradientLayer)
+            let colors = try XCTUnwrap(edgeMask.colors as? [CGColor])
+            XCTAssertEqual(moreThemesMask.frame, collectionView.bounds)
+            XCTAssertEqual(edgeMask.frame, moreThemesMask.bounds)
+            XCTAssertEqual(colors.map(\.alpha), [topAlpha, 1, 1, bottomAlpha])
+        }
+        withExtendedLifetime(catalog) {}
+    }
+
     func testVisibleMoreThemesRoutesTouchesToTheCatalogInsteadOfTheCoveredCard() throws {
         let catalog = try makeCatalog(names: (0..<16).map { "Тема \($0)" })
         let collectionView = catalog.cell.themesCollectionView

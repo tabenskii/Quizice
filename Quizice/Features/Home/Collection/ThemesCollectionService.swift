@@ -317,6 +317,7 @@ final class ThemesCollectionService: NSObject, UICollectionViewDelegate, UIColle
                 preconditionFailure("Expected ThemesViewportCollectionViewCell")
             }
             themeItemsCollectionView = cell.themesCollectionView
+            cell.themesCollectionView.layer.cornerRadius = appearance.row.cornerRadius
             cell.configure(
                 dataSource: self,
                 delegate: self,

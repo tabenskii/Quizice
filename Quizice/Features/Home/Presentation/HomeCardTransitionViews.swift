@@ -404,8 +404,10 @@ final class HomeThemesCollectionView: UICollectionView {
     }
 
     private let bottomFadeMaskLayer = CAGradientLayer()
+    private let scrollEdgeFadeMaskLayer = CAGradientLayer()
     private var bottomFadeVisibility: CGFloat = 0
     private var bottomFadeHeight: CGFloat = 0
+    var fadesScrollEdges = false
     weak var moreThemesButton: MoreThemesFadeButton?
 
     override init(frame: CGRect, collectionViewLayout layout: UICollectionViewLayout) {
@@ -420,7 +422,7 @@ final class HomeThemesCollectionView: UICollectionView {
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        updateBottomFadeMask(
+        updateFadeMasks(
             animated: false,
             preservesActiveAnimation: true
         )
@@ -460,7 +462,7 @@ final class HomeThemesCollectionView: UICollectionView {
 
         bottomFadeVisibility = targetVisibility
         bottomFadeHeight = targetHeight
-        updateBottomFadeMask(
+        updateFadeMasks(
             animated: animated && visibilityChanged,
             preservesActiveAnimation: !visibilityChanged && !heightChanged
         )
@@ -481,7 +483,7 @@ final class HomeThemesCollectionView: UICollectionView {
         bottomFadeMaskLayer.endPoint = CGPoint(x: 0.5, y: 1)
     }
 
-    private func updateBottomFadeMask(
+    private func updateFadeMasks(
         animated: Bool,
         preservesActiveAnimation: Bool
     ) {
@@ -489,9 +491,11 @@ final class HomeThemesCollectionView: UICollectionView {
         CATransaction.setDisableActions(true)
         defer { CATransaction.commit() }
 
+        let scrollEdgeMask = makeScrollEdgeMask()
         guard bottomFadeHeight > 0, bounds.height > 0 else {
             bottomFadeMaskLayer.removeAllAnimations()
-            layer.mask = nil
+            bottomFadeMaskLayer.mask = nil
+            layer.mask = scrollEdgeMask
             return
         }
 
@@ -509,6 +513,11 @@ final class HomeThemesCollectionView: UICollectionView {
         bottomFadeMaskLayer.frame = bounds
         bottomFadeMaskLayer.locations = [0, NSNumber(value: Double(fadeStart)), 1]
         bottomFadeMaskLayer.colors = targetColors
+        if let scrollEdgeMask, layer.mask === scrollEdgeMask {
+            layer.mask = nil
+        }
+        scrollEdgeMask?.frame = bottomFadeMaskLayer.bounds
+        bottomFadeMaskLayer.mask = scrollEdgeMask
         layer.mask = bottomFadeMaskLayer
 
         guard animated else {
@@ -527,6 +536,29 @@ final class HomeThemesCollectionView: UICollectionView {
             colorsAnimation,
             forKey: Animation.bottomFadeKey
         )
+    }
+
+    private func makeScrollEdgeMask() -> CAGradientLayer? {
+        guard fadesScrollEdges, isScrollEnabled, bounds.height > 0 else { return nil }
+
+        let fadeHeight = min(16, bounds.height / 2)
+        let topFade = min(max(bounds.minY / fadeHeight, 0), 1)
+        let bottomFade = min(max((contentSize.height - bounds.maxY) / fadeHeight, 0), 1)
+        guard topFade > 0 || bottomFade > 0 else { return nil }
+
+        let fadeLength = fadeHeight / bounds.height
+        let color = AppAssetColor.white.uiColor
+        scrollEdgeFadeMaskLayer.frame = bounds
+        scrollEdgeFadeMaskLayer.locations = [
+            0, NSNumber(value: Double(fadeLength)), NSNumber(value: Double(1 - fadeLength)), 1
+        ]
+        scrollEdgeFadeMaskLayer.colors = [
+            color.withAlphaComponent(1 - topFade).cgColor,
+            color.cgColor,
+            color.cgColor,
+            color.withAlphaComponent(1 - bottomFade).cgColor
+        ]
+        return scrollEdgeFadeMaskLayer
     }
 }
 
