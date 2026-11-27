@@ -194,14 +194,21 @@ final class PersistentQuestionAnswerOutbox: QuestionAnswerOutboxing, @unchecked 
             guard currentUserID == userID else { throw QuestionAnswerSyncError.accountChanged }
             let active = lock.withLock { () -> Flight in
                 if let flight { return flight }
-                let created = Flight(id: UUID(), userID: userID, task: Task {
+                let id = UUID()
+                let created = Flight(id: id, userID: userID, task: Task {
+                    defer {
+                        self.lock.withLock {
+                            if self.flight?.id == id {
+                                self.flight = nil
+                            }
+                        }
+                    }
                     try await self.drain(for: userID)
                 })
                 flight = created
                 return created
             }
-            let result = await active.task.result
-            lock.withLock { if flight?.id == active.id { flight = nil } }
+            let result = try await waitForUpload(active.task)
             try Task.checkCancellation()
             guard currentUserID == userID else { throw QuestionAnswerSyncError.accountChanged }
             if active.userID != userID { continue }
@@ -210,6 +217,19 @@ final class PersistentQuestionAnswerOutbox: QuestionAnswerOutboxing, @unchecked 
             let hasPending = try lock.withLock { try loadLocked().pending.contains { $0.userID == userID } }
             if !hasPending { return }
         }
+    }
+
+    private func waitForUpload(_ upload: Task<Void, Error>) async throws -> Result<Void, Error> {
+        // A quiz can stop waiting without cancelling the shared background upload.
+        let results = AsyncStream<Result<Void, Error>> { continuation in
+            Task {
+                continuation.yield(await upload.result)
+                continuation.finish()
+            }
+        }
+        var iterator = results.makeAsyncIterator()
+        guard let result = await iterator.next() else { throw CancellationError() }
+        return result
     }
 
     private func drain(for userID: String) async throws {

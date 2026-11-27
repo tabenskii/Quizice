@@ -314,7 +314,7 @@ final class ExpandedThemeCardView: UIView, UIGestureRecognizerDelegate {
         // could make VoiceOver latch onto a transient "unavailable" state
         // even though the button settles on the correct value moments later.
         configureQuestionCounts(selectedQuestionCount: selectedQuestionCount)
-        setStartLoading(false)
+        setStartLoading(isStartLoading)
 
         faceTransitionDriver.reset(to: .front)
     }

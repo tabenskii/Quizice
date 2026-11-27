@@ -220,6 +220,98 @@ final class OfflineQuestionTests: XCTestCase {
         XCTAssertTrue(quiz.questions.allSatisfy { $0.question.hasPrefix("Remote ") })
     }
 
+    func testSlowProgressStartsCachedRoundWithoutWaitingForOrCancellingUpload() async throws {
+        let cache = OfflineQuestionCache()
+        try await cache.install(pack(musicCount: 9))
+        let gate = ProgressUploadGate()
+        let started = expectation(description: "Answer upload starts")
+        let returned = expectation(description: "Cached round returns while answers are still queued")
+        let fixture = await makeGatedLaunch(cache: cache, gate: gate, uploadStarted: started)
+        defer { try? FileManager.default.removeItem(at: fixture.outboxURL) }
+        let launch = Task {
+            defer { returned.fulfill() }
+            return try await fixture.repository.prepareQuiz(themeID: "music", questionCount: 5, locale: locale)
+        }
+
+        await fulfillment(of: [started, returned], timeout: 2, enforceOrder: true)
+        XCTAssertTrue(fixture.api.seeds.isEmpty)
+        XCTAssertEqual(fixture.outbox.pendingEvents(), [fixture.answer])
+        await gate.open()
+        await fixture.outbox.synchronize()
+
+        let quiz = try await launch.value
+        XCTAssertEqual(Set(quiz.questions.compactMap(\.questionID)), Set((4..<9).map { "music:\($0)" }))
+        XCTAssertEqual(fixture.uploadAPI.submittedBatches, [[fixture.answer]])
+        XCTAssertTrue(fixture.outbox.pendingEvents().isEmpty)
+        XCTAssertTrue(fixture.api.seeds.isEmpty, "The abandoned foreground launch must never fetch")
+    }
+
+    func testSlowProgressWithoutCacheTimesOutAndRetryFetchesAfterAcknowledgement() async throws {
+        let gate = ProgressUploadGate()
+        let started = expectation(description: "Answer upload starts")
+        let returned = expectation(description: "Cold launch times out while upload is still pending")
+        let fixture = await makeGatedLaunch(cache: OfflineQuestionCache(), gate: gate, uploadStarted: started)
+        defer { try? FileManager.default.removeItem(at: fixture.outboxURL) }
+        let first = Task {
+            defer { returned.fulfill() }
+            return try await fixture.repository.prepareQuiz(themeID: "music", questionCount: 5, locale: locale)
+        }
+
+        await fulfillment(of: [started, returned], timeout: 2, enforceOrder: true)
+        XCTAssertTrue(fixture.api.seeds.isEmpty)
+        XCTAssertEqual(fixture.outbox.pendingEvents(), [fixture.answer])
+        let outbox = fixture.outbox
+        fixture.api.onQuestions = { XCTAssertTrue(outbox.pendingEvents().isEmpty) }
+        let retry = Task {
+            try await fixture.repository.prepareQuiz(themeID: "music", questionCount: 5, locale: locale)
+        }
+        await gate.open()
+
+        do {
+            _ = try await first.value
+            XCTFail("Cold launch must report the preparation timeout")
+        } catch {
+            XCTAssertEqual(error as? QuizPreparationError, .timedOut)
+            XCTAssertEqual(QuizPreparationError.message(for: error), L10n.Question.loadingFailedMessage)
+        }
+        let quiz = try await retry.value
+        XCTAssertEqual(quiz.questions.count, 5)
+        XCTAssertTrue(quiz.questions.allSatisfy { $0.question.hasPrefix("Remote ") })
+        XCTAssertEqual(fixture.api.seeds.count, 1, "Only the retry may fetch after acknowledgement")
+        XCTAssertEqual(fixture.uploadAPI.submittedBatches, [[fixture.answer]])
+    }
+
+    private typealias GatedLaunch = (
+        repository: ThemeCatalogRepository, api: RecordingBackendContentAPI, outbox: PersistentQuestionAnswerOutbox,
+        uploadAPI: QuestionAnswerBackendContentAPI, answer: QuestionAnswerEvent, outboxURL: URL
+    )
+
+    private func makeGatedLaunch(
+        cache: OfflineQuestionCache,
+        gate: ProgressUploadGate,
+        uploadStarted: XCTestExpectation
+    ) async -> GatedLaunch {
+        let api = RecordingBackendContentAPI()
+        let uploadAPI = QuestionAnswerBackendContentAPI(submitResults: [])
+        uploadAPI.onSubmit = { batch in
+            uploadStarted.fulfill()
+            await gate.wait()
+            return QuestionAnswerBatchResponse(processedEventIds: batch.map(\.eventId))
+        }
+        let outboxURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let provider = ProgressSessionProvider()
+        let outbox = PersistentQuestionAnswerOutbox(api: uploadAPI, offlineCache: cache, fileURL: outboxURL,
+            automaticallySynchronizesOnEnqueue: false, sessionProvider: { provider.session }, retryDelay: 0)
+        let answer = QuestionAnswerEvent(eventId: UUID(), questionId: "music:3", questionVersion: 2,
+            locale: locale, answer: "B", answeredAt: Date(timeIntervalSince1970: 100), progressGeneration: generation)
+        outbox.enqueue(answer, for: "A", isCorrect: true)
+        let repository = ThemeCatalogRepository(backendContentAPI: api, offlineCache: cache,
+            accessTokenProvider: provider, answerOutbox: outbox, repeatStrategyProvider: { .hideAnswered },
+            countryProvider: { nil }, slowQuestionCacheDelay: .milliseconds(40), questionLoadTimeout: .milliseconds(450))
+        _ = await repository.refreshBackendCatalog(locale: locale)
+        return (repository, api, outbox, uploadAPI, answer, outboxURL)
+    }
+
     func testResetInvalidatesAnAlreadyDownloadingPack() async throws {
         let cache = OfflineQuestionCache()
         try await cache.install(pack())
@@ -229,6 +321,45 @@ final class OfflineQuestionTests: XCTestCase {
         catch is CancellationError {}
         let needsDownload = await cache.needsDownload(locale: locale, userID: "A")
         XCTAssertTrue(needsDownload)
+    }
+
+    func testSlowCatalogDoesNotBlockPersistingOfflinePack() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let cache = OfflineQuestionCache(directory: directory)
+        let api = RecordingBackendContentAPI()
+        api.offlinePack = try pack()
+
+        let catalogGate = ProgressUploadGate()
+        let catalogStarted = expectation(description: "Catalog request started")
+        api.onThemes = {
+            catalogStarted.fulfill()
+            await catalogGate.wait()
+        }
+        let packPersisted = XCTNSPredicateExpectation(
+            predicate: NSPredicate { _, _ in
+                let files = try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
+                return files?.contains { $0.pathExtension == "json" } == true
+            },
+            object: nil
+        )
+
+        let repository = ThemeCatalogRepository(backendContentAPI: api, offlineCache: cache,
+            automaticallyDownloadsOfflineQuestions: true, accessTokenProvider: ProgressSessionProvider(),
+            answerOutbox: ProgressOutboxSpy(), countryProvider: { nil })
+        let refresh = Task { await repository.refreshBackendCatalog(locale: locale) }
+
+        await fulfillment(of: [catalogStarted, packPersisted], timeout: 5)
+        XCTAssertEqual(repository.catalogOrigin, .bundled)
+        await catalogGate.open()
+        let refreshed = await refresh.value
+
+        XCTAssertTrue(refreshed)
+        XCTAssertEqual(api.requestedOfflineLocales, [locale])
+        let restored = OfflineQuestionCache(directory: directory)
+        let questions = try await restored.questions(locale: locale, userID: "A", themeIDs: ["music"], count: 5,
+            difficulty: .medium, strategy: .hideAnswered, country: nil)
+        XCTAssertEqual(Set(questions.compactMap(\.questionID)), Set((3..<8).map { "music:\($0)" }))
     }
 
     func testBackgroundDownloadDoesNotDelayCatalogAndCoalescesRequests() async throws {

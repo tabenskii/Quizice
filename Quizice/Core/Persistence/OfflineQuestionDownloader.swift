@@ -4,7 +4,6 @@ final class OfflineQuestionDownloader {
     enum QuestionLoadResult {
         case backend(BackendQuestionBatchResponse)
         case cache(QuizTheme)
-        case cacheMiss
     }
 
     private let api: BackendContentAPI?
@@ -84,27 +83,45 @@ final class OfflineQuestionDownloader {
     }
 
     @MainActor
-    static func fetchUsingCacheAfterDelay(
+    func fetchUsingCacheAfterDelay(
         _ delay: Duration,
+        timeout: Duration,
         questionCount: Int,
+        userID: String?,
+        strategy: QuestionRepeatStrategy,
         fetch: @escaping @MainActor () async throws -> BackendQuestionBatchResponse,
-        fallback: @escaping @MainActor () async throws -> QuizTheme
+        fallback: @escaping @MainActor (String) async throws -> QuizTheme
     ) async throws -> QuestionLoadResult {
-        try await withThrowingTaskGroup(of: QuestionLoadResult.self) { group in
-            group.addTask { @MainActor in .backend(try await fetch()) }
+        try await withThrowingTaskGroup(of: QuestionLoadResult?.self) { group in
             group.addTask { @MainActor in
-                try await Task.sleep(for: delay)
-                do {
-                    let quiz = try await fallback()
-                    return quiz.questions.count == questionCount ? .cache(quiz) : .cacheMiss
-                } catch QuizPreparationError.offlineQuestionsUnavailable {
-                    return .cacheMiss
+                if strategy.progressMode != nil {
+                    guard let userID else { throw BackendContentError.unauthenticated }
+                    try await self.outbox.synchronizeBeforeFetchingQuestions(for: userID)
+                    guard self.accessTokenProvider.currentSession()?.userID == userID else {
+                        throw QuestionAnswerSyncError.accountChanged
+                    }
                 }
+                try Task.checkCancellation()
+                return .backend(try await fetch())
+            }
+            if let userID {
+                group.addTask { @MainActor in
+                    try await Task.sleep(for: delay)
+                    do {
+                        let quiz = try await fallback(userID)
+                        return quiz.questions.count == questionCount ? .cache(quiz) : nil
+                    } catch QuizPreparationError.offlineQuestionsUnavailable {
+                        return nil
+                    }
+                }
+            }
+            group.addTask {
+                try await Task.sleep(for: timeout)
+                throw QuizPreparationError.timedOut
             }
             defer { group.cancelAll() }
             while let result = try await group.next() {
-                if case .cacheMiss = result { continue }
-                return result
+                if let result { return result }
             }
             throw CancellationError()
         }
