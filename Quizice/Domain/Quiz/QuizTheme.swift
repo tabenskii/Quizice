@@ -94,6 +94,30 @@ class QuizTheme {
 }
 
 extension QuizTheme {
+    func makeBundledRound(questionCount: Int) throws -> QuizTheme {
+        guard QuizQuestionCountPolicy.supportedCounts.contains(questionCount) else {
+            throw QuizPreparationError.unavailable
+        }
+        let usableQuestions = questions.filter {
+            QuizQuestionCountPolicy.isUsable(QuestionModel(quizQuestion: $0))
+        }
+        guard usableQuestions.count >= questionCount else {
+            throw QuizPreparationError.unavailable
+        }
+        return QuizTheme(
+            id: id,
+            theme: theme,
+            themeDescription: themeDescription,
+            questions: Array(usableQuestions.shuffled().prefix(questionCount)),
+            sfSymbolName: sfSymbolName,
+            emoji: emoji,
+            colorHex: colorHex,
+            isFavorite: isFavorite,
+            source: source,
+            questionOrigin: .bundled
+        )
+    }
+
     func makeBackendRound(questions: [QuizQuestion], difficulty: AIQuizDifficulty) -> QuizTheme {
         QuizTheme(
             id: id, theme: theme, themeDescription: themeDescription, questions: questions,

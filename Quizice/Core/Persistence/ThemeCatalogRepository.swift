@@ -440,10 +440,7 @@ final class ThemeCatalogRepository: ThemeRepository {
             AppLog.content.notice(
                 "📦 LOCAL QUESTIONS: bundled catalog active theme=\(themeID, privacy: .public) locale=\(locale, privacy: .public) count=\(questionCount, privacy: .public)"
             )
-            return try makeLocalQuiz(
-                themeID: themeID,
-                questionCount: questionCount
-            )
+            return try metadata.makeBundledRound(questionCount: questionCount)
         }
         guard let backendContentAPI else { throw QuizPreparationError.unavailable }
 
@@ -643,38 +640,6 @@ final class ThemeCatalogRepository: ThemeRepository {
 
     func clearSwiftData(context: ModelContext) {
         SwiftDataThemeStore(context: context).clearThemes()
-    }
-
-    private func makeLocalQuiz(
-        themeID: String,
-        questionCount: Int
-    ) throws -> QuizTheme {
-        let catalog = themes ?? fetchQuizThemes()
-        guard
-            QuizQuestionCountPolicy.supportedCounts.contains(questionCount),
-            let theme = catalog.first(where: { $0.stableID == themeID })
-        else {
-            throw QuizPreparationError.unavailable
-        }
-
-        let usableQuestions = theme.questions.filter {
-            QuizQuestionCountPolicy.isUsable(QuestionModel(quizQuestion: $0))
-        }
-        guard usableQuestions.count >= questionCount else {
-            throw QuizPreparationError.unavailable
-        }
-        return QuizTheme(
-            id: theme.id,
-            theme: theme.theme,
-            themeDescription: theme.themeDescription,
-            questions: Array(usableQuestions.shuffled().prefix(questionCount)),
-            sfSymbolName: theme.sfSymbolName,
-            emoji: theme.emoji,
-            colorHex: theme.colorHex,
-            isFavorite: theme.isFavorite,
-            source: theme.source,
-            questionOrigin: .bundled
-        )
     }
 
     private func reloadDataForLocalizationChange() {

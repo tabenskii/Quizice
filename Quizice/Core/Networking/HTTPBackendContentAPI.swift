@@ -216,12 +216,8 @@ final class HTTPBackendContentAPI: BackendContentAPI, StatisticsHistoryAPI {
         seed: String
     ) async throws -> BackendQuestionBatchResponse {
         try await fetchQuestionBatch(
-            themeID: themeID,
-            count: count,
-            locale: locale,
-            difficulty: nil,
-            seed: seed,
-            strategy: .showAll
+            themeID: themeID, count: count, locale: locale,
+            difficulty: nil, seed: seed, strategy: .showAll
         )
     }
 
@@ -233,12 +229,8 @@ final class HTTPBackendContentAPI: BackendContentAPI, StatisticsHistoryAPI {
         seed: String
     ) async throws -> BackendQuestionBatchResponse {
         try await fetchQuestionBatch(
-            themeID: themeID,
-            count: count,
-            locale: locale,
-            difficulty: difficulty,
-            seed: seed,
-            strategy: .showAll
+            themeID: themeID, count: count, locale: locale,
+            difficulty: difficulty, seed: seed, strategy: .showAll
         )
     }
 
@@ -251,12 +243,8 @@ final class HTTPBackendContentAPI: BackendContentAPI, StatisticsHistoryAPI {
         strategy: QuestionRepeatStrategy
     ) async throws -> BackendQuestionBatchResponse {
         try await fetchQuestionBatch(
-            themeID: themeID,
-            count: count,
-            locale: locale,
-            difficulty: difficulty,
-            seed: seed,
-            strategy: strategy
+            themeID: themeID, count: count, locale: locale,
+            difficulty: difficulty, seed: seed, strategy: strategy
         )
     }
 
