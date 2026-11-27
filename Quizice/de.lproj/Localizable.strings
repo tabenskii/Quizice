@@ -84,7 +84,6 @@
 "home.statistics.accessibility_label" = "Gesamtstatistik";
 "home.statistics.accessibility_value_format" = "Gespielt: %d. Genauigkeit: %d%%";
 "home.statistics.accuracy_short" = "Genau";
-"home.statistics.description" = "Gesamtergebnisse der Quizze";
 "home.statistics.played_short" = "Gespielt";
 "home.themes_collection.accessibility_label" = "Quizthemen";
 "home.unavailable_themes" = "Noch keine Themen verfügbar";

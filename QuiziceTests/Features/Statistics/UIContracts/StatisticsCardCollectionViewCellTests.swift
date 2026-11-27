@@ -146,6 +146,9 @@ final class StatisticsCardCollectionViewCellTests: XCTestCase {
                 bestTotalQuestions: 5
             ),
             appearance: currentAppearance(),
+            traits: UITraitCollection(preferredContentSizeCategory: .large),
+            width: 342,
+            bottomInset: 24,
             isSourceHidden: true
         )
         let target = StatisticsCellTargetSpy()
@@ -172,7 +175,6 @@ final class StatisticsCardCollectionViewCellTests: XCTestCase {
 
         let labelIdentifiers = [
             ThemesCollectionService.Content.statisticsTitleAccessibilityID,
-            ThemesCollectionService.Content.statisticsDescriptionAccessibilityID,
             ThemesCollectionService.Content.statisticsPlayedTitleAccessibilityID,
             ThemesCollectionService.Content.statisticsPlayedValueAccessibilityID,
             ThemesCollectionService.Content.statisticsAccuracyTitleAccessibilityID,

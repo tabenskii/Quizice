@@ -204,6 +204,8 @@ extension ThemesCollectionService {
     func aiThemeCardHeight(width: CGFloat, traits: UITraitCollection) -> CGFloat {
         let appearance = AppAppearanceStore.shared.appearance(compatibleWith: traits)
         let usesAccessibilityLayout = traits.preferredContentSizeCategory.isAccessibilityCategory
+        let verticalInset = usesAccessibilityLayout
+            ? Layout.aiThemeAccessibleContentVerticalInset : Layout.aiThemeContentVerticalInset
         let badgeFont = appearance.typography.font(
             size: Appearance.aiThemeBadgeFontSize, weight: .bold, compatibleWith: traits
         )
@@ -223,12 +225,15 @@ extension ThemesCollectionService {
             ).sizeThatFits(textSize).height + 2
             : 0
         let badgeHeight = usesAccessibilityLayout ? 0 : badgeFont.lineHeight + 2 * Layout.aiThemeBadgeVerticalInset
-        return max(Layout.aiThemeButtonHeight, ceil(max(titleHeight + subtitleHeight, badgeHeight) + 16))
+        let contentHeight = ceil(max(titleHeight + subtitleHeight, badgeHeight) + 2 * verticalInset)
+        return max(Layout.secondaryActionButtonHeight, contentHeight)
     }
 
     func configureAIThemeCard(in cell: UICollectionViewCell, appearance: AppAppearance, traits: UITraitCollection) {
         cell.applyShadow(.none)
         let usesAccessibilityLayout = traits.preferredContentSizeCategory.isAccessibilityCategory
+        let verticalInset = usesAccessibilityLayout
+            ? Layout.aiThemeAccessibleContentVerticalInset : Layout.aiThemeContentVerticalInset
         let button = makeSecondaryActionButton(
             accessibilityIdentifier: Content.aiThemeAccessibilityID,
             accessibilityLabel: L10n.Home.createWithAIAccessibilityLabel,
@@ -244,7 +249,7 @@ extension ThemesCollectionService {
         button.accessibilityValue = hasActivePlusSubscription ? L10n.Subscription.aiCardSubtitle : nil
         button.layer.borderWidth = 0
         button.layer.borderColor = UIColor.clear.cgColor
-        let aiThemeCornerRadius = Layout.aiThemeButtonHeight / 2
+        let aiThemeCornerRadius = Layout.secondaryActionButtonHeight / 2
         let titleLabel = makeAIThemeTitleLabel(appearance: appearance, traits: traits)
         let subtitleLabel = makeAIThemeSubtitleLabel(appearance: appearance, traits: traits)
 
@@ -328,8 +333,8 @@ extension ThemesCollectionService {
                 constant: Layout.aiThemeContentLeadingInset
             ),
             textStack.centerYAnchor.constraint(equalTo: button.centerYAnchor),
-            textStack.topAnchor.constraint(greaterThanOrEqualTo: button.topAnchor, constant: 8),
-            textStack.bottomAnchor.constraint(lessThanOrEqualTo: button.bottomAnchor, constant: -8)
+            textStack.topAnchor.constraint(greaterThanOrEqualTo: button.topAnchor, constant: verticalInset),
+            textStack.bottomAnchor.constraint(lessThanOrEqualTo: button.bottomAnchor, constant: -verticalInset)
         ]
 
         if usesAccessibilityLayout {

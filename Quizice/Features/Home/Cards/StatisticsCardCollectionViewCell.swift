@@ -4,36 +4,95 @@ final class StatisticsCardCollectionViewCell: UICollectionViewCell {
     static let reuseIdentifier = "homeStatisticsCardCell"
 
     private enum Layout {
-        static let bottomInset: CGFloat = 24
+        static let minimumHeight: CGFloat = 112
         static let horizontalInset: CGFloat = 24
-        static let contentSpacing: CGFloat = 12
-        static let textSpacing: CGFloat = 6
-        static let metricsSpacing: CGFloat = 8
-        static let metricSpacing: CGFloat = 6
+        static let verticalInset: CGFloat = 14
+        static let headingSpacing: CGFloat = 8
+        static let chevronWidth: CGFloat = 12
+        static let columnSpacing: CGFloat = 16
+        static let metricSpacing: CGFloat = 3
+        static let stackedMetricSpacing: CGFloat = 12
     }
 
-    private enum Typography {
-        static let titleSize: CGFloat = 24
-        static let descriptionSize: CGFloat = 15
-        static let metricTitleSize: CGFloat = 14
-        static let metricValueSize: CGFloat = 18
-        static let titleMinimumScaleFactor: CGFloat = 0.72
+    private struct Fonts {
+        let title: UIFont
+        let caption: UIFont
+        let value: UIFont
+
+        init(appearance: AppAppearance, traits: UITraitCollection, width: CGFloat) {
+            let titleFont = appearance.typography.font(size: 22, weight: .bold, compatibleWith: traits)
+            let captionFont = appearance.typography.font(size: 16, weight: .semibold, compatibleWith: traits)
+            let contentWidth = width - 2 * Layout.horizontalInset
+            let titleWidth = contentWidth - Layout.headingSpacing - Layout.chevronWidth
+            let metricWidth = StatisticsCardCollectionViewCell.metricWidth(width: width, traits: traits)
+            title = Self.fitWords(in: [L10n.Statistics.title], font: titleFont, width: titleWidth)
+            caption = Self.fitWords(
+                in: [L10n.Home.statisticsPlayedShort, L10n.Home.statisticsAccuracyShort],
+                font: captionFont,
+                width: metricWidth
+            )
+            value = appearance.typography.font(size: 22, weight: .semibold, compatibleWith: traits)
+        }
+
+        private static func fitWords(in labels: [String], font: UIFont, width: CGFloat) -> UIFont {
+            let longestWordWidth = labels.flatMap { $0.split(whereSeparator: \.isWhitespace) }
+                .map { (String($0) as NSString).size(withAttributes: [.font: font]).width }
+                .max() ?? 0
+            guard longestWordWidth > width, width > 0 else { return font }
+            return font.withSize(font.pointSize * max(1, floor(width) - 1) / longestWordWidth)
+        }
     }
 
     let actionButton = UIButton(type: .system)
 
     private let titleLabel = UILabel()
-    private let descriptionLabel = UILabel()
+    private let chevronView = UIImageView(image: UIImage(
+        systemName: "chevron.forward",
+        withConfiguration: UIImage.SymbolConfiguration(pointSize: 13, weight: .semibold)
+    ))
     private let playedTitleLabel = UILabel()
     private let playedValueLabel = UILabel()
     private let accuracyTitleLabel = UILabel()
     private let accuracyValueLabel = UILabel()
-    private let textStackView = UIStackView()
+    private let headingStackView = UIStackView()
     private let playedMetricView = UIStackView()
     private let accuracyMetricView = UIStackView()
     private let metricsStackView = UIStackView()
     private let contentStackView = UIStackView()
-    private var descriptionMinimumHeightConstraint: NSLayoutConstraint?
+    private var buttonBottomConstraint: NSLayoutConstraint!
+
+    static func height(width: CGFloat, appearance: AppAppearance, traits: UITraitCollection) -> CGFloat {
+        let fonts = Fonts(appearance: appearance, traits: traits, width: width)
+        let contentWidth = width - 2 * Layout.horizontalInset
+        let titleWidth = contentWidth - Layout.headingSpacing - Layout.chevronWidth
+        let metricWidth = metricWidth(width: width, traits: traits)
+        let titleHeight = textHeight(L10n.Statistics.title, font: fonts.title, width: titleWidth)
+        let playedHeight = textHeight(L10n.Home.statisticsPlayedShort, font: fonts.caption, width: metricWidth)
+        let accuracyHeight = textHeight(L10n.Home.statisticsAccuracyShort, font: fonts.caption, width: metricWidth)
+        let valueHeight = ceil(fonts.value.lineHeight) + Layout.metricSpacing
+        let metricsHeight = traits.preferredContentSizeCategory.isAccessibilityCategory
+            ? 2 * valueHeight + playedHeight + accuracyHeight + Layout.stackedMetricSpacing
+            : valueHeight + max(playedHeight, accuracyHeight)
+        let contentHeight = titleHeight + Layout.headingSpacing + metricsHeight
+        return max(Layout.minimumHeight, contentHeight + 2 * Layout.verticalInset)
+    }
+
+    private static func metricWidth(width: CGFloat, traits: UITraitCollection) -> CGFloat {
+        let contentWidth = width - 2 * Layout.horizontalInset
+        return traits.preferredContentSizeCategory.isAccessibilityCategory
+            ? contentWidth
+            : (contentWidth - Layout.columnSpacing) / 2
+    }
+
+    private static func textHeight(_ text: String, font: UIFont, width: CGFloat) -> CGFloat {
+        let rect = (text as NSString).boundingRect(
+            with: CGSize(width: max(1, width), height: .greatestFiniteMagnitude),
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            attributes: [.font: font],
+            context: nil
+        )
+        return ceil(max(font.lineHeight, rect.height))
+    }
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -63,7 +122,7 @@ final class StatisticsCardCollectionViewCell: UICollectionViewCell {
         actionButton.accessibilityLabel = nil
         actionButton.accessibilityHint = nil
         actionButton.accessibilityValue = nil
-        [titleLabel, descriptionLabel, playedTitleLabel, playedValueLabel, accuracyTitleLabel, accuracyValueLabel]
+        [titleLabel, playedTitleLabel, playedValueLabel, accuracyTitleLabel, accuracyValueLabel]
             .forEach { label in
                 label.text = nil
                 label.textColor = nil
@@ -76,6 +135,9 @@ final class StatisticsCardCollectionViewCell: UICollectionViewCell {
     func configure(
         summary: StatisticsSummary,
         appearance: AppAppearance,
+        traits: UITraitCollection,
+        width: CGFloat,
+        bottomInset: CGFloat,
         isSourceHidden: Bool
     ) {
         let accuracyDisplay = "\(summary.percentage)%"
@@ -106,15 +168,18 @@ final class StatisticsCardCollectionViewCell: UICollectionViewCell {
             actionButton.backgroundColor = .clear
         }
         actionButton.clipsToBounds = true
+        buttonBottomConstraint.constant = -bottomInset
 
+        let fonts = Fonts(appearance: appearance, traits: traits, width: width)
+        let usesStackedMetrics = traits.preferredContentSizeCategory.isAccessibilityCategory
+        metricsStackView.axis = usesStackedMetrics ? .vertical : .horizontal
+        metricsStackView.alignment = usesStackedMetrics ? .fill : .top
+        metricsStackView.distribution = usesStackedMetrics ? .fill : .fillEqually
+        metricsStackView.spacing = usesStackedMetrics ? Layout.stackedMetricSpacing : Layout.columnSpacing
         titleLabel.text = L10n.Statistics.title
         titleLabel.textColor = appearance.surfaceTextColor
-        titleLabel.font = appearance.typography.font(size: Typography.titleSize, weight: .bold)
-
-        descriptionLabel.text = L10n.Home.statisticsDescription
-        descriptionLabel.textColor = appearance.secondarySurfaceTextColor
-        descriptionLabel.font = appearance.typography.font(size: Typography.descriptionSize, weight: .semibold)
-        descriptionMinimumHeightConstraint?.constant = ceil(descriptionLabel.font.lineHeight * 2)
+        titleLabel.font = fonts.title
+        chevronView.tintColor = appearance.secondarySurfaceTextColor
 
         playedTitleLabel.text = L10n.Home.statisticsPlayedShort
         playedValueLabel.text = "\(summary.playedQuizzes)"
@@ -123,11 +188,11 @@ final class StatisticsCardCollectionViewCell: UICollectionViewCell {
 
         [playedTitleLabel, accuracyTitleLabel].forEach {
             $0.textColor = appearance.secondarySurfaceTextColor
-            $0.font = appearance.typography.font(size: Typography.metricTitleSize, weight: .semibold)
+            $0.font = fonts.caption
         }
         [playedValueLabel, accuracyValueLabel].forEach {
             $0.textColor = appearance.surfaceTextColor
-            $0.font = appearance.typography.font(size: Typography.metricValueSize, weight: .bold)
+            $0.font = fonts.value
         }
 
         setSourceHidden(isSourceHidden)
@@ -159,66 +224,43 @@ final class StatisticsCardCollectionViewCell: UICollectionViewCell {
         layer.masksToBounds = false
 
         actionButton.translatesAutoresizingMaskIntoConstraints = false
+        actionButton.isAccessibilityElement = true
         contentView.addSubview(actionButton)
 
         configureLabel(
             titleLabel,
             accessibilityIdentifier: ThemesCollectionService.Content.statisticsTitleAccessibilityID,
-            numberOfLines: 1,
-            textAlignment: .left
+            numberOfLines: 0
         )
-        titleLabel.adjustsFontSizeToFitWidth = true
-        titleLabel.minimumScaleFactor = Typography.titleMinimumScaleFactor
-        titleLabel.allowsDefaultTighteningForTruncation = true
-        titleLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-
-        configureLabel(
-            descriptionLabel,
-            accessibilityIdentifier: ThemesCollectionService.Content.statisticsDescriptionAccessibilityID,
-            numberOfLines: 2,
-            textAlignment: .left
-        )
-        descriptionLabel.lineBreakMode = .byWordWrapping
-        descriptionLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        descriptionLabel.setContentCompressionResistancePriority(.required, for: .vertical)
-        let descriptionMinimumHeightConstraint = descriptionLabel.heightAnchor.constraint(
-            greaterThanOrEqualToConstant: ceil(descriptionLabel.font.lineHeight * 2)
-        )
-        descriptionMinimumHeightConstraint.isActive = true
-        self.descriptionMinimumHeightConstraint = descriptionMinimumHeightConstraint
 
         configureLabel(
             playedTitleLabel,
             accessibilityIdentifier: ThemesCollectionService.Content.statisticsPlayedTitleAccessibilityID,
-            numberOfLines: 1,
-            textAlignment: .left
+            numberOfLines: 0
         )
         configureLabel(
             playedValueLabel,
             accessibilityIdentifier: ThemesCollectionService.Content.statisticsPlayedValueAccessibilityID,
-            numberOfLines: 0,
-            textAlignment: .right
+            numberOfLines: 1
         )
         configureLabel(
             accuracyTitleLabel,
             accessibilityIdentifier: ThemesCollectionService.Content.statisticsAccuracyTitleAccessibilityID,
-            numberOfLines: 1,
-            textAlignment: .left
+            numberOfLines: 0
         )
         configureLabel(
             accuracyValueLabel,
             accessibilityIdentifier: ThemesCollectionService.Content.statisticsAccuracyValueAccessibilityID,
-            numberOfLines: 0,
-            textAlignment: .right
+            numberOfLines: 1
         )
 
-        textStackView.axis = .vertical
-        textStackView.alignment = .fill
-        textStackView.spacing = Layout.textSpacing
-        textStackView.isUserInteractionEnabled = false
-        textStackView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        textStackView.addArrangedSubview(titleLabel)
-        textStackView.addArrangedSubview(descriptionLabel)
+        headingStackView.alignment = .center
+        headingStackView.spacing = Layout.headingSpacing
+        headingStackView.addArrangedSubview(titleLabel)
+        headingStackView.addArrangedSubview(chevronView)
+        chevronView.contentMode = .scaleAspectFit
+        chevronView.widthAnchor.constraint(equalToConstant: Layout.chevronWidth).isActive = true
+        chevronView.heightAnchor.constraint(equalToConstant: 14).isActive = true
 
         configureMetricStack(
             playedMetricView,
@@ -230,31 +272,27 @@ final class StatisticsCardCollectionViewCell: UICollectionViewCell {
             titleLabel: accuracyTitleLabel,
             valueLabel: accuracyValueLabel
         )
-        metricsStackView.axis = .vertical
-        metricsStackView.alignment = .fill
-        metricsStackView.spacing = Layout.metricsSpacing
-        metricsStackView.isUserInteractionEnabled = false
-        metricsStackView.setContentCompressionResistancePriority(.required, for: .horizontal)
         metricsStackView.addArrangedSubview(playedMetricView)
         metricsStackView.addArrangedSubview(accuracyMetricView)
 
-        contentStackView.axis = .horizontal
-        contentStackView.alignment = .center
-        contentStackView.distribution = .fill
-        contentStackView.spacing = Layout.contentSpacing
+        contentStackView.axis = .vertical
+        contentStackView.spacing = Layout.headingSpacing
         contentStackView.isUserInteractionEnabled = false
         contentStackView.translatesAutoresizingMaskIntoConstraints = false
-        contentStackView.addArrangedSubview(textStackView)
+        contentStackView.addArrangedSubview(headingStackView)
         contentStackView.addArrangedSubview(metricsStackView)
         actionButton.addSubview(contentStackView)
 
         actionButton.constrainHomeActionWidth(in: contentView)
+        buttonBottomConstraint = actionButton.bottomAnchor.constraint(equalTo: contentView.bottomAnchor)
         NSLayoutConstraint.activate([
             actionButton.topAnchor.constraint(equalTo: contentView.topAnchor),
-            actionButton.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -Layout.bottomInset),
+            buttonBottomConstraint,
 
             contentStackView.leadingAnchor.constraint(equalTo: actionButton.leadingAnchor, constant: Layout.horizontalInset),
             contentStackView.trailingAnchor.constraint(equalTo: actionButton.trailingAnchor, constant: -Layout.horizontalInset),
+            contentStackView.topAnchor.constraint(greaterThanOrEqualTo: actionButton.topAnchor, constant: Layout.verticalInset),
+            contentStackView.bottomAnchor.constraint(lessThanOrEqualTo: actionButton.bottomAnchor, constant: -Layout.verticalInset),
             contentStackView.centerYAnchor.constraint(equalTo: actionButton.centerYAnchor)
         ])
     }
@@ -262,13 +300,11 @@ final class StatisticsCardCollectionViewCell: UICollectionViewCell {
     private func configureLabel(
         _ label: UILabel,
         accessibilityIdentifier: String,
-        numberOfLines: Int,
-        textAlignment: NSTextAlignment
+        numberOfLines: Int
     ) {
         label.accessibilityIdentifier = accessibilityIdentifier
-        label.adjustsFontForContentSizeCategory = true
         label.numberOfLines = numberOfLines
-        label.textAlignment = textAlignment
+        label.lineBreakMode = .byWordWrapping
         label.translatesAutoresizingMaskIntoConstraints = false
     }
 
@@ -277,15 +313,13 @@ final class StatisticsCardCollectionViewCell: UICollectionViewCell {
         titleLabel: UILabel,
         valueLabel: UILabel
     ) {
-        titleLabel.setContentHuggingPriority(.required, for: .horizontal)
-        titleLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
-        valueLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
-        stackView.axis = .horizontal
-        stackView.alignment = .center
+        valueLabel.adjustsFontSizeToFitWidth = true
+        valueLabel.minimumScaleFactor = 0.5
+        stackView.axis = .vertical
         stackView.spacing = Layout.metricSpacing
         stackView.isUserInteractionEnabled = false
-        stackView.addArrangedSubview(titleLabel)
         stackView.addArrangedSubview(valueLabel)
+        stackView.addArrangedSubview(titleLabel)
     }
 
     private func setSourceHidden(_ isHidden: Bool) {

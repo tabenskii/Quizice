@@ -19,7 +19,6 @@ final class ThemesCollectionService: NSObject, UICollectionViewDelegate, UIColle
         static let feelingLuckyProgressAccessibilityID = "homeFeelingLuckyProgressView"
         static let statisticsAccessibilityID = "homeStatisticsCard"
         static let statisticsTitleAccessibilityID = "homeStatisticsTitleLabel"
-        static let statisticsDescriptionAccessibilityID = "homeStatisticsDescriptionLabel"
         static let statisticsPlayedValueAccessibilityID = "homeStatisticsPlayedValueLabel"
         static let statisticsPlayedTitleAccessibilityID = "homeStatisticsPlayedTitleLabel"
         static let statisticsAccuracyValueAccessibilityID = "homeStatisticsAccuracyValueLabel"
@@ -33,16 +32,16 @@ final class ThemesCollectionService: NSObject, UICollectionViewDelegate, UIColle
         static let viewportCardsPerColumn = 4
         static let prominentActionCardHeight: CGFloat = 72
         static let accessibilityProminentActionCardHeight: CGFloat = 272
-        static let aiThemeButtonHeight = prominentActionCardHeight
         static let secondaryActionButtonHeight: CGFloat = 54
         static let subscriptionPromoHeight = prominentActionCardHeight
         static let accessibilitySubscriptionPromoHeight = accessibilityProminentActionCardHeight
-        static let statisticsCardHeight: CGFloat = 112
         static let lastItemBottomInset: CGFloat = 24
         static let compactLastItemBottomInset: CGFloat = 16
         static let compactAvailableHeightThreshold: CGFloat = 600
         static let aiThemeBadgeTrailingInset: CGFloat = 16
         static let aiThemeContentLeadingInset: CGFloat = 18
+        static let aiThemeContentVerticalInset: CGFloat = 5
+        static let aiThemeAccessibleContentVerticalInset: CGFloat = 8
         static let aiThemeContentTrailingSpacing: CGFloat = 12
         static let aiThemeBadgeHorizontalInset: CGFloat = 10
         static let aiThemeBadgeVerticalInset: CGFloat = 5
@@ -365,6 +364,9 @@ final class ThemesCollectionService: NSObject, UICollectionViewDelegate, UIColle
             cell.configure(
                 summary: statisticsStore.loadSummary(),
                 appearance: appearance,
+                traits: collectionView.traitCollection,
+                width: min(availableActionWidth(in: collectionView), 640),
+                bottomInset: lastItemBottomInset(in: collectionView),
                 isSourceHidden: isStatisticsPresented
             )
             cell.actionButton.removeTarget(self, action: nil, for: .allEvents)
@@ -437,6 +439,9 @@ final class ThemesCollectionService: NSObject, UICollectionViewDelegate, UIColle
         cell.configure(
             summary: statisticsStore.loadSummary(),
             appearance: AppAppearanceStore.shared.appearance(compatibleWith: collectionView.traitCollection),
+            traits: collectionView.traitCollection,
+            width: min(availableActionWidth(in: collectionView), 640),
+            bottomInset: lastItemBottomInset(in: collectionView),
             isSourceHidden: isStatisticsPresented
         )
     }

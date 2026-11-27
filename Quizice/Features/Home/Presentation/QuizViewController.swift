@@ -381,8 +381,9 @@ final class QuizViewController: BaseQuizViewController, ThemeCollectionDelegate,
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         let layoutSize = view.safeAreaLayoutGuide.layoutFrame.size
-        if lastLayoutSize != layoutSize {
-            let wasLaidOut = lastLayoutSize != .zero
+        let needsResize = lastLayoutSize != layoutSize
+        let wasLaidOut = lastLayoutSize != .zero
+        if needsResize {
             lastLayoutSize = layoutSize
             if wasLaidOut {
                 themesCollectionService.captureScrollAnchor()
@@ -397,6 +398,9 @@ final class QuizViewController: BaseQuizViewController, ThemeCollectionDelegate,
         }
         updateCollectionTopInset()
         themesCollectionView.layoutIfNeeded()
+        if needsResize && wasLaidOut {
+            themesCollectionService.refreshStatistics()
+        }
         themesCollectionService.restoreScrollAnchor()
         updateCollectionScrollAvailability()
         expandedCardBackdropView?.frame = view.bounds

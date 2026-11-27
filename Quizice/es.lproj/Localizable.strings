@@ -84,7 +84,6 @@
 "home.statistics.accessibility_label" = "Estadísticas generales";
 "home.statistics.accessibility_value_format" = "Jugados: %d. Precisión: %d%%";
 "home.statistics.accuracy_short" = "Precisión";
-"home.statistics.description" = "Resultados generales de los quizzes";
 "home.statistics.played_short" = "Jugados";
 "home.themes_collection.accessibility_label" = "Temas del quiz";
 "home.unavailable_themes" = "Los temas aún no están disponibles";
