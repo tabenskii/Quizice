@@ -48,11 +48,16 @@ final class HomeIPadLayoutTests: HomeScreenVisualStateTestCase {
         XCTAssertTrue(controller.themesCollectionService.usesOuterScrolling)
         XCTAssertTrue(outer.isScrollEnabled)
         XCTAssertFalse(catalog.isScrollEnabled)
-        outer.scrollToItem(at: IndexPath(item: outer.numberOfItems(inSection: 0) - 1, section: 0), at: .bottom, animated: false)
+        let endOffset = outer.contentSize.height - outer.bounds.height + outer.adjustedContentInset.bottom
+        outer.setContentOffset(CGPoint(x: 0, y: endOffset), animated: false)
         outer.layoutIfNeeded()
         let statistics = try XCTUnwrap(controller.sourceStatisticsButton())
-        let frame = statistics.convert(statistics.bounds, to: outer)
-        XCTAssertTrue(outer.bounds.intersects(frame))
+        let frame = statistics.convert(statistics.bounds, to: controller.view)
+        let header = try XCTUnwrap(controller.motivationLabel)
+        let safeArea = controller.view.safeAreaLayoutGuide.layoutFrame
+        let topGap = header.convert(header.bounds, to: controller.view).minY - safeArea.minY
+        XCTAssertTrue(safeArea.contains(frame))
+        XCTAssertEqual(safeArea.maxY - frame.maxY, topGap, accuracy: 1)
     }
 
     func testResizeSettlesExpansionFlipAndCollapseAtRequestedState() throws {

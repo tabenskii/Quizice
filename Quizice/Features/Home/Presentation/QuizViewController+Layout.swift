@@ -26,6 +26,7 @@ extension QuizViewController {
 
     func configureThemesCollectionService() {
         themesCollectionView.backgroundColor = .clear
+        themesCollectionService.statisticsBottomSpacing = Layout.screenTopInset + Layout.headerMargins.top
         themesCollectionService.delegate = self
         themesCollectionView.delegate = themesCollectionService
         themesCollectionView.dataSource = themesCollectionService
@@ -282,17 +283,23 @@ extension QuizViewController {
         themesCollectionView.bounces = canScroll
     }
 
-    func updateCollectionTopInset() {
-        let oldTopInset = themesCollectionView.contentInset.top
+    func updateCollectionInsets() {
+        let oldInsets = themesCollectionView.contentInset
         let safeAreaTop = view.safeAreaInsets.top
         let headerBottom = headerStackView.frame.maxY - safeAreaTop
         let controlsBottom = helpButton.frame.maxY - safeAreaTop
         let topInset = max(headerBottom, controlsBottom) + Layout.headerToCollectionSpacing
-        guard abs(oldTopInset - topInset) > Layout.scrollActivationTolerance else { return }
+        let bottomInset = view.safeAreaInsets.bottom
+        guard abs(oldInsets.top - topInset) > Layout.scrollActivationTolerance
+            || oldInsets.bottom != bottomInset else { return }
 
-        let contentOffsetFromTopInset = themesCollectionView.contentOffset.y + oldTopInset
-        themesCollectionView.contentInset.top = topInset
+        let contentOffsetFromTopInset = themesCollectionView.contentOffset.y + oldInsets.top
+        var insets = oldInsets
+        insets.top = topInset
+        insets.bottom = bottomInset
+        themesCollectionView.contentInset = insets
         themesCollectionView.verticalScrollIndicatorInsets.top = topInset
+        themesCollectionView.verticalScrollIndicatorInsets.bottom = bottomInset
         themesCollectionView.collectionViewLayout.invalidateLayout()
 
         if !themesCollectionView.isDragging && !themesCollectionView.isDecelerating {

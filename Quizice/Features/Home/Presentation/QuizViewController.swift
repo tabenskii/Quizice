@@ -396,7 +396,7 @@ final class QuizViewController: BaseQuizViewController, ThemeCollectionDelegate,
         if let helpButtonVisualSurface {
             helpButton.sendSubviewToBack(helpButtonVisualSurface)
         }
-        updateCollectionTopInset()
+        updateCollectionInsets()
         themesCollectionView.layoutIfNeeded()
         if needsResize && wasLaidOut {
             themesCollectionService.refreshStatistics()

@@ -84,6 +84,40 @@ final class HomeScreenLayoutTests: HomeScreenVisualStateTestCase {
         XCTAssertEqual(compactCollectionView?.bounces, true)
     }
 
+    func testHomeBalancesEdgeGapsWhenThemesFillTheAvailableSpace() throws {
+        let sizesAndThemeCounts: [(CGSize, Int)] = [
+            (CGSize(width: 375, height: 667), 24),
+            (CGSize(width: 390, height: 844), 24),
+            (CGSize(width: 834, height: 1_194), 36),
+            (CGSize(width: 390, height: 844), 1)
+        ]
+        for (size, themeCount) in sizesAndThemeCounts {
+            QuizFactory.shared.themes = (0..<themeCount).map { makeTheme(name: "Тема \($0)") }
+            let controller = makeHomeViewController(in: CGRect(origin: .zero, size: size))
+            controller.additionalSafeAreaInsets = UIEdgeInsets(top: 9, left: 0, bottom: 13, right: 0)
+            controller.view.setNeedsLayout()
+            controller.view.layoutIfNeeded()
+
+            let outer = try XCTUnwrap(controller.themesCollectionView)
+            let catalog = try XCTUnwrap(controller.themesCollectionService.catalogCollectionView)
+            let statistics = try XCTUnwrap(controller.sourceStatisticsButton())
+            let header = try XCTUnwrap(controller.motivationLabel)
+            let safeArea = controller.view.safeAreaLayoutGuide.layoutFrame
+            let topGap = header.convert(header.bounds, to: controller.view).minY - safeArea.minY
+            let bottomGap = safeArea.maxY - statistics.convert(statistics.bounds, to: controller.view).maxY
+
+            XCTAssertGreaterThan(topGap, 0)
+            XCTAssertFalse(outer.isScrollEnabled)
+            XCTAssertEqual(catalog.isScrollEnabled, themeCount > 1)
+            if themeCount > 1 {
+                XCTAssertEqual(bottomGap, topGap, accuracy: 1, "Home size \(size), \(themeCount) themes")
+            } else {
+                XCTAssertGreaterThanOrEqual(bottomGap, topGap)
+                XCTAssertEqual(catalog.bounds.height, catalog.contentSize.height, accuracy: 1)
+            }
+        }
+    }
+
     func testHomeMotivationLabelFadesAsCollectionScrollsUp() throws {
         QuizFactory.shared.themes = [
             makeTheme(name: "Музыка"),
