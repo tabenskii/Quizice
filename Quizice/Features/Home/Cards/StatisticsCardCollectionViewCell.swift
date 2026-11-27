@@ -7,6 +7,7 @@ final class StatisticsCardCollectionViewCell: UICollectionViewCell {
         static let horizontalInset: CGFloat = 18
         static let verticalInset: CGFloat = 12
         static let headingSpacing: CGFloat = 6
+        static let headingToMetricsSpacing: CGFloat = 12
         static let chevronWidth: CGFloat = 12
         static let columnSpacing: CGFloat = 12
         static let rowSpacing: CGFloat = 8
@@ -60,7 +61,7 @@ final class StatisticsCardCollectionViewCell: UICollectionViewCell {
                     + Layout.rowSpacing
             }
             height = Self.textHeight(L10n.Statistics.title, font: title, width: titleWidth)
-                + Layout.headingSpacing + metricsHeight + 2 * Layout.verticalInset
+                + Layout.headingToMetricsSpacing + metricsHeight + 2 * Layout.verticalInset
         }
 
         private static func textWidth(_ text: String, font: UIFont) -> CGFloat {
@@ -306,7 +307,7 @@ final class StatisticsCardCollectionViewCell: UICollectionViewCell {
         metricsStackView.addArrangedSubview(accuracyMetricView)
 
         contentStackView.axis = .vertical
-        contentStackView.spacing = Layout.headingSpacing
+        contentStackView.spacing = Layout.headingToMetricsSpacing
         contentStackView.isUserInteractionEnabled = false
         contentStackView.translatesAutoresizingMaskIntoConstraints = false
         contentStackView.addArrangedSubview(headingStackView)

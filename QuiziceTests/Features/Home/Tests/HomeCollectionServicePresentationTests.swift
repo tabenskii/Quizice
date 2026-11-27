@@ -226,6 +226,13 @@ final class HomeCollectionServicePresentationTests: HomeScreenVisualStateTestCas
         let titleLabel = try XCTUnwrap(
             statisticsCell.contentView.descendant(withAccessibilityIdentifier: "homeStatisticsTitleLabel") as? UILabel
         )
+        let heading = try XCTUnwrap(titleLabel.superview)
+        let playedTitleLabel = try XCTUnwrap(
+            statisticsCell.contentView.descendant(withAccessibilityIdentifier: "homeStatisticsPlayedTitleLabel") as? UILabel
+        )
+        let metrics = try XCTUnwrap(playedTitleLabel.superview?.superview)
+        let headingFrame = heading.convert(heading.bounds, to: statisticsButton)
+        let metricsFrame = metrics.convert(metrics.bounds, to: statisticsButton)
         let sectionInsets = service.collectionView(
             collectionView,
             layout: collectionView.collectionViewLayout,
@@ -233,7 +240,8 @@ final class HomeCollectionServicePresentationTests: HomeScreenVisualStateTestCas
         )
 
         XCTAssertEqual(itemSize.height, statisticsButton.frame.height + 24, accuracy: 0.5)
-        XCTAssertLessThanOrEqual(statisticsButton.frame.height, 112)
+        XCTAssertLessThanOrEqual(statisticsButton.frame.height, 118)
+        XCTAssertEqual(metricsFrame.minY - headingFrame.maxY, 12, accuracy: 0.5)
         XCTAssertEqual(statisticsCell.bounds.maxY - statisticsButton.frame.maxY, 24, accuracy: 0.5)
         XCTAssertEqual(sectionInsets.bottom, 0)
         XCTAssertEqual(titleLabel.numberOfLines, 0)
