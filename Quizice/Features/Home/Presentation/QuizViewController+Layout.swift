@@ -194,8 +194,6 @@ extension QuizViewController {
         layout.sectionInset = Layout.collectionSectionInsets
 
         themesCollectionView = HomeThemesCollectionView(frame: .zero, collectionViewLayout: layout)
-        themesCollectionView.clipsToBounds = true
-        themesCollectionView.layer.cornerCurve = .continuous
         themesCollectionView.accessibilityIdentifier = AccessibilityID.themesCollectionView
         themesCollectionView.accessibilityLabel = L10n.Home.themesCollectionAccessibilityLabel
         themesCollectionView.alwaysBounceVertical = false

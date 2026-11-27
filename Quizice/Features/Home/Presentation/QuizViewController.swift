@@ -514,7 +514,6 @@ final class QuizViewController: BaseQuizViewController, ThemeCollectionDelegate,
 #endif
 
         themesCollectionView?.backgroundColor = .clear
-        themesCollectionView?.layer.cornerRadius = appearance.row.cornerRadius
         themesCollectionView?.reloadData()
         refreshExpandedThemeCardAppearance()
     }

@@ -314,6 +314,9 @@ final class ThemesViewportCollectionViewCell: UICollectionViewCell {
         themesCollectionView.backgroundView = nil
         themesCollectionView.isOpaque = false
         themesCollectionView.layer.isOpaque = false
+        themesCollectionView.clipsToBounds = true
+        themesCollectionView.layer.cornerCurve = .continuous
+        themesCollectionView.fadesScrollEdges = true
         themesCollectionView.accessibilityIdentifier =
             ThemesCollectionService.Content.themeCatalogAccessibilityID
         themesCollectionView.accessibilityLabel = L10n.Home.themesCollectionAccessibilityLabel
