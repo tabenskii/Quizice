@@ -195,6 +195,45 @@ final class ScreenSnapshotTests: XCTestCase {
         )
     }
 
+    func testClassicCatalogSubtopicPickerSnapshot() {
+        SnapshotSupport.setUp(designStyle: .classic)
+        let appearance = SnapshotSupport.appearance(designStyle: .classic)
+        let theme = QuizTheme(
+            id: "music",
+            theme: "Музыка",
+            themeDescription: "Вопросы об исполнителях, музыкальных произведениях и звукозаписи.",
+            questions: [],
+            sfSymbolName: "music.note.list",
+            colorHex: "#AF52DE",
+            questionOrigin: .backend,
+            subtopics: [
+                QuizSubtopic(id: "recording", name: "Звукозапись"),
+                QuizSubtopic(id: "opera", name: "Опера")
+            ]
+        )
+        let card = ExpandedThemeCardView(frame: CGRect(x: 0, y: 0, width: 342, height: 530))
+        card.configure(
+            theme: theme,
+            appearance: appearance,
+            availableQuestionCounts: QuizQuestionCountPolicy.supportedCounts,
+            selectedQuestionCount: 5
+        )
+        card.setFace(.back, animated: false)
+        let picker = card.subtopicButton
+        XCTAssertFalse(picker.isHidden)
+        XCTAssertEqual(picker.accessibilityValue, L10n.ThemeCard.allSubtopics)
+        XCTAssertEqual(picker.menu?.children.map(\.title), [L10n.ThemeCard.allSubtopics, "Звукозапись", "Опера"])
+
+        card.selectSubtopic("recording")
+        XCTAssertEqual(picker.accessibilityValue, "Звукозапись")
+        SnapshotSupport.assertComponent(
+            card,
+            named: "classic-home-expanded-music-subtopic",
+            size: CGSize(width: 390, height: 580),
+            backgroundAppearance: appearance
+        )
+    }
+
     func testRadarExpandedThemeCardBackSnapshot() throws {
         SnapshotSupport.setUp(designStyle: .radar)
 

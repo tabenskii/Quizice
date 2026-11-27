@@ -49,8 +49,10 @@ extension QuizViewController {
             appearance: appearance,
             availableQuestionCounts: homeCardState.availableQuestionCounts,
             selectedQuestionCount: homeCardState.selectedQuestionCount,
-            selectedDifficulty: homeCardState.selectedDifficulty
+            selectedDifficulty: homeCardState.selectedDifficulty,
+            selectedSubtopicID: selectedSubtopicIDs[theme.stableID]
         )
+        selectedSubtopicIDs[theme.stableID] = cardView.selectedSubtopicID
         cardView.setParallaxPresentationPhase(homeCardState.phase.parallaxPresentationPhase)
         wireExpandedThemeCardActions(cardView)
         cardView.layoutIfNeeded()
@@ -450,6 +452,11 @@ extension QuizViewController {
                   theme.stableID == "politics_business", !self.isQuizLaunchPending else { return }
             QuestionCountryStore.shared.country = country
             // Drop any prepared batch; keep only the current catalog metadata.
+            self.session.chosenTheme = ThemeModel(quizTheme: theme)
+        }
+        cardView.onSubtopicChanged = { [weak self] subtopicID in
+            guard let self, let theme = self.expandedTheme, !self.isQuizLaunchPending else { return }
+            self.selectedSubtopicIDs[theme.stableID] = subtopicID
             self.session.chosenTheme = ThemeModel(quizTheme: theme)
         }
         cardView.onDifficultyChanged = { [weak self] difficulty in

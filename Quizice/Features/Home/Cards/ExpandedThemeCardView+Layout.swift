@@ -286,15 +286,9 @@ extension ExpandedThemeCardView {
         backDescriptionLabel.isAccessibilityElement = true
         backDescriptionLabel.translatesAutoresizingMaskIntoConstraints = false
 
-        countryButton.accessibilityIdentifier = "descriptionCountryPicker"
+        configureRoundFilterButton(countryButton, identifier: "descriptionCountryPicker")
         countryButton.accessibilityLabel = L10n.ThemeCard.country
-        countryButton.showsMenuAsPrimaryAction = true
-        countryButton.titleLabel?.adjustsFontForContentSizeCategory = true
-        countryButton.titleLabel?.numberOfLines = 0
-        countryButton.isHidden = true
-        let countryHeight = countryButton.heightAnchor.constraint(greaterThanOrEqualToConstant: 44)
-        countryHeight.priority = .defaultHigh
-        countryHeight.isActive = true
+        configureRoundFilterButton(subtopicButton, identifier: "descriptionSubtopicPicker")
 
         difficultyLabel.accessibilityIdentifier = AccessibilityID.difficultyLabel
         difficultyLabel.text = L10n.AITheme.difficulty
@@ -342,6 +336,7 @@ extension ExpandedThemeCardView {
         backControlsStack.translatesAutoresizingMaskIntoConstraints = false
         [
             countryButton,
+            subtopicButton,
             difficultyLabel,
             difficultyControl,
             questionCountLabel,
@@ -462,6 +457,7 @@ extension ExpandedThemeCardView {
             backTitleLabel,
             backDescriptionLabel,
             countryButton,
+            subtopicButton,
             difficultyLabel,
             difficultyControl,
             questionCountLabel,
@@ -469,6 +465,17 @@ extension ExpandedThemeCardView {
             startButton,
             backButton
         ]
+    }
+
+    private func configureRoundFilterButton(_ button: UIButton, identifier: String) {
+        button.accessibilityIdentifier = identifier
+        button.showsMenuAsPrimaryAction = true
+        button.titleLabel?.adjustsFontForContentSizeCategory = true
+        button.titleLabel?.numberOfLines = 0
+        button.isHidden = true
+        let minimumHeight = button.heightAnchor.constraint(greaterThanOrEqualToConstant: 44)
+        minimumHeight.priority = .defaultHigh
+        minimumHeight.isActive = true
     }
 
     func configureActions() {

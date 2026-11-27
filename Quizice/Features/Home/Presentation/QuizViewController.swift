@@ -215,6 +215,7 @@ final class QuizViewController: BaseQuizViewController, ThemeCollectionDelegate,
     var expandedCardAnimator: UIViewPropertyAnimator?
     var expandedAIKeyboardAnimator: UIViewPropertyAnimator?
     var expandedTheme: QuizTheme?
+    var selectedSubtopicIDs: [String: String] = [:]
     var expandedStatisticsSummary: StatisticsSummary?
     var aiSubmissionTask: Task<Void, Never>?
     var aiServiceNoticeTask: Task<Void, Never>?

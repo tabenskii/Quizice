@@ -20,6 +20,12 @@ protocol BackendContentAPI {
         strategy: QuestionRepeatStrategy, country: String?
     ) async throws -> BackendQuestionBatchResponse
 
+    func fetchQuestions(
+        themeID: String, count: Int, locale: String,
+        difficulty: AIQuizDifficulty, seed: String,
+        strategy: QuestionRepeatStrategy, country: String?, subtopicID: String?
+    ) async throws -> BackendQuestionBatchResponse
+
     func fetchThemes(locale: String) async throws -> BackendThemeCatalogResponse
     func fetchThemePreferences(locale: String) async throws -> BackendThemePreferencesResponse
     func replaceThemePreferences(
@@ -73,6 +79,18 @@ protocol BackendContentAPI {
 }
 
 extension BackendContentAPI {
+    func fetchQuestions(
+        themeID: String, count: Int, locale: String,
+        difficulty: AIQuizDifficulty, seed: String,
+        strategy: QuestionRepeatStrategy, country: String?, subtopicID: String?
+    ) async throws -> BackendQuestionBatchResponse {
+        guard subtopicID == nil else { throw BackendContentError.invalidRequest }
+        return try await fetchQuestions(
+            themeID: themeID, count: count, locale: locale, difficulty: difficulty,
+            seed: seed, strategy: strategy, country: country
+        )
+    }
+
     func fetchOfflineQuestions(locale: String, userID: String) async throws -> OfflineQuestionPack {
         throw BackendContentError.invalidRequest
     }

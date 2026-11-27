@@ -1200,7 +1200,12 @@ extension BackendClientTests {
             countries: ["DE", "US", "ES", "FR", "IT", "RU"]
         )])
         var country: String? = "US"
-        let repository = ThemeCatalogRepository(backendContentAPI: backend, countryProvider: { country })
+        let repository = ThemeCatalogRepository(
+            backendContentAPI: backend,
+            accessTokenProvider: BackendAccessTokenStub(token: nil),
+            answerOutbox: ProgressOutboxSpy(),
+            countryProvider: { country }
+        )
         let locale = AppLocalizationStore.shared.resolvedLanguageCode
         let refreshed = await repository.refreshBackendCatalog(locale: locale)
         XCTAssertTrue(refreshed)
@@ -1220,6 +1225,72 @@ extension BackendClientTests {
 }
 
 extension BackendClientTests {
+    func testCatalogSubtopicsDecodeLocalizedNamesInOrderAndAreOptional() async throws {
+        let api = makeContentAPI()
+        BackendTestURLProtocol.requestHandler = { request in
+            XCTAssertEqual(request.url?.path, "/api/v1/themes")
+            let query = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems
+            XCTAssertEqual(query?.first { $0.name == "locale" }?.value, "ru")
+            let theme: [String: Any] = [
+                "id": "music", "name": "Музыка", "description": "Описание",
+                "sfSymbol": "music.note", "emoji": "🎵", "colorHex": "#FF8252", "isFavorite": false
+            ]
+            var music = theme
+            music["subtopics"] = [
+                ["id": "recording", "name": "Звукозапись"],
+                ["id": "composers", "name": "Композиторы"]
+            ]
+            var legacy = theme
+            legacy["id"] = "politics_business"
+            legacy["countries"] = ["US", "RU"]
+            return Self.response(for: request, data: try JSONSerialization.data(withJSONObject: [
+                "locale": "ru", "themes": [music, legacy]
+            ]))
+        }
+        let catalog = try await api.fetchThemes(locale: "ru")
+        XCTAssertEqual(catalog.themes[0].subtopics, [
+            QuizSubtopic(id: "recording", name: "Звукозапись"),
+            QuizSubtopic(id: "composers", name: "Композиторы")
+        ])
+        XCTAssertEqual(catalog.themes[1].subtopics, [])
+        XCTAssertEqual(catalog.themes[1].countries, ["US", "RU"])
+    }
+
+    func testSubtopicQueryIsOptionalAndRequiresMatchingBatchEcho() async throws {
+        let api = makeContentAPI()
+        let seed = "550e8400-e29b-41d4-a716-446655440000"
+        for requestedID in [nil, "recording"] as [String?] {
+            BackendTestURLProtocol.requestHandler = { request in
+                XCTAssertEqual(request.url?.path, "/api/v1/themes/music/questions")
+                let query = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems ?? []
+                XCTAssertEqual(query.first { $0.name == "subtopicId" }?.value, requestedID)
+                XCTAssertEqual(query.first { $0.name == "difficulty" }?.value, "hard")
+                var body: [String: Any] = ["locale": "ru", "seed": seed, "questions": (0..<5).map(Self.questionJSON)]
+                body["subtopicId"] = requestedID
+                return Self.response(for: request, data: try JSONSerialization.data(withJSONObject: body))
+            }
+            let batch = try await api.fetchQuestions(
+                themeID: "music", count: 5, locale: "ru", difficulty: .hard, seed: seed,
+                strategy: .showAll, country: nil, subtopicID: requestedID
+            )
+            XCTAssertEqual(batch.subtopicId, requestedID)
+        }
+
+        for responseID in [nil, "composers"] as [String?] {
+            BackendTestURLProtocol.requestHandler = { request in
+                var body: [String: Any] = ["locale": "ru", "seed": seed, "questions": (0..<5).map(Self.questionJSON)]
+                body["subtopicId"] = responseID
+                return Self.response(for: request, data: try JSONSerialization.data(withJSONObject: body))
+            }
+            await assertBackendContentError(.contractViolation) {
+                try await api.fetchQuestions(
+                    themeID: "music", count: 5, locale: "ru", difficulty: .hard, seed: seed,
+                    strategy: .showAll, country: nil, subtopicID: "recording"
+                )
+            }
+        }
+    }
+
     func testCountryCatalogDecodesSupportedCodes() async throws {
         let api = makeContentAPI()
         BackendTestURLProtocol.requestHandler = { request in

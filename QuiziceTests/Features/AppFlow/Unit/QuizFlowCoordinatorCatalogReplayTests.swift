@@ -4,6 +4,20 @@ import XCTest
 
 @MainActor
 final class QuizFlowCoordinatorCatalogReplayTests: QuizFlowCoordinatorTestCase {
+    func testSubtopicThemeReplayReopensConfigurationBeforeRequestingQuestions() {
+        let music = QuizTheme(
+            id: "music", theme: "Music", themeDescription: "Description", questions: [],
+            questionOrigin: .backend, subtopics: [QuizSubtopic(id: "recording", name: "Recording")]
+        )
+        let repository = CountingReplayThemeRepository(themes: [music])
+        let session = RoutingSession()
+        session.chosenTheme = ThemeModel(quizTheme: music.roundSnapshot())
+        let harness = makeCoordinator(themeRepository: repository, session: session)
+        harness.coordinator.replayQuiz()
+        XCTAssertEqual(harness.navigationController.popToRootCallCount, 1)
+        XCTAssertEqual(repository.prepareQuizCallCount, 0)
+    }
+
     func testPoliticsReplayReturnsToConfigurationWithoutRequestingQuestions() {
         let politics = SnapshotSupport.makeTheme(id: "politics_business", name: "Politics")
         politics.countries = ["US", "RU"]

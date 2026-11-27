@@ -489,6 +489,8 @@ enum L10n {
     enum ThemeCard {
         static var country: String { L10n.localized("theme_card.country", comment: "Country for this quiz round") }
         static var internationalQuestions: String { L10n.localized("theme_card.international_questions", comment: "Questions without a country filter") }
+        static var subtopic: String { L10n.localized("theme_card.subtopic", comment: "Subtopic filter for a quiz round") }
+        static var allSubtopics: String { L10n.localized("theme_card.all_subtopics", comment: "Questions without a subtopic filter") }
         static var accessibilityHint: String { L10n.localized("theme.card.accessibility_hint", comment: "Theme card accessibility hint") }
         static var closeAccessibilityLabel: String { L10n.localized("theme.card.close_accessibility_label", comment: "Expanded theme card close button accessibility label") }
         static var defaultThemeDescription: String { L10n.localized("description.default_theme_description", comment: "Default theme description fallback") }

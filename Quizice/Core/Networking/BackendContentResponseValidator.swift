@@ -35,6 +35,10 @@ enum BackendContentResponseValidator {
                 && colorHex == theme.colorHex
                 && theme.countries.allSatisfy(QuestionCountryStore.supportedCodes.contains)
                 && Set(theme.countries).count == theme.countries.count
+                && theme.subtopics.allSatisfy {
+                    QuizSubtopic.isValidID($0.id) && !$0.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                }
+                && Set(theme.subtopics.map(\.id)).count == theme.subtopics.count
                 && identifiers.insert(id).inserted
         }
     }
@@ -61,12 +65,14 @@ enum BackendContentResponseValidator {
         requestedCount: Int,
         requestedLocale: String,
         requestedSeed: String,
-        requestedCountry: String?
+        requestedCountry: String?,
+        requestedSubtopicID: String? = nil
     ) -> Bool {
         guard
             response.locale == requestedLocale,
             response.seed == requestedSeed,
             response.country == requestedCountry,
+            response.subtopicId == requestedSubtopicID,
             response.questions.count <= requestedCount,
             response.availableCount >= response.questions.count
         else { return false }

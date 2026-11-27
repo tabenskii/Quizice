@@ -124,10 +124,12 @@ struct BackendThemeDTO: Decodable, Equatable {
     let colorHex: String
     let isFavorite: Bool
     let countries: [String]
+    let subtopics: [QuizSubtopic]
 
     init(
         id: String, name: String, description: String, sfSymbol: String,
-        emoji: String, colorHex: String, isFavorite: Bool, countries: [String] = []
+        emoji: String, colorHex: String, isFavorite: Bool, countries: [String] = [],
+        subtopics: [QuizSubtopic] = []
     ) {
         self.id = id
         self.name = name
@@ -137,10 +139,11 @@ struct BackendThemeDTO: Decodable, Equatable {
         self.colorHex = colorHex
         self.isFavorite = isFavorite
         self.countries = countries
+        self.subtopics = subtopics
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, name, description, sfSymbol, emoji, colorHex, isFavorite, countries
+        case id, name, description, sfSymbol, emoji, colorHex, isFavorite, countries, subtopics
     }
 
     init(from decoder: Decoder) throws {
@@ -153,6 +156,7 @@ struct BackendThemeDTO: Decodable, Equatable {
         colorHex = try values.decode(String.self, forKey: .colorHex)
         isFavorite = try values.decode(Bool.self, forKey: .isFavorite)
         countries = try values.decodeIfPresent([String].self, forKey: .countries) ?? []
+        subtopics = try values.decodeIfPresent([QuizSubtopic].self, forKey: .subtopics) ?? []
     }
 }
 
@@ -307,12 +311,13 @@ struct BackendQuestionBatchResponse: Decodable, Equatable {
     let seed: String
     let progressMode: QuestionProgressMode?
     let country: String?
+    let subtopicId: String?
     let availableCount: Int
     let isExhausted: Bool
     let questions: [BackendQuestionDTO]
 
     enum CodingKeys: String, CodingKey {
-        case locale, seed, progressMode, country, availableCount, isExhausted, questions
+        case locale, seed, progressMode, country, subtopicId, availableCount, isExhausted, questions
     }
 
     init(
@@ -320,6 +325,7 @@ struct BackendQuestionBatchResponse: Decodable, Equatable {
         seed: String,
         progressMode: QuestionProgressMode? = nil,
         country: String? = nil,
+        subtopicId: String? = nil,
         availableCount: Int? = nil,
         isExhausted: Bool = false,
         questions: [BackendQuestionDTO]
@@ -328,6 +334,7 @@ struct BackendQuestionBatchResponse: Decodable, Equatable {
         self.seed = seed
         self.progressMode = progressMode
         self.country = country
+        self.subtopicId = subtopicId
         self.availableCount = availableCount ?? questions.count
         self.isExhausted = isExhausted
         self.questions = questions
@@ -339,6 +346,7 @@ struct BackendQuestionBatchResponse: Decodable, Equatable {
         seed = try values.decode(String.self, forKey: .seed)
         progressMode = try values.decodeIfPresent(QuestionProgressMode.self, forKey: .progressMode)
         country = try values.decodeIfPresent(String.self, forKey: .country)
+        subtopicId = try values.decodeIfPresent(String.self, forKey: .subtopicId)
         questions = try values.decode([BackendQuestionDTO].self, forKey: .questions)
         availableCount = try values.decodeIfPresent(Int.self, forKey: .availableCount) ?? questions.count
         isExhausted = try values.decodeIfPresent(Bool.self, forKey: .isExhausted) ?? false

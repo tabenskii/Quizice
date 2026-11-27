@@ -52,6 +52,7 @@ private final class StoredQuizTheme {
     var questionOriginRawValue: String?
     var catalogLocale: String?
     var countries: [String]?
+    var subtopicsData: Data?
     var catalogOriginRawValue: String?
     @Relationship(deleteRule: .cascade) var questions: [StoredQuizQuestion]
 
@@ -68,7 +69,8 @@ private final class StoredQuizTheme {
         catalogLocale: String?,
         catalogOriginRawValue: String?,
         questions: [StoredQuizQuestion],
-        countries: [String]? = nil
+        countries: [String]? = nil,
+        subtopicsData: Data? = nil
     ) {
         self.id = id
         self.theme = theme
@@ -83,6 +85,7 @@ private final class StoredQuizTheme {
         self.catalogOriginRawValue = catalogOriginRawValue
         self.questions = questions
         self.countries = countries
+        self.subtopicsData = subtopicsData
     }
 
     convenience init(
@@ -103,7 +106,8 @@ private final class StoredQuizTheme {
             catalogLocale: catalogLocale,
             catalogOriginRawValue: catalogOrigin.rawValue,
             questions: model.questions.map(StoredQuizQuestion.init(model:)),
-            countries: model.countries
+            countries: model.countries,
+            subtopicsData: try? JSONEncoder().encode(model.subtopics)
         )
     }
 
@@ -119,7 +123,8 @@ private final class StoredQuizTheme {
             isFavorite: isFavorite ?? false,
             source: QuizThemeSource(rawValue: sourceRawValue ?? "") ?? .catalog,
             questionOrigin: QuizQuestionOrigin(rawValue: questionOriginRawValue ?? "") ?? .bundled,
-            countries: countries ?? []
+            countries: countries ?? [],
+            subtopics: subtopicsData.flatMap { try? JSONDecoder().decode([QuizSubtopic].self, from: $0) } ?? []
         )
     }
 }

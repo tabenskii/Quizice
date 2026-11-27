@@ -24,6 +24,8 @@ struct OfflineQuestionPack: Codable {
                 && question.progressGeneration != nil && !item.themeId.isEmpty
                 && ["easy", "medium", "hard"].contains(item.difficulty)
                 && (item.country == nil || QuestionCountryStore.supportedCodes.contains(item.country!))
+                && item.subtopicIds.allSatisfy(QuizSubtopic.isValidID)
+                && Set(item.subtopicIds).count == item.subtopicIds.count
                 && (!item.wasCorrect || item.wasAnswered)
                 && QuizQuestionCountPolicy.isUsable(QuestionModel(quizQuestion: question.makeModel(locale: locale)))
         }
@@ -33,6 +35,7 @@ struct OfflineQuestionPack: Codable {
 struct OfflineCatalogQuestion: Codable {
     let themeId: String
     let country: String?
+    let subtopicIds: [String]
     let difficulty: String
     let wasAnswered: Bool
     let wasCorrect: Bool
@@ -42,6 +45,7 @@ struct OfflineCatalogQuestion: Codable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         themeId = try container.decode(String.self, forKey: .themeId)
         country = try container.decodeIfPresent(String.self, forKey: .country)
+        subtopicIds = try container.decodeIfPresent([String].self, forKey: .subtopicIds) ?? []
         difficulty = try container.decode(String.self, forKey: .difficulty)
         wasAnswered = try container.decode(Bool.self, forKey: .wasAnswered)
         wasCorrect = try container.decode(Bool.self, forKey: .wasCorrect)
@@ -53,12 +57,15 @@ struct OfflineCatalogQuestion: Codable {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(themeId, forKey: .themeId)
         try container.encodeIfPresent(country, forKey: .country)
+        if !subtopicIds.isEmpty {
+            try container.encode(subtopicIds, forKey: .subtopicIds)
+        }
         try container.encode(difficulty, forKey: .difficulty)
         try container.encode(wasAnswered, forKey: .wasAnswered)
         try container.encode(wasCorrect, forKey: .wasCorrect)
     }
 
-    private enum CodingKeys: String, CodingKey { case themeId, country, difficulty, wasAnswered, wasCorrect }
+    private enum CodingKeys: String, CodingKey { case themeId, country, subtopicIds, difficulty, wasAnswered, wasCorrect }
 }
 
 final class OfflineQuestionCache: @unchecked Sendable {
@@ -164,7 +171,7 @@ final class OfflineQuestionCache: @unchecked Sendable {
 
     func questions(locale: String, userID: String, themeIDs: Set<String>, count: Int,
                    difficulty: AIQuizDifficulty, strategy: QuestionRepeatStrategy, country: String?,
-                   balanced: Bool = false) async throws -> [QuizQuestion] {
+                   subtopicID: String? = nil, balanced: Bool = false) async throws -> [QuizQuestion] {
         let selected: [BackendQuestionDTO] = try await Task.detached(priority: .utility) {
             try self.lock.withLock {
                 guard !self.erasedUsers.contains(userID),
@@ -175,6 +182,7 @@ final class OfflineQuestionCache: @unchecked Sendable {
                 let eligible = snapshot.pack.questions.filter { item in
                     guard themeIDs.contains(item.themeId), item.difficulty == difficulty.rawValue,
                           item.country == nil || item.country == country,
+                          subtopicID.map(item.subtopicIds.contains) ?? true,
                           let id = item.question.questionId, let version = item.question.questionVersion,
                           let generation = item.question.progressGeneration else { return false }
                     let local = self.progress?[self.progressKey(userID: userID, id: id, version: version, generation: generation)]
