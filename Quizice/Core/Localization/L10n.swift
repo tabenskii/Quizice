@@ -96,7 +96,6 @@ enum L10n {
         static var statisticsAccessibilityHint: String { L10n.localized("home.statistics.accessibility_hint", comment: "Home statistics card accessibility hint") }
         static var statisticsAccessibilityLabel: String { L10n.localized("home.statistics.accessibility_label", comment: "Home statistics card accessibility label") }
         static var statisticsAccuracyShort: String { L10n.localized("home.statistics.accuracy_short", comment: "Home statistics card accuracy metric title") }
-        static var statisticsDescription: String { L10n.localized("home.statistics.description", comment: "Home statistics card description") }
         static var statisticsPlayedShort: String { L10n.localized("home.statistics.played_short", comment: "Home statistics card played quizzes metric title") }
         static var themesCollectionAccessibilityLabel: String { L10n.localized("home.themes_collection.accessibility_label", comment: "Home themes collection accessibility label") }
         static var unavailableThemes: String { L10n.localized("home.unavailable_themes", comment: "Home screen empty themes title") }

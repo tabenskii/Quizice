@@ -274,7 +274,7 @@ final class HomeCollectionServiceTests: HomeScreenVisualStateTestCase {
         XCTAssertEqual(feelingLuckySize.width, 342)
         XCTAssertEqual(feelingLuckySize.height, 54)
         XCTAssertEqual(statisticsSize.width, 342)
-        XCTAssertEqual(statisticsSize.height, 136)
+        XCTAssertGreaterThanOrEqual(statisticsSize.height, 136)
         XCTAssertEqual(inset.left, 24)
         XCTAssertEqual(inset.right, 24)
         XCTAssertEqual(inset.bottom, 0)

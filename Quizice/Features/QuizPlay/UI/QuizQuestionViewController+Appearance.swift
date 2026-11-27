@@ -206,7 +206,7 @@ extension QuizQuestionViewController {
     func applyAnswerFont(_ font: UIFont, to button: UIButton) -> Bool {
         guard let titleLabel = button.titleLabel else { return false }
         if titleLabel.font.fontName != font.fontName
-            || abs(titleLabel.font.pointSize - font.pointSize) > Typography.fontSizeComparisonTolerance {
+            || titleLabel.font.pointSize != font.pointSize {
             titleLabel.font = font
             titleLabel.invalidateIntrinsicContentSize()
             button.invalidateIntrinsicContentSize()

@@ -437,7 +437,7 @@ extension QuizQuestionViewController {
     }
     
     func makeAnswerButton(accessibilityIdentifier: String) -> UIButton {
-        let button = UIButton(type: .system)
+        let button = QuizAnswerButton(type: .system)
         button.accessibilityIdentifier = accessibilityIdentifier
         button.accessibilityHint = L10n.Question.tapToAnswer
         button.setTitleColor(.white, for: .normal)
@@ -509,5 +509,17 @@ extension QuizQuestionViewController {
         button.translatesAutoresizingMaskIntoConstraints = false
         button.installPressFeedback()
         return button
+    }
+}
+
+private final class QuizAnswerButton: UIButton {
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        guard let titleLabel, bounds.width > 0 else { return }
+        let inset = min(QuizQuestionViewController.Layout.answerContentHorizontalInset, bounds.width / 2)
+        let content = bounds.insetBy(dx: inset, dy: 0)
+        titleLabel.frame = content.insetBy(dx: 0, dy: min(
+            QuizQuestionViewController.Layout.answerContentVerticalInset, content.height / 2
+        ))
     }
 }

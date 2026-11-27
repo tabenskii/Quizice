@@ -84,7 +84,6 @@
 "home.statistics.accessibility_label" = "Общая статистика";
 "home.statistics.accessibility_value_format" = "Пройдено: %d. Точность: %d%%";
 "home.statistics.accuracy_short" = "Точность";
-"home.statistics.description" = "Общие итоги квизов";
 "home.statistics.played_short" = "Пройдено";
 "home.themes_collection.accessibility_label" = "Темы викторины";
 "home.unavailable_themes" = "Темы пока недоступны";

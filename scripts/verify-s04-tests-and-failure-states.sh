@@ -487,7 +487,7 @@ check_split_test_layout_and_markers() {
     'home collection tests must preserve polished card styling coverage'
   require_test_method \
     "QuiziceTests/Features/Home/Tests/HomeCollectionServicePresentationTests.swift" \
-    'testCompactStatisticsTitleShrinksAndLastItemOwnsBottomSpacing' \
+    'testCompactStatisticsTitleCanWrapAndLastItemOwnsBottomSpacing' \
     'home collection tests must preserve compact statistics spacing coverage'
   require_test_method \
     "QuiziceTests/Features/Home/Tests/HomeExpandedCardTransitionTests.swift" \

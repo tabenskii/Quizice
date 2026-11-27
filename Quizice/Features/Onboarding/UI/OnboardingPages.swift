@@ -206,7 +206,8 @@ private struct WelcomeArtwork: View {
             .overlay {
                 Image(systemName: ThemeVisualCatalog.resolvedSymbolName(systemImage))
                     .font(appearance.typography.swiftUIFont(size: size * 0.36, weight: .semibold))
-                    .foregroundStyle(Color(uiColor: appearance.themeCardTextColor(baseColor: color)))
+                    .symbolRenderingMode(.monochrome)
+                    .foregroundStyle(Color(uiColor: appearance.themeCardIconColor(baseColor: color)))
             }
             .onboardingShadow(appearance.themeCardShadow)
             .opacity(isRevealed ? 1 : 0.22)
