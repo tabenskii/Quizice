@@ -177,8 +177,7 @@ final class HomeCollectionServiceTests: HomeScreenVisualStateTestCase {
 
         XCTAssertEqual(service.collectionView(outerCollectionView, numberOfItemsInSection: 0), 4)
         XCTAssertEqual(service.collectionView(collectionView, numberOfItemsInSection: 0), 14)
-        XCTAssertGreaterThan(viewportSize.height, 0)
-        XCTAssertLessThanOrEqual(viewportSize.height, 304)
+        XCTAssertGreaterThan(viewportSize.height, 304)
         XCTAssertGreaterThan(
             collectionView.collectionViewLayout.collectionViewContentSize.height,
             collectionView.bounds.height
@@ -220,7 +219,6 @@ final class HomeCollectionServiceTests: HomeScreenVisualStateTestCase {
         XCTAssertTrue(collectionView.isScrollEnabled)
         XCTAssertTrue(collectionView.alwaysBounceVertical)
         XCTAssertGreaterThan(collectionView.bounds.height, 0)
-        XCTAssertLessThanOrEqual(collectionView.bounds.height, 304)
         XCTAssertGreaterThan(
             collectionView.collectionViewLayout.collectionViewContentSize.height,
             collectionView.bounds.height
@@ -245,7 +243,7 @@ final class HomeCollectionServiceTests: HomeScreenVisualStateTestCase {
         XCTAssertFalse(compactOuterCollectionView.isScrollEnabled)
         XCTAssertTrue(compactCatalogCollectionView.isScrollEnabled)
         XCTAssertGreaterThan(compactCatalogCollectionView.bounds.height, 0)
-        XCTAssertLessThan(compactCatalogCollectionView.bounds.height, 304)
+        XCTAssertLessThan(compactCatalogCollectionView.bounds.height, collectionView.bounds.height)
         XCTAssertGreaterThan(
             compactCatalogCollectionView.collectionViewLayout.collectionViewContentSize.height,
             compactCatalogCollectionView.bounds.height
@@ -274,7 +272,7 @@ final class HomeCollectionServiceTests: HomeScreenVisualStateTestCase {
         XCTAssertEqual(feelingLuckySize.width, 342)
         XCTAssertEqual(feelingLuckySize.height, 54)
         XCTAssertEqual(statisticsSize.width, 342)
-        XCTAssertGreaterThanOrEqual(statisticsSize.height, 136)
+        XCTAssertLessThan(statisticsSize.height, 136)
         XCTAssertEqual(inset.left, 24)
         XCTAssertEqual(inset.right, 24)
         XCTAssertEqual(inset.bottom, 0)

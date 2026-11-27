@@ -29,7 +29,6 @@ final class ThemesCollectionService: NSObject, UICollectionViewDelegate, UIColle
         static let sectionInsets = UIEdgeInsets(top: 0, left: 24, bottom: 0, right: 24)
         static let itemSpacing: CGFloat = 16
         static let compactOuterItemSpacing: CGFloat = 12
-        static let viewportCardsPerColumn = 4
         static let prominentActionCardHeight: CGFloat = 72
         static let accessibilityProminentActionCardHeight: CGFloat = 272
         static let secondaryActionButtonHeight: CGFloat = 54
@@ -132,6 +131,8 @@ final class ThemesCollectionService: NSObject, UICollectionViewDelegate, UIColle
             collectionView.collectionViewLayout.invalidateLayout()
         }
     }
+
+    var statisticsBottomSpacing: CGFloat?
 
     var usesOuterScrolling = false {
         didSet {

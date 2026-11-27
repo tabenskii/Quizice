@@ -349,6 +349,7 @@ final class HomeFeelingLuckyTests: HomeScreenVisualStateTestCase {
         XCTAssertEqual(router.showQuestionCallCount, 0)
         let luckyCard = viewController.view.descendant(withAccessibilityIdentifier: "homeFeelingLuckyCard")
         XCTAssertTrue(viewController.cardSlideTransitionSourceView === luckyCard)
+        XCTAssertFalse(viewController.cardSlideTransitionCrossfadesSource)
 
         QuizFactory.shared.questionsCount = 10
         delay.release()
@@ -356,7 +357,12 @@ final class HomeFeelingLuckyTests: HomeScreenVisualStateTestCase {
 
         XCTAssertEqual(router.showQuestionCallCount, 1)
         XCTAssertTrue(progressView.isAnimating)
+        XCTAssertTrue(viewController.cardSlideTransitionCrossfadesSource)
         XCTAssertEqual(QuizFactory.shared.questionsCount, 5)
+
+        viewController.quizFlowWillReturnToThemes()
+        XCTAssertFalse(viewController.cardSlideTransitionCrossfadesSource)
+        XCTAssertFalse(progressView.isAnimating)
     }
 
     func testFeelingLuckyCancellationRestoresHomeAndIgnoresStaleDelayCompletion() async throws {
@@ -404,6 +410,7 @@ final class HomeFeelingLuckyTests: HomeScreenVisualStateTestCase {
         XCTAssertTrue(collectionView.isUserInteractionEnabled)
         XCTAssertTrue(settingsButton.isEnabled)
         XCTAssertEqual(router.showQuestionCallCount, 0)
+        XCTAssertFalse(viewController.cardSlideTransitionCrossfadesSource)
 
         delay.release()
         await launchTask.value
@@ -413,6 +420,47 @@ final class HomeFeelingLuckyTests: HomeScreenVisualStateTestCase {
         XCTAssertFalse(progressView.isAnimating)
         XCTAssertNil(viewController.presentedViewController)
         XCTAssertNil(viewController.activeQuizPreparationAlert)
+    }
+
+    func testFeelingLuckyPresentationFadesWholeScreenWithSourceStillVisible() async throws {
+        try XCTSkipIf(UIAccessibility.isReduceMotionEnabled)
+        let animationsWereEnabled = UIView.areAnimationsEnabled
+        UIView.setAnimationsEnabled(false)
+        defer { UIView.setAnimationsEnabled(animationsWereEnabled) }
+
+        let (home, _, router, option) = try makeBackendFailureHarness(reduceMotion: false)
+        let window = try XCTUnwrap(home.view.window)
+        let sourceCard = try XCTUnwrap(home.view.descendant(withAccessibilityIdentifier: "homeFeelingLuckyCard"))
+
+        let destination = FeelingLuckyTransitionDestination()
+        let animator = QuizCardSlidePresentationAnimator()
+        var sawTransparentDestination = false
+        destination.surface.onAlphaChange = { surface in
+            guard surface.alpha == 0 else { return }
+            sawTransparentDestination = true
+            XCTAssertEqual(surface.backgroundColor, .systemRed)
+            XCTAssertTrue(sourceCard.window === window)
+            XCTAssertFalse(sourceCard.isHidden)
+            XCTAssertFalse(home.view.isHidden)
+        }
+        defer { destination.surface.onAlphaChange = nil }
+
+        let presented = expectation(description: "Question transition completes")
+        let context = FeelingLuckyTransitionContext(source: home, destination: destination) { didComplete in
+            XCTAssertTrue(didComplete)
+            XCTAssertFalse(sourceCard.isHidden)
+            XCTAssertEqual(destination.view.alpha, 1)
+            XCTAssertEqual(destination.view.backgroundColor, .systemRed)
+            presented.fulfill()
+        }
+        router.onShowQuestion = {
+            XCTAssertTrue(home.cardSlideTransitionCrossfadesSource)
+            animator.sourceViewController = home
+            animator.animateTransition(using: context)
+        }
+        option.sendActions(for: .touchUpInside)
+        await fulfillment(of: [presented], timeout: 3)
+        XCTAssertTrue(sawTransparentDestination)
     }
 
     func testFeelingLuckyOfflineFailurePreservesMotivationAndOffersBackAndRetry() async throws {
@@ -639,6 +687,62 @@ final class HomeFeelingLuckyTests: HomeScreenVisualStateTestCase {
         try XCTUnwrap(view.descendant(withAccessibilityIdentifier: "homeFeelingLuckyButton-\(count)") as? UIButton)
     }
 
+}
+
+private final class FeelingLuckyTransitionDestination: UIViewController, QuizCardSlideTransitionDestination {
+    let surface = FeelingLuckyTransitionSurface()
+    let cardSlideTransitionDestinationView = UIView(frame: CGRect(x: 20, y: 80, width: 350, height: 500))
+    let cardSlideTransitionHorizontalInset: CGFloat = 20
+
+    override func loadView() {
+        surface.backgroundColor = .systemRed
+        surface.addSubview(cardSlideTransitionDestinationView)
+        view = surface
+    }
+}
+
+private final class FeelingLuckyTransitionSurface: UIView {
+    var onAlphaChange: ((UIView) -> Void)?
+
+    override var alpha: CGFloat {
+        didSet { onAlphaChange?(self) }
+    }
+}
+
+private final class FeelingLuckyTransitionContext: NSObject, UIViewControllerContextTransitioning {
+    let source: UIViewController
+    let destination: UIViewController
+    let onCompletion: (Bool) -> Void
+
+    var containerView: UIView { source.view }
+    let isAnimated = true
+    let isInteractive = false
+    let transitionWasCancelled = false
+    let presentationStyle: UIModalPresentationStyle = .custom
+    let targetTransform = CGAffineTransform.identity
+
+    init(source: UIViewController, destination: UIViewController, onCompletion: @escaping (Bool) -> Void) {
+        self.source = source
+        self.destination = destination
+        self.onCompletion = onCompletion
+    }
+
+    func updateInteractiveTransition(_ percentComplete: CGFloat) {}
+    func finishInteractiveTransition() {}
+    func cancelInteractiveTransition() {}
+    func pauseInteractiveTransition() {}
+    func completeTransition(_ didComplete: Bool) { onCompletion(didComplete) }
+
+    func viewController(forKey key: UITransitionContextViewControllerKey) -> UIViewController? {
+        key == .from ? source : destination
+    }
+
+    func view(forKey key: UITransitionContextViewKey) -> UIView? {
+        key == .from ? source.view : destination.view
+    }
+
+    func initialFrame(for viewController: UIViewController) -> CGRect { containerView.bounds }
+    func finalFrame(for viewController: UIViewController) -> CGRect { containerView.bounds }
 }
 
 private final class FeelingLuckyThemeRepositorySpy: ThemeRepository {

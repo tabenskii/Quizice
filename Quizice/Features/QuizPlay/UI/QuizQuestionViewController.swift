@@ -236,13 +236,7 @@ final class QuizQuestionViewController: BaseQuizViewController, QuizQuestionView
     var cardSlideTransitionSourceView: UIView { questionCardView }
     var cardSlideTransitionDestinationView: UIView { questionCardView }
     var cardSlideTransitionHorizontalInset: CGFloat { Layout.cardHorizontalInset }
-    var cardSlideTransitionDestinationCompanionViews: [UIView] {
-        var views: [UIView?] = [themeNameLabel, questionNumberLabel]
-#if DEBUG
-        views.append(debugQuestionSourceLabel)
-#endif
-        return views.compactMap { $0 }
-    }
+    var cardSlideTransitionDestinationCompanionViews: [UIView] { questionChromeViews }
     
     var answerButtons: [UIButton] {
         [answer1Button, answer2Button, answer3Button, answer4Button]

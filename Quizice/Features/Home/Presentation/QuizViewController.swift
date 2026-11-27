@@ -254,6 +254,7 @@ final class QuizViewController: BaseQuizViewController, ThemeCollectionDelegate,
     }
 
     var cardSlideTransitionHorizontalInset: CGFloat { ExpandedCardLayout.horizontalInset }
+    var cardSlideTransitionCrossfadesSource: Bool { hasQuizLaunchStarted && feelingLuckyRequestID != nil }
 
     var expandedCardContentView: UIView? {
         if let expandedThemeCardView { return expandedThemeCardView }
@@ -396,7 +397,7 @@ final class QuizViewController: BaseQuizViewController, ThemeCollectionDelegate,
         if let helpButtonVisualSurface {
             helpButton.sendSubviewToBack(helpButtonVisualSurface)
         }
-        updateCollectionTopInset()
+        updateCollectionInsets()
         themesCollectionView.layoutIfNeeded()
         if needsResize && wasLaidOut {
             themesCollectionService.refreshStatistics()

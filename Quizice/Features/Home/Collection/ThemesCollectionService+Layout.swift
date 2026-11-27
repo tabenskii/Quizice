@@ -58,7 +58,8 @@ extension ThemesCollectionService {
                 height: themesViewportHeight(
                     width: availableWidth,
                     traitCollection: collectionView.traitCollection,
-                    availableOuterHeight: availableContentHeight(in: collectionView)
+                    availableOuterHeight: availableContentHeight(in: collectionView),
+                    bottomSpacing: lastItemBottomInset(in: collectionView)
                 )
             )
         }
@@ -160,7 +161,8 @@ extension ThemesCollectionService {
     private func themesViewportHeight(
         width: CGFloat,
         traitCollection: UITraitCollection,
-        availableOuterHeight: CGFloat
+        availableOuterHeight: CGFloat,
+        bottomSpacing: CGFloat
     ) -> CGFloat {
         let grid = themeGrid(width: width, traits: traitCollection)
         let geometry = themeMasonryGeometry(width: width, grid: grid)
@@ -176,7 +178,7 @@ extension ThemesCollectionService {
             + aiThemeCardHeight(width: min(width, 640), traits: traitCollection)
             + Layout.secondaryActionButtonHeight
             + statisticsCardHeight(width: width, traits: traitCollection)
-            + lastItemBottomInset(availableHeight: availableOuterHeight)
+            + bottomSpacing
             + outerItemSpacing(availableHeight: availableOuterHeight)
                 * CGFloat(outerItemCount - 1)
         let viewportBudget = availableOuterHeight - fixedOuterContentHeight
@@ -190,10 +192,7 @@ extension ThemesCollectionService {
             return geometry.contentSize.height
         }
 
-        let maximumViewportHeight = geometry.frames
-            .prefix(Layout.viewportCardsPerColumn * grid.columnCount)
-            .map(\.maxY).max() ?? minimumViewportHeight
-        let viewportHeight = min(maximumViewportHeight, max(viewportBudget, minimumViewportHeight))
+        let viewportHeight = min(viewportBudget, max(geometry.contentSize.height, minimumViewportHeight))
         catalogCanScroll = geometry.contentSize.height > viewportHeight + 0.5
         return viewportHeight
     }
@@ -231,7 +230,7 @@ extension ThemesCollectionService {
     }
 
     func lastItemBottomInset(in collectionView: UICollectionView) -> CGFloat {
-        lastItemBottomInset(availableHeight: availableContentHeight(in: collectionView))
+        statisticsBottomSpacing ?? lastItemBottomInset(availableHeight: availableContentHeight(in: collectionView))
     }
 
     func availableActionWidth(in collectionView: UICollectionView) -> CGFloat {

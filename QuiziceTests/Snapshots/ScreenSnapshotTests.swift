@@ -68,7 +68,31 @@ final class ScreenSnapshotTests: XCTestCase {
                 controller,
                 named: "classic-home-statistics-\(suffix)",
                 device: .iPhoneX,
-                contentSizeCategory: category
+                contentSizeCategory: category,
+                afterPrepare: { controller in
+                    guard
+                        let statistics = controller.view.snapshotDescendant(
+                            withAccessibilityIdentifier: ThemesCollectionService.Content.statisticsAccessibilityID
+                        ),
+                        let createWithAI = controller.view.snapshotDescendant(
+                            withAccessibilityIdentifier: ThemesCollectionService.Content.aiThemeAccessibilityID
+                        ),
+                        let heading = statistics.snapshotDescendant(
+                            withAccessibilityIdentifier: ThemesCollectionService.Content.statisticsTitleAccessibilityID
+                        ) as? UILabel
+                    else {
+                        XCTFail("Missing Home action or statistics heading")
+                        return
+                    }
+
+                    XCTAssertEqual(statistics.bounds.width, createWithAI.bounds.width, accuracy: 0.5)
+                    XCTAssertLessThanOrEqual(
+                        heading.sizeThatFits(
+                            CGSize(width: heading.bounds.width, height: .greatestFiniteMagnitude)
+                        ).height,
+                        heading.bounds.height + 0.5
+                    )
+                }
             )
         }
     }

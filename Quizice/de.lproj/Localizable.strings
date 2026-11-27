@@ -201,7 +201,7 @@
 "subscription.ai_card.accessibility_hint" = "Öffnet die Vorschau von Quizice Plus";
 "subscription.ai_card.subtitle" = "Quizice Plus";
 "subscription.ai_card.title" = "Du brauchst mehr als 5 Fragen?";
-"subscription.badge.free" = "FREE";
+"subscription.badge.free" = "Kostenlos";
 "subscription.home.accessibility_hint" = "Öffnet Informationen zur Verfügbarkeit des Abonnements";
 "subscription.home.price_badge" = "Nicht verfügbar";
 "subscription.home.subtitle" = "Abonnements sind noch nicht verfügbar";
