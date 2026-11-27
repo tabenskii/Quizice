@@ -65,7 +65,8 @@ final class OfflineQuestionDownloader {
     func makeQuiz(metadata: QuizTheme, themeIDs: Set<String>, userID: String,
                                  questionCount: Int, difficulty: AIQuizDifficulty, locale: String,
                                  strategy: QuestionRepeatStrategy, selectedCountry: String?, country: String?,
-                                 balanced: Bool = false, countryProvider: () -> String?) async throws -> QuizTheme {
+                                 subtopicID: String? = nil, balanced: Bool = false,
+                                 countryProvider: () -> String?) async throws -> QuizTheme {
         func validate() throws {
             try Task.checkCancellation()
             guard AppLocalizationStore.shared.resolvedLanguageCode == locale,
@@ -75,7 +76,8 @@ final class OfflineQuestionDownloader {
         }
         try validate()
         let questions = try await cache.questions(locale: locale, userID: userID, themeIDs: themeIDs,
-            count: questionCount, difficulty: difficulty, strategy: strategy, country: country, balanced: balanced)
+            count: questionCount, difficulty: difficulty, strategy: strategy, country: country,
+            subtopicID: subtopicID, balanced: balanced)
         try validate()
         AppLog.content.notice("Using offline questions: locale=\(locale, privacy: .public) count=\(questions.count)")
         return metadata.makeBackendRound(questions: questions, difficulty: difficulty)

@@ -647,6 +647,99 @@ private final class BackendOnlyHomeThemeRepository: ThemeRepository {
 }
 
 extension HomeThemeCardStateTests {
+    func testSubtopicPickerUsesBackendCatalogAndPassesSelectionToRoundRequest() async throws {
+        let recording = QuizSubtopic(id: "recording", name: "Звукозапись")
+        let performers = QuizSubtopic(id: "performers", name: "Исполнители")
+        let backend = RecordingBackendContentAPI(catalogThemes: [BackendThemeDTO(
+            id: "music", name: "Музыка", description: "Описание", sfSymbol: "music.note", emoji: "🎵",
+            colorHex: "#FF8252", isFavorite: false, subtopics: [recording, performers]
+        )])
+        let repository = ThemeCatalogRepository(
+            backendContentAPI: backend, accessTokenProvider: BackendAccessTokenStub(token: nil),
+            answerOutbox: ProgressOutboxSpy(), countryProvider: { nil }
+        )
+        let refreshed = await repository.refreshBackendCatalog(locale: AppLocalizationStore.shared.resolvedLanguageCode)
+        XCTAssertTrue(refreshed)
+        let session = RoutingSession()
+        let controller = QuizViewController(
+            themeRepository: repository, session: session, cardReduceMotionProvider: { true }
+        )
+        let router = HomeRouterSpy()
+        controller.router = router
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
+        window.rootViewController = controller
+        window.makeKeyAndVisible()
+        window.layoutIfNeeded()
+        testWindows.append(window)
+
+        controller.configureNextRound(themeID: "music")
+        try await waitUntil { controller.homeCardState.phase == .expandedBack }
+        let card = try XCTUnwrap(controller.expandedThemeCardView)
+        XCTAssertFalse(card.subtopicButton.isHidden)
+        XCTAssertTrue(card.subtopicButton.isDescendant(of: card.backFaceView))
+        XCTAssertTrue(card.countryButton.isHidden)
+        XCTAssertEqual(card.subtopicButton.accessibilityValue, L10n.ThemeCard.allSubtopics)
+        XCTAssertEqual(card.subtopicButton.menu?.children.map(\.title), [
+            L10n.ThemeCard.allSubtopics, recording.name, performers.name
+        ])
+        card.selectSubtopic(recording.id)
+        XCTAssertEqual(card.subtopicButton.accessibilityValue, recording.name)
+        card.selectSubtopic("removed")
+        XCTAssertEqual(card.selectedSubtopicID, recording.id)
+        controller.refreshExpandedThemeCardAppearance()
+        XCTAssertEqual(card.selectedSubtopicID, recording.id)
+
+        let updatedTheme = QuizTheme(
+            id: "music", theme: "Музыка", themeDescription: "Описание", questions: [],
+            questionOrigin: .backend, subtopics: [performers]
+        )
+        repository.themes = [updatedTheme]
+        controller.refreshExpandedThemeCardAppearance()
+        XCTAssertNil(card.selectedSubtopicID)
+        XCTAssertEqual(card.subtopicButton.accessibilityValue, L10n.ThemeCard.allSubtopics)
+
+        card.selectSubtopic(performers.id)
+        card.startButton.sendActions(for: .touchUpInside)
+        XCTAssertFalse(card.subtopicButton.isEnabled)
+        try await waitUntil { router.showQuestionCallCount == 1 }
+        XCTAssertEqual(backend.requestedSubtopicIDs, [performers.id])
+        XCTAssertEqual(session.chosenTheme?.quizTheme.subtopics, [performers])
+        XCTAssertEqual(session.chosenTheme?.questionsAndAnswers.count, 5)
+    }
+
+    func testCachedCatalogPreservesSubtopicsWithoutChangingLegacyCountryPresentation() throws {
+        let container = try ModelContainer(for: SwiftDataThemeStore.schema,
+                                          configurations: ModelConfiguration(isStoredInMemoryOnly: true))
+        let store = SwiftDataThemeStore(context: container.mainContext)
+        let subtopic = QuizSubtopic(id: "elections", name: "Выборы")
+        let politics = QuizTheme(
+            id: "politics_business", theme: "Политика и бизнес", themeDescription: "Описание", questions: [],
+            questionOrigin: .backend, countries: ["DE", "FR"], subtopics: [subtopic]
+        )
+        store.replaceThemes(with: [politics], locale: "ru", catalogOrigin: .backend)
+        let restored = try XCTUnwrap(store.fetchThemes().first)
+        XCTAssertEqual(restored.subtopics, [subtopic])
+        XCTAssertEqual(restored.countries, ["DE", "FR"])
+        let appearance = AppAppearanceStore.shared.appearance(compatibleWith: .current)
+        let card = ExpandedThemeCardView(frame: CGRect(x: 0, y: 0, width: 272, height: 400))
+        card.configure(theme: restored, appearance: appearance, availableQuestionCounts: [5],
+                       selectedQuestionCount: 5, selectedCountry: "DE", selectedSubtopicID: subtopic.id)
+        card.setFace(.back, animated: false)
+        card.layoutIfNeeded()
+        XCTAssertFalse(card.subtopicButton.isHidden)
+        XCTAssertFalse(card.countryButton.isHidden)
+        XCTAssertEqual(card.selectedCountry, "DE")
+        XCTAssertEqual(card.selectedSubtopicID, subtopic.id)
+        card.selectSubtopic(nil)
+        XCTAssertEqual(card.selectedCountry, "DE")
+
+        let legacyTheme = makeTheme(name: "Музыка", questionCount: 5)
+        card.configure(theme: legacyTheme, appearance: appearance, availableQuestionCounts: [5], selectedQuestionCount: 5)
+        XCTAssertTrue(card.subtopicButton.isHidden)
+        XCTAssertNil(card.selectedSubtopicID)
+        XCTAssertTrue(card.countryButton.isHidden)
+    }
+
     func testCountryPickerAppearsOnlyOnPoliticsCardBackAndCanChangeEveryRound() throws {
         let card = ExpandedThemeCardView(frame: CGRect(x: 0, y: 0, width: 342, height: 550))
         let appearance = AppAppearance(

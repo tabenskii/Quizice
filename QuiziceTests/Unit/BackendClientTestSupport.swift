@@ -136,6 +136,7 @@ final class RecordingBackendContentAPI: BackendContentAPI {
     }
 
     private(set) var requestedCountries: [String?] = []
+    private(set) var requestedSubtopicIDs: [String?] = []
 
     func fetchQuestions(
         themeID: String, count: Int, locale: String, difficulty: AIQuizDifficulty,
@@ -143,6 +144,21 @@ final class RecordingBackendContentAPI: BackendContentAPI {
     ) async throws -> BackendQuestionBatchResponse {
         requestedCountries.append(country)
         return try await fetchQuestions(themeID: themeID, count: count, locale: locale, seed: seed)
+    }
+
+    func fetchQuestions(
+        themeID: String, count: Int, locale: String, difficulty: AIQuizDifficulty,
+        seed: String, strategy: QuestionRepeatStrategy, country: String?, subtopicID: String?
+    ) async throws -> BackendQuestionBatchResponse {
+        requestedSubtopicIDs.append(subtopicID)
+        let batch = try await fetchQuestions(
+            themeID: themeID, count: count, locale: locale, difficulty: difficulty,
+            seed: seed, strategy: strategy, country: country
+        )
+        return BackendQuestionBatchResponse(
+            locale: batch.locale, seed: batch.seed, country: country, subtopicId: subtopicID,
+            questions: batch.questions
+        )
     }
 
     func fetchRandomQuestions(

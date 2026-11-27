@@ -76,6 +76,7 @@ final class ExpandedThemeCardView: UIView, UIGestureRecognizerDelegate {
     var onFlip: (() -> Void)?
     var onBack: (() -> Void)?
     var onCountryChanged: ((String?) -> Void)?
+    var onSubtopicChanged: ((String?) -> Void)?
     var onDifficultyChanged: ((AIQuizDifficulty) -> Void)?
     var onQuestionCountChanged: ((Int) -> Void)?
     var onStart: (() -> Void)?
@@ -126,6 +127,9 @@ final class ExpandedThemeCardView: UIView, UIGestureRecognizerDelegate {
     let countryButton = UIButton(type: .system)
     var availableCountries: [String] = []
     var selectedCountry: String?
+    let subtopicButton = UIButton(type: .system)
+    var availableSubtopics: [QuizSubtopic] = []
+    var selectedSubtopicID: String?
     let difficultyLabel = UILabel()
     let difficultyControl = UISegmentedControl(
         items: AIQuizDifficulty.allCases.map(\.title)
@@ -248,7 +252,8 @@ final class ExpandedThemeCardView: UIView, UIGestureRecognizerDelegate {
         availableQuestionCounts: [Int],
         selectedQuestionCount: Int?,
         selectedDifficulty: AIQuizDifficulty = .medium,
-        selectedCountry: String? = QuestionCountryStore.shared.country
+        selectedCountry: String? = QuestionCountryStore.shared.country,
+        selectedSubtopicID: String? = nil
     ) {
         faceTransitionDriver.cancel()
 
@@ -299,6 +304,7 @@ final class ExpandedThemeCardView: UIView, UIGestureRecognizerDelegate {
             borderColor: borderColor
         )
         configureCountries(theme: theme, selectedCountry: selectedCountry)
+        configureSubtopics(theme.subtopics, selectedSubtopicID: selectedSubtopicID)
         configureDifficulty(selectedDifficulty, isAvailable: theme.questionOrigin != .bundled)
         // `configureQuestionCounts` must run before `setStartLoading` so the
         // Start button's enabled state is only ever written once, using the

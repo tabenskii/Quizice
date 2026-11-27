@@ -61,6 +61,9 @@ extension ExpandedThemeCardView {
             return attributes
         }
         countryButton.configuration = countryConfiguration
+        var subtopicConfiguration = countryConfiguration
+        subtopicConfiguration.contentInsets = NSDirectionalEdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12)
+        subtopicButton.configuration = subtopicConfiguration
         unavailableLabel.font = appearance.typography.font(
             size: Typography.unavailableSize,
             weight: .medium
@@ -180,6 +183,39 @@ extension ExpandedThemeCardView {
         })
     }
 
+    func configureSubtopics(_ subtopics: [QuizSubtopic], selectedSubtopicID: String?) {
+        availableSubtopics = subtopics
+        self.selectedSubtopicID = selectedSubtopicID.flatMap { id in
+            subtopics.contains { $0.id == id } ? id : nil
+        }
+        subtopicButton.isHidden = subtopics.isEmpty
+        updateSubtopicMenu()
+    }
+
+    func selectSubtopic(_ id: String?) {
+        guard !isStartLoading, selectedSubtopicID != id,
+              id.map({ id in availableSubtopics.contains { $0.id == id } }) ?? true else { return }
+        selectedSubtopicID = id
+        updateSubtopicMenu()
+        onSubtopicChanged?(id)
+    }
+
+    private func updateSubtopicMenu() {
+        let allTitle = L10n.ThemeCard.allSubtopics
+        let title = availableSubtopics.first { $0.id == selectedSubtopicID }?.name ?? allTitle
+        subtopicButton.setTitle("\(title) ▾", for: .normal)
+        subtopicButton.accessibilityLabel = L10n.ThemeCard.subtopic
+        subtopicButton.accessibilityValue = title
+
+        func action(id: String?, title: String) -> UIAction {
+            UIAction(title: title, state: selectedSubtopicID == id ? .on : .off) { [weak self] _ in
+                self?.selectSubtopic(id)
+            }
+        }
+        let actions = [action(id: nil, title: allTitle)] + availableSubtopics.map { action(id: $0.id, title: $0.name) }
+        subtopicButton.menu = UIMenu(title: L10n.ThemeCard.subtopic, children: actions)
+    }
+
     func configureQuestionCounts(selectedQuestionCount: Int?) {
         for (index, count) in Self.supportedQuestionCounts.enumerated() {
             questionCountControl.setEnabled(
@@ -214,6 +250,9 @@ extension ExpandedThemeCardView {
         if !countryButton.isHidden {
             elements.append(countryButton)
         }
+        if !subtopicButton.isHidden {
+            elements.append(subtopicButton)
+        }
         if !difficultyControl.isHidden {
             elements.append(contentsOf: [difficultyLabel, difficultyControl])
         }
@@ -240,6 +279,7 @@ extension ExpandedThemeCardView {
     func setStartLoading(_ isLoading: Bool) {
         isStartLoading = isLoading
         countryButton.isEnabled = !isLoading
+        subtopicButton.isEnabled = !isLoading
         startButton.isEnabled = !isLoading && selectedQuestionCount != nil
         startButton.setTitle(isLoading ? nil : L10n.Common.start, for: .normal)
         startButton.accessibilityLabel = isLoading ? L10n.Home.feelingLuckyLoading : L10n.Common.start

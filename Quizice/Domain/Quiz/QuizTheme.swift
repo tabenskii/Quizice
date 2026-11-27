@@ -22,6 +22,15 @@ enum QuizQuestionOrigin: String, Codable, Equatable {
     case mock
 }
 
+struct QuizSubtopic: Codable, Equatable {
+    let id: String
+    let name: String
+
+    static func isValidID(_ id: String) -> Bool {
+        !id.isEmpty && id == id.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+}
+
 class QuizTheme {
     static let defaultSFSymbolName = "questionmark.square.dashed"
     static let defaultEmoji = "❓"
@@ -39,6 +48,7 @@ class QuizTheme {
     var questionOrigin: QuizQuestionOrigin
     var difficulty: AIQuizDifficulty?
     var countries: [String]
+    let subtopics: [QuizSubtopic]
     
     init(
         id: String,
@@ -53,7 +63,8 @@ class QuizTheme {
         questionOrigin: QuizQuestionOrigin = .bundled,
         aiGenerationConfiguration: AIQuizGenerationConfiguration? = nil,
         difficulty: AIQuizDifficulty? = nil,
-        countries: [String] = []
+        countries: [String] = [],
+        subtopics: [QuizSubtopic] = []
     ) {
         self.id = id
         self.theme = theme
@@ -70,10 +81,15 @@ class QuizTheme {
         self.aiGenerationConfiguration = aiGenerationConfiguration
         self.difficulty = difficulty
         self.countries = countries
+        self.subtopics = subtopics
     }
 
     var source: QuizThemeSource {
         QuizThemeSource(rawValue: sourceRawValue ?? "") ?? .catalog
+    }
+
+    var hasRoundFilters: Bool {
+        !subtopics.isEmpty || (stableID == "politics_business" && !countries.isEmpty)
     }
 }
 
@@ -82,7 +98,8 @@ extension QuizTheme {
         QuizTheme(
             id: id, theme: theme, themeDescription: themeDescription, questions: questions,
             sfSymbolName: sfSymbolName, emoji: emoji, colorHex: colorHex, isFavorite: isFavorite,
-            source: .catalog, questionOrigin: .backend, difficulty: difficulty, countries: countries
+            source: .catalog, questionOrigin: .backend, difficulty: difficulty,
+            countries: countries, subtopics: subtopics
         )
     }
 }

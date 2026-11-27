@@ -247,6 +247,8 @@
 
 "theme_card.country" = "Land";
 "theme_card.international_questions" = "Internationale Fragen";
+"theme_card.subtopic" = "Unterthema";
+"theme_card.all_subtopics" = "Alle Unterthemen";
 
 "settings.questionStrategy.unavailable" = "Wiederholungsfilter benötigen Server-Themen und eine Game-Center-Anmeldung. Derzeit werden alle Fragen angezeigt.";
 

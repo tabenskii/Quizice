@@ -247,6 +247,8 @@
 
 "theme_card.country" = "País";
 "theme_card.international_questions" = "Preguntas internacionales";
+"theme_card.subtopic" = "Subtema";
+"theme_card.all_subtopics" = "Todos los subtemas";
 
 "settings.questionStrategy.unavailable" = "Los filtros requieren temas del servidor e iniciar sesión en Game Center. Ahora se muestran todas las preguntas.";
 

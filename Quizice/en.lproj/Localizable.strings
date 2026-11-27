@@ -247,6 +247,8 @@
 
 "theme_card.country" = "Country";
 "theme_card.international_questions" = "International questions";
+"theme_card.subtopic" = "Subtopic";
+"theme_card.all_subtopics" = "All subtopics";
 
 "settings.questionStrategy.unavailable" = "Repeat filters require server topics and a Game Center sign-in. All questions are currently shown.";
 

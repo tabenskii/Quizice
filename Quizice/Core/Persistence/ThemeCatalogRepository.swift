@@ -242,7 +242,8 @@ final class ThemeCatalogRepository: ThemeRepository {
                     isFavorite: false,
                     source: .catalog,
                     questionOrigin: .backend,
-                    countries: remoteTheme.countries
+                    countries: remoteTheme.countries,
+                    subtopics: remoteTheme.subtopics
                 )
             }
 
@@ -260,7 +261,7 @@ final class ThemeCatalogRepository: ThemeRepository {
                     QuizTheme(id: theme.id, theme: theme.theme, themeDescription: theme.themeDescription,
                               questions: [], sfSymbolName: theme.sfSymbolName, emoji: theme.emoji,
                               colorHex: theme.colorHex, isFavorite: false, source: .catalog,
-                              questionOrigin: .backend, countries: theme.countries)
+                              questionOrigin: .backend, countries: theme.countries, subtopics: theme.subtopics)
                 }
                 themeStore?.replaceThemes(
                     with: cachedThemes,
@@ -407,6 +408,19 @@ final class ThemeCatalogRepository: ThemeRepository {
         difficulty: AIQuizDifficulty,
         locale: String
     ) async throws -> QuizTheme {
+        try await prepareQuiz(
+            themeID: themeID, questionCount: questionCount, difficulty: difficulty, locale: locale, subtopicID: nil
+        )
+    }
+
+    @MainActor
+    func prepareQuiz(
+        themeID: String,
+        questionCount: Int,
+        difficulty: AIQuizDifficulty,
+        locale: String,
+        subtopicID: String?
+    ) async throws -> QuizTheme {
         guard
             QuizQuestionCountPolicy.supportedCounts.contains(questionCount),
             let metadata = (themes ?? fetchQuizThemes()).first(where: {
@@ -414,6 +428,12 @@ final class ThemeCatalogRepository: ThemeRepository {
             })
         else {
             throw QuizPreparationError.unavailable
+        }
+
+        if let subtopicID {
+            guard catalogOrigin == .backend, metadata.subtopics.contains(where: { $0.id == subtopicID }) else {
+                throw QuizPreparationError.unavailable
+            }
         }
 
         guard catalogOrigin == .backend else {
@@ -433,14 +453,22 @@ final class ThemeCatalogRepository: ThemeRepository {
         let userID = accessTokenProvider.currentSession()?.userID
         let seed = seedGenerator()
         let startedAt = Date()
+        func checkSubtopicStillAvailable() throws {
+            guard let subtopicID else { return }
+            guard catalogOrigin == .backend,
+                  themes?.first(where: { $0.stableID == themeID })?.subtopics.contains(where: { $0.id == subtopicID }) == true
+            else { throw CancellationError() }
+        }
         func cachedQuiz(for userID: String) async throws -> QuizTheme {
-            try await offlineDownloader.makeQuiz(metadata: metadata, themeIDs: [themeID], userID: userID,
+            let quiz = try await offlineDownloader.makeQuiz(metadata: metadata, themeIDs: [themeID], userID: userID,
                 questionCount: questionCount, difficulty: difficulty, locale: locale, strategy: strategy,
-                selectedCountry: selectedCountry, country: country, countryProvider: countryProvider)
+                selectedCountry: selectedCountry, country: country, subtopicID: subtopicID, countryProvider: countryProvider)
+            try checkSubtopicStillAvailable()
+            return quiz
         }
         func fetchQuestions() async throws -> BackendQuestionBatchResponse {
             try await backendContentAPI.fetchQuestions(themeID: themeID, count: questionCount,
-                locale: locale, difficulty: difficulty, seed: seed, strategy: strategy, country: country)
+                locale: locale, difficulty: difficulty, seed: seed, strategy: strategy, country: country, subtopicID: subtopicID)
         }
         do {
             if answerOutbox.isNetworkUnavailable { throw BackendContentError.transport(.notConnectedToInternet) }
@@ -461,6 +489,7 @@ final class ThemeCatalogRepository: ThemeRepository {
                 result = .backend(try await fetchQuestions())
             }
             try Task.checkCancellation()
+            try checkSubtopicStillAvailable()
             guard AppLocalizationStore.shared.resolvedLanguageCode == locale,
                   countryProvider() == selectedCountry else {
                 throw CancellationError()
@@ -478,6 +507,7 @@ final class ThemeCatalogRepository: ThemeRepository {
             case .cacheMiss:
                 throw QuizPreparationError.offlineQuestionsUnavailable
             }
+            guard response.subtopicId == subtopicID else { throw BackendContentError.contractViolation }
             if response.isExhausted {
                 guard let userID, let progressMode = strategy.progressMode,
                       response.progressMode == progressMode,

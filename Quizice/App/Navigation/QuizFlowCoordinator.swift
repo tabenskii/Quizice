@@ -327,8 +327,7 @@ final class QuizFlowCoordinator: NSObject, QuizRouting, UIViewControllerTransiti
             session.chosenTheme = roundSession.chosenTheme
             session.questionsCount = roundSession.questionsCount
         }
-        if let theme = session.chosenTheme?.quizTheme,
-           theme.stableID == "politics_business", !theme.countries.isEmpty {
+        if let theme = session.chosenTheme?.quizTheme, theme.hasRoundFilters {
             returnToThemes { [weak self] in
                 (self?.navigationController.viewControllers.first as? QuizViewController)?
                     .configureNextRound(themeID: theme.stableID)
