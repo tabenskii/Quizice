@@ -253,6 +253,7 @@ final class QuizViewController: BaseQuizViewController, ThemeCollectionDelegate,
     }
 
     var cardSlideTransitionHorizontalInset: CGFloat { ExpandedCardLayout.horizontalInset }
+    var cardSlideTransitionCrossfadesSource: Bool { hasQuizLaunchStarted && feelingLuckyRequestID != nil }
 
     var expandedCardContentView: UIView? {
         if let expandedThemeCardView { return expandedThemeCardView }

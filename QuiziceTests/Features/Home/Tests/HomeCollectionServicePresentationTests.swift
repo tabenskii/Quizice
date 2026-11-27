@@ -124,6 +124,36 @@ final class HomeCollectionServicePresentationTests: HomeScreenVisualStateTestCas
         }
     }
 
+    func testAIActionCardDisplaysLocalizedFreeBadgeOnNarrowPhones() throws {
+        let localizedTitles: [(AppLanguagePreference, String)] = [
+            (.russian, "БЕСПЛАТНО"),
+            (.english, "FREE"),
+            (.german, "KOSTENLOS"),
+            (.french, "GRATUIT"),
+            (.spanish, "GRATIS"),
+            (.italian, "GRATIS")
+        ]
+
+        for (language, expectedTitle) in localizedTitles {
+            AppLocalizationStore.shared.languagePreference = language
+            let (cell, _) = try makeAIActionCard(width: 320, category: .large, hasPlus: false)
+            let badge = try XCTUnwrap(cell.contentView.descendant(
+                withAccessibilityIdentifier: ThemesCollectionService.Content.aiThemeBadgeAccessibilityID
+            ) as? UILabel)
+            let title = try XCTUnwrap(cell.contentView.descendant(
+                withAccessibilityIdentifier: ThemesCollectionService.Content.aiThemeTitleAccessibilityID
+            ) as? UILabel)
+            let button = try XCTUnwrap(cell.contentView.descendant(
+                withAccessibilityIdentifier: ThemesCollectionService.Content.aiThemeAccessibilityID
+            ) as? UIButton)
+
+            XCTAssertEqual(badge.text, expectedTitle)
+            XCTAssertLessThanOrEqual(badge.intrinsicContentSize.width, badge.bounds.width + 0.5)
+            XCTAssertTrue(button.bounds.contains(badge.convert(badge.bounds, to: button)))
+            XCTAssertLessThan(title.convert(title.bounds, to: button).maxX, badge.frame.minX)
+        }
+    }
+
     private func makeAIActionCard(
         width: CGFloat,
         category: UIContentSizeCategory,
@@ -203,7 +233,7 @@ final class HomeCollectionServicePresentationTests: HomeScreenVisualStateTestCas
         )
 
         XCTAssertEqual(itemSize.height, statisticsButton.frame.height + 24, accuracy: 0.5)
-        XCTAssertGreaterThanOrEqual(statisticsButton.frame.height, 112)
+        XCTAssertLessThanOrEqual(statisticsButton.frame.height, 112)
         XCTAssertEqual(statisticsCell.bounds.maxY - statisticsButton.frame.maxY, 24, accuracy: 0.5)
         XCTAssertEqual(sectionInsets.bottom, 0)
         XCTAssertEqual(titleLabel.numberOfLines, 0)
@@ -217,8 +247,14 @@ final class HomeCollectionServicePresentationTests: HomeScreenVisualStateTestCas
         let service = ThemesCollectionService(statisticsStore: statisticsStore)
         let collectionView = makeCollectionView()
 
-        let statisticsCell = service.collectionView(collectionView, cellForItemAt: IndexPath(item: 3, section: 0))
-        statisticsCell.frame = CGRect(x: 0, y: 0, width: 342, height: 136)
+        let indexPath = IndexPath(item: 3, section: 0)
+        let itemSize = service.collectionView(
+            collectionView,
+            layout: collectionView.collectionViewLayout,
+            sizeForItemAt: indexPath
+        )
+        let statisticsCell = service.collectionView(collectionView, cellForItemAt: indexPath)
+        statisticsCell.frame = CGRect(origin: .zero, size: itemSize)
         statisticsCell.contentView.frame = statisticsCell.bounds
         statisticsCell.layoutIfNeeded()
         statisticsCell.contentView.layoutIfNeeded()
@@ -235,7 +271,7 @@ final class HomeCollectionServicePresentationTests: HomeScreenVisualStateTestCas
         XCTAssertEqual(accuracyTitleLabel.text, L10n.Home.statisticsAccuracyShort)
         XCTAssertEqual(accuracyValueLabel.text, "0%")
         XCTAssertFalse(statisticsTitleLabel.adjustsFontSizeToFitWidth)
-        XCTAssertEqual(statisticsButton.frame.height, 112, accuracy: 0.5)
+        XCTAssertLessThan(statisticsButton.frame.height, 96)
         XCTAssertEqual(statisticsCell.bounds.maxY - statisticsButton.frame.maxY, 24, accuracy: 0.5)
         let playedRowStack = try XCTUnwrap(playedTitleLabel.superview as? UIStackView)
         let accuracyRowStack = try XCTUnwrap(accuracyTitleLabel.superview as? UIStackView)
@@ -249,9 +285,11 @@ final class HomeCollectionServicePresentationTests: HomeScreenVisualStateTestCas
             ).width,
             playedTitleLabel.bounds.width + 0.5
         )
-        XCTAssertEqual(playedRowStack.axis, .vertical)
-        XCTAssertEqual(accuracyRowStack.axis, .vertical)
+        XCTAssertEqual(playedRowStack.axis, .horizontal)
+        XCTAssertEqual(accuracyRowStack.axis, .horizontal)
         XCTAssertEqual(metricsStack.axis, .horizontal)
+        XCTAssertEqual(playedRowStack.arrangedSubviews, [playedTitleLabel, playedValueLabel])
+        XCTAssertEqual(accuracyRowStack.arrangedSubviews, [accuracyTitleLabel, accuracyValueLabel])
         XCTAssertEqual(playedRowStack.frame.width, accuracyRowStack.frame.width, accuracy: 0.5)
         XCTAssertEqual(
             statisticsButton.accessibilityValue,

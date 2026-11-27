@@ -165,6 +165,11 @@ enum QuizCardSlideTransition {
 protocol QuizCardSlideTransitionSource: AnyObject {
     var cardSlideTransitionSourceView: UIView { get }
     var cardSlideTransitionHorizontalInset: CGFloat { get }
+    var cardSlideTransitionCrossfadesSource: Bool { get }
+}
+
+extension QuizCardSlideTransitionSource {
+    var cardSlideTransitionCrossfadesSource: Bool { false }
 }
 
 protocol QuizCardSlideTransitionDestination: AnyObject {
@@ -211,10 +216,18 @@ final class QuizCardSlidePresentationAnimator: NSObject, UIViewControllerAnimate
         toView.setNeedsLayout()
         toView.layoutIfNeeded()
 
-        let sourceView = fromViewController.cardSlideTransitionSourceView
+        let crossfadesSource = fromViewController.cardSlideTransitionCrossfadesSource
+        let sourceView = crossfadesSource ? nil : fromViewController.cardSlideTransitionSourceView
+        let sourceSnapshot = sourceView?.snapshotView(afterScreenUpdates: false)
         let destinationView = toViewController.cardSlideTransitionDestinationView
-        let destinationCompanionViews = toViewController.cardSlideTransitionDestinationCompanionViews
+        let destinationCompanionViews = crossfadesSource
+            ? []
+            : toViewController.cardSlideTransitionDestinationCompanionViews
+        let companionAlphas = destinationCompanionViews.map(\.alpha)
         let originalBackgroundColor = toView.backgroundColor
+        let originalDestinationAlpha = toView.alpha
+        let sourceWasHidden = sourceView?.isHidden ?? false
+        let destinationWasInteractive = destinationView.isUserInteractionEnabled
         let horizontalInset = max(
             fromViewController.cardSlideTransitionHorizontalInset,
             toViewController.cardSlideTransitionHorizontalInset
@@ -226,37 +239,48 @@ final class QuizCardSlidePresentationAnimator: NSObject, UIViewControllerAnimate
 
         guard
             horizontalOffset > 0,
-            let sourceSnapshot = sourceView.snapshotView(afterScreenUpdates: false)
+            crossfadesSource || sourceSnapshot != nil
         else {
             sourceViewController = nil
             transitionContext.completeTransition(!transitionContext.transitionWasCancelled)
             return
         }
 
-        sourceSnapshot.frame = sourceView.convert(sourceView.bounds, to: containerView)
-        sourceView.isHidden = true
-        toView.backgroundColor = .clear
+        if let sourceView, let sourceSnapshot {
+            sourceSnapshot.frame = sourceView.convert(sourceView.bounds, to: containerView)
+            sourceView.isHidden = true
+            toView.backgroundColor = .clear
+            containerView.addSubview(sourceSnapshot)
+        } else {
+            // Fade the destination with its background so the whole outgoing screen remains visible underneath.
+            toView.alpha = 0
+        }
         destinationView.transform = CGAffineTransform(translationX: horizontalOffset, y: 0)
         destinationCompanionViews.forEach { $0.alpha = 0 }
         destinationView.isUserInteractionEnabled = false
-        containerView.addSubview(sourceSnapshot)
 
         UIView.animate(
             withDuration: transitionDuration(using: transitionContext),
             delay: 0,
             options: QuizCardSlideTransition.options,
             animations: {
-                sourceSnapshot.transform = CGAffineTransform(translationX: -horizontalOffset, y: 0)
+                sourceSnapshot?.transform = CGAffineTransform(translationX: -horizontalOffset, y: 0)
+                toView.alpha = originalDestinationAlpha
                 destinationView.transform = .identity
-                destinationCompanionViews.forEach { $0.alpha = 1 }
+                for (view, alpha) in zip(destinationCompanionViews, companionAlphas) {
+                    view.alpha = alpha
+                }
             },
             completion: { _ in
                 let completed = !transitionContext.transitionWasCancelled
-                sourceSnapshot.removeFromSuperview()
-                sourceView.isHidden = false
+                sourceSnapshot?.removeFromSuperview()
+                sourceView?.isHidden = sourceWasHidden
+                toView.alpha = originalDestinationAlpha
                 destinationView.transform = .identity
-                destinationCompanionViews.forEach { $0.alpha = 1 }
-                destinationView.isUserInteractionEnabled = true
+                for (view, alpha) in zip(destinationCompanionViews, companionAlphas) {
+                    view.alpha = alpha
+                }
+                destinationView.isUserInteractionEnabled = destinationWasInteractive
                 toView.backgroundColor = originalBackgroundColor
                 self.sourceViewController = nil
                 transitionContext.completeTransition(completed)

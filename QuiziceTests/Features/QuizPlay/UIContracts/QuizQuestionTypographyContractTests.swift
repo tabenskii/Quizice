@@ -218,10 +218,13 @@ final class QuizQuestionTypographyContractTests: CrossScreenVisualTestCase {
 #if DEBUG
         XCTAssertEqual(
             companionViewIDs,
-            ["questionThemeLabel", "questionNumberLabel", "questionBackendSource"]
+            ["questionThemeLabel", "questionNumberLabel", "questionNextButton", "questionCloseButton", "questionBackendSource"]
         )
 #else
-        XCTAssertEqual(companionViewIDs, ["questionThemeLabel", "questionNumberLabel"])
+        XCTAssertEqual(
+            companionViewIDs,
+            ["questionThemeLabel", "questionNumberLabel", "questionNextButton", "questionCloseButton"]
+        )
 #endif
         XCTAssertTrue(answerButtons.allSatisfy(\.isEnabled))
         XCTAssertTrue(answerButtons.allSatisfy { $0.layer.cornerRadius >= 16 })

@@ -4,41 +4,84 @@ final class StatisticsCardCollectionViewCell: UICollectionViewCell {
     static let reuseIdentifier = "homeStatisticsCardCell"
 
     private enum Layout {
-        static let minimumHeight: CGFloat = 112
-        static let horizontalInset: CGFloat = 24
-        static let verticalInset: CGFloat = 14
-        static let headingSpacing: CGFloat = 8
+        static let horizontalInset: CGFloat = 18
+        static let verticalInset: CGFloat = 12
+        static let headingSpacing: CGFloat = 6
         static let chevronWidth: CGFloat = 12
-        static let columnSpacing: CGFloat = 16
-        static let metricSpacing: CGFloat = 3
-        static let stackedMetricSpacing: CGFloat = 12
+        static let columnSpacing: CGFloat = 12
+        static let rowSpacing: CGFloat = 8
+        static let inlineMetricSpacing: CGFloat = 6
+        static let stackedMetricSpacing: CGFloat = 3
     }
 
-    private struct Fonts {
+    private enum MetricsArrangement {
+        case columns
+        case rows
+        case stacked
+    }
+
+    private struct ContentLayout {
         let title: UIFont
         let caption: UIFont
         let value: UIFont
+        let metricsArrangement: MetricsArrangement
+        let height: CGFloat
 
         init(appearance: AppAppearance, traits: UITraitCollection, width: CGFloat) {
             let titleFont = appearance.typography.font(size: 22, weight: .bold, compatibleWith: traits)
             let captionFont = appearance.typography.font(size: 16, weight: .semibold, compatibleWith: traits)
-            let contentWidth = width - 2 * Layout.horizontalInset
-            let titleWidth = contentWidth - Layout.headingSpacing - Layout.chevronWidth
-            let metricWidth = StatisticsCardCollectionViewCell.metricWidth(width: width, traits: traits)
+            let valueFont = appearance.typography.font(size: 18, weight: .semibold, compatibleWith: traits)
+            let played = L10n.Home.statisticsPlayedShort
+            let accuracy = L10n.Home.statisticsAccuracyShort
+            let contentWidth = max(1, width - 2 * Layout.horizontalInset)
+            let titleWidth = max(1, contentWidth - Layout.headingSpacing - Layout.chevronWidth)
+            let columnWidth = (contentWidth - Layout.columnSpacing) / 2
+            let requiredPairWidth = max(
+                Self.textWidth(played, font: captionFont) + Self.textWidth("888", font: valueFont),
+                Self.textWidth(accuracy, font: captionFont) + Self.textWidth("100%", font: valueFont)
+            ) + Layout.inlineMetricSpacing
             title = Self.fitWords(in: [L10n.Statistics.title], font: titleFont, width: titleWidth)
-            caption = Self.fitWords(
-                in: [L10n.Home.statisticsPlayedShort, L10n.Home.statisticsAccuracyShort],
-                font: captionFont,
-                width: metricWidth
+            caption = Self.fitWords(in: [played, accuracy], font: captionFont, width: contentWidth)
+            value = valueFont
+
+            let metricsHeight: CGFloat
+            let lineHeight = ceil(max(caption.lineHeight, value.lineHeight))
+            if requiredPairWidth <= columnWidth {
+                metricsArrangement = .columns
+                metricsHeight = lineHeight
+            } else if requiredPairWidth <= contentWidth {
+                metricsArrangement = .rows
+                metricsHeight = 2 * lineHeight + Layout.rowSpacing
+            } else {
+                metricsArrangement = .stacked
+                metricsHeight = Self.textHeight(played, font: caption, width: contentWidth)
+                    + Self.textHeight(accuracy, font: caption, width: contentWidth)
+                    + 2 * (ceil(value.lineHeight) + Layout.stackedMetricSpacing)
+                    + Layout.rowSpacing
+            }
+            height = Self.textHeight(L10n.Statistics.title, font: title, width: titleWidth)
+                + Layout.headingSpacing + metricsHeight + 2 * Layout.verticalInset
+        }
+
+        private static func textWidth(_ text: String, font: UIFont) -> CGFloat {
+            ceil((text as NSString).size(withAttributes: [.font: font]).width)
+        }
+
+        private static func textHeight(_ text: String, font: UIFont, width: CGFloat) -> CGFloat {
+            let rect = (text as NSString).boundingRect(
+                with: CGSize(width: width, height: .greatestFiniteMagnitude),
+                options: [.usesLineFragmentOrigin, .usesFontLeading],
+                attributes: [.font: font],
+                context: nil
             )
-            value = appearance.typography.font(size: 22, weight: .semibold, compatibleWith: traits)
+            return ceil(max(font.lineHeight, rect.height))
         }
 
         private static func fitWords(in labels: [String], font: UIFont, width: CGFloat) -> UIFont {
             let longestWordWidth = labels.flatMap { $0.split(whereSeparator: \.isWhitespace) }
-                .map { (String($0) as NSString).size(withAttributes: [.font: font]).width }
+                .map { textWidth(String($0), font: font) }
                 .max() ?? 0
-            guard longestWordWidth > width, width > 0 else { return font }
+            guard longestWordWidth > width else { return font }
             return font.withSize(font.pointSize * max(1, floor(width) - 1) / longestWordWidth)
         }
     }
@@ -59,39 +102,11 @@ final class StatisticsCardCollectionViewCell: UICollectionViewCell {
     private let accuracyMetricView = UIStackView()
     private let metricsStackView = UIStackView()
     private let contentStackView = UIStackView()
+    private lazy var buttonWidthConstraint = actionButton.widthAnchor.constraint(equalToConstant: 0)
     private var buttonBottomConstraint: NSLayoutConstraint!
 
     static func height(width: CGFloat, appearance: AppAppearance, traits: UITraitCollection) -> CGFloat {
-        let fonts = Fonts(appearance: appearance, traits: traits, width: width)
-        let contentWidth = width - 2 * Layout.horizontalInset
-        let titleWidth = contentWidth - Layout.headingSpacing - Layout.chevronWidth
-        let metricWidth = metricWidth(width: width, traits: traits)
-        let titleHeight = textHeight(L10n.Statistics.title, font: fonts.title, width: titleWidth)
-        let playedHeight = textHeight(L10n.Home.statisticsPlayedShort, font: fonts.caption, width: metricWidth)
-        let accuracyHeight = textHeight(L10n.Home.statisticsAccuracyShort, font: fonts.caption, width: metricWidth)
-        let valueHeight = ceil(fonts.value.lineHeight) + Layout.metricSpacing
-        let metricsHeight = traits.preferredContentSizeCategory.isAccessibilityCategory
-            ? 2 * valueHeight + playedHeight + accuracyHeight + Layout.stackedMetricSpacing
-            : valueHeight + max(playedHeight, accuracyHeight)
-        let contentHeight = titleHeight + Layout.headingSpacing + metricsHeight
-        return max(Layout.minimumHeight, contentHeight + 2 * Layout.verticalInset)
-    }
-
-    private static func metricWidth(width: CGFloat, traits: UITraitCollection) -> CGFloat {
-        let contentWidth = width - 2 * Layout.horizontalInset
-        return traits.preferredContentSizeCategory.isAccessibilityCategory
-            ? contentWidth
-            : (contentWidth - Layout.columnSpacing) / 2
-    }
-
-    private static func textHeight(_ text: String, font: UIFont, width: CGFloat) -> CGFloat {
-        let rect = (text as NSString).boundingRect(
-            with: CGSize(width: max(1, width), height: .greatestFiniteMagnitude),
-            options: [.usesLineFragmentOrigin, .usesFontLeading],
-            attributes: [.font: font],
-            context: nil
-        )
-        return ceil(max(font.lineHeight, rect.height))
+        ContentLayout(appearance: appearance, traits: traits, width: width).height
     }
 
     override init(frame: CGRect) {
@@ -168,17 +183,14 @@ final class StatisticsCardCollectionViewCell: UICollectionViewCell {
             actionButton.backgroundColor = .clear
         }
         actionButton.clipsToBounds = true
+        buttonWidthConstraint.constant = width
         buttonBottomConstraint.constant = -bottomInset
 
-        let fonts = Fonts(appearance: appearance, traits: traits, width: width)
-        let usesStackedMetrics = traits.preferredContentSizeCategory.isAccessibilityCategory
-        metricsStackView.axis = usesStackedMetrics ? .vertical : .horizontal
-        metricsStackView.alignment = usesStackedMetrics ? .fill : .top
-        metricsStackView.distribution = usesStackedMetrics ? .fill : .fillEqually
-        metricsStackView.spacing = usesStackedMetrics ? Layout.stackedMetricSpacing : Layout.columnSpacing
+        let layout = ContentLayout(appearance: appearance, traits: traits, width: width)
+        applyMetricsArrangement(layout.metricsArrangement)
         titleLabel.text = L10n.Statistics.title
         titleLabel.textColor = appearance.surfaceTextColor
-        titleLabel.font = fonts.title
+        titleLabel.font = layout.title
         chevronView.tintColor = appearance.secondarySurfaceTextColor
 
         playedTitleLabel.text = L10n.Home.statisticsPlayedShort
@@ -188,14 +200,32 @@ final class StatisticsCardCollectionViewCell: UICollectionViewCell {
 
         [playedTitleLabel, accuracyTitleLabel].forEach {
             $0.textColor = appearance.secondarySurfaceTextColor
-            $0.font = fonts.caption
+            $0.font = layout.caption
         }
         [playedValueLabel, accuracyValueLabel].forEach {
             $0.textColor = appearance.surfaceTextColor
-            $0.font = fonts.value
+            $0.font = layout.value
         }
 
         setSourceHidden(isSourceHidden)
+    }
+
+    private func applyMetricsArrangement(_ arrangement: MetricsArrangement) {
+        let hasColumns = arrangement == .columns
+        let stacksMetrics = arrangement == .stacked
+        metricsStackView.axis = hasColumns ? .horizontal : .vertical
+        metricsStackView.alignment = hasColumns ? .firstBaseline : .fill
+        metricsStackView.distribution = hasColumns ? .fillEqually : .fill
+        metricsStackView.spacing = hasColumns ? Layout.columnSpacing : Layout.rowSpacing
+
+        for row in [playedMetricView, accuracyMetricView] {
+            row.axis = stacksMetrics ? .vertical : .horizontal
+            row.alignment = stacksMetrics ? .fill : .firstBaseline
+            row.spacing = stacksMetrics ? Layout.stackedMetricSpacing : Layout.inlineMetricSpacing
+        }
+        for valueLabel in [playedValueLabel, accuracyValueLabel] {
+            valueLabel.textAlignment = arrangement == .rows ? .right : .natural
+        }
     }
 
     func makeTransitionContent() -> UIView {
@@ -283,9 +313,10 @@ final class StatisticsCardCollectionViewCell: UICollectionViewCell {
         contentStackView.addArrangedSubview(metricsStackView)
         actionButton.addSubview(contentStackView)
 
-        actionButton.constrainHomeActionWidth(in: contentView)
         buttonBottomConstraint = actionButton.bottomAnchor.constraint(equalTo: contentView.bottomAnchor)
         NSLayoutConstraint.activate([
+            actionButton.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
+            buttonWidthConstraint,
             actionButton.topAnchor.constraint(equalTo: contentView.topAnchor),
             buttonBottomConstraint,
 
@@ -315,11 +346,11 @@ final class StatisticsCardCollectionViewCell: UICollectionViewCell {
     ) {
         valueLabel.adjustsFontSizeToFitWidth = true
         valueLabel.minimumScaleFactor = 0.5
-        stackView.axis = .vertical
-        stackView.spacing = Layout.metricSpacing
+        valueLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        titleLabel.setContentHuggingPriority(.defaultHigh, for: .horizontal)
         stackView.isUserInteractionEnabled = false
-        stackView.addArrangedSubview(valueLabel)
         stackView.addArrangedSubview(titleLabel)
+        stackView.addArrangedSubview(valueLabel)
     }
 
     private func setSourceHidden(_ isHidden: Bool) {

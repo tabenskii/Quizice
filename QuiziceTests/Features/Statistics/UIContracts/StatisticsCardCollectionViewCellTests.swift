@@ -132,6 +132,63 @@ final class StatisticsCardCollectionViewCellTests: XCTestCase {
         XCTAssertFalse(restoredCell.actionButton.accessibilityElementsHidden)
     }
 
+    func testMetricsWrapOnNarrowCardsWithLargestDynamicType() throws {
+        let width: CGFloat = 250
+        let appearance = currentAppearance()
+        let traits = UITraitCollection(preferredContentSizeCategory: .accessibilityExtraExtraExtraLarge)
+        let height = StatisticsCardCollectionViewCell.height(width: width, appearance: appearance, traits: traits)
+        let cell = StatisticsCardCollectionViewCell(frame: CGRect(x: 0, y: 0, width: width, height: height))
+        cell.configure(
+            summary: StatisticsSummary(
+                playedQuizzes: 888,
+                correctAnswers: 100,
+                totalQuestions: 100,
+                bestCorrectAnswers: 5,
+                bestTotalQuestions: 5
+            ),
+            appearance: appearance,
+            traits: traits,
+            width: width,
+            bottomInset: 0,
+            isSourceHidden: false
+        )
+        cell.layoutIfNeeded()
+        cell.actionButton.layoutIfNeeded()
+
+        XCTAssertEqual(cell.actionButton.bounds.width, width, accuracy: 0.5)
+        let heading = try XCTUnwrap(cell.contentView.descendant(
+            withAccessibilityIdentifier: ThemesCollectionService.Content.statisticsTitleAccessibilityID
+        ) as? UILabel)
+        XCTAssertEqual(heading.text, L10n.Statistics.title)
+        XCTAssertLessThanOrEqual(
+            heading.sizeThatFits(CGSize(width: heading.bounds.width, height: .greatestFiniteMagnitude)).height,
+            heading.bounds.height + 0.5
+        )
+
+        let metricIdentifiers = [
+            (ThemesCollectionService.Content.statisticsPlayedTitleAccessibilityID,
+             ThemesCollectionService.Content.statisticsPlayedValueAccessibilityID),
+            (ThemesCollectionService.Content.statisticsAccuracyTitleAccessibilityID,
+             ThemesCollectionService.Content.statisticsAccuracyValueAccessibilityID)
+        ]
+        for (titleID, valueID) in metricIdentifiers {
+            let title = try XCTUnwrap(cell.contentView.descendant(withAccessibilityIdentifier: titleID) as? UILabel)
+            let value = try XCTUnwrap(cell.contentView.descendant(withAccessibilityIdentifier: valueID) as? UILabel)
+            let titleFrame = title.convert(title.bounds, to: cell.actionButton)
+            let valueFrame = value.convert(value.bounds, to: cell.actionButton)
+
+            XCTAssertGreaterThan(title.font.pointSize, 16)
+            XCTAssertGreaterThan(value.font.pointSize, 18)
+            XCTAssertTrue(cell.actionButton.bounds.contains(titleFrame))
+            XCTAssertTrue(cell.actionButton.bounds.contains(valueFrame))
+            XCTAssertFalse(titleFrame.intersects(valueFrame))
+            XCTAssertLessThanOrEqual(
+                title.sizeThatFits(CGSize(width: title.bounds.width, height: .greatestFiniteMagnitude)).height,
+                title.bounds.height + 0.5
+            )
+        }
+    }
+
     func testPrepareForReuseFullyRestoresStatisticsCellContract() throws {
         let cell = StatisticsCardCollectionViewCell(
             frame: CGRect(x: 0, y: 0, width: 342, height: 136)
