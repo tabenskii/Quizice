@@ -150,7 +150,10 @@ final class QuizFlowCoordinator: NSObject, QuizRouting, UIViewControllerTransiti
         viewController.configurePresenter(makeRoundPresenter())
         activeQuestionViewController = viewController
         guard let presentingViewController = navigationController.topViewController else { return }
-        presentWithCardSlide(viewController, from: presentingViewController)
+        let launchCard = (presentingViewController as? QuizViewController)?.expandedThemeCardView
+        presentWithCardSlide(viewController, from: presentingViewController) { [weak launchCard] in
+            launchCard?.setStartLoading(false)
+        }
     }
 
     func showResult(_ result: QuizResultState) {
@@ -683,11 +686,12 @@ final class QuizFlowCoordinator: NSObject, QuizRouting, UIViewControllerTransiti
 
     private func presentWithCardSlide(
         _ viewController: UIViewController & QuizCardSlideTransitionDestination,
-        from presentingViewController: UIViewController
+        from presentingViewController: UIViewController,
+        completion: (() -> Void)? = nil
     ) {
         viewController.modalPresentationStyle = .custom
         viewController.transitioningDelegate = self
         cardSlideTransitionAnimator.sourceViewController = presentingViewController as? QuizCardSlideTransitionSource
-        presentingViewController.present(viewController, animated: true)
+        presentingViewController.present(viewController, animated: true, completion: completion)
     }
 }
