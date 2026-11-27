@@ -246,6 +246,8 @@
 
 "theme_card.country" = "Страна";
 "theme_card.international_questions" = "Международные вопросы";
+"theme_card.subtopic" = "Подтема";
+"theme_card.all_subtopics" = "Все подтемы";
 
 "settings.questionStrategy.unavailable" = "Фильтры повторов доступны для серверных тем после входа в Game Center. Сейчас показываются все вопросы.";
 

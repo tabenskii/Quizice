@@ -80,6 +80,13 @@ protocol ThemeRepository: AnyObject {
         difficulty: AIQuizDifficulty,
         locale: String
     ) async throws -> QuizTheme
+    func prepareQuiz(
+        themeID: String,
+        questionCount: Int,
+        difficulty: AIQuizDifficulty,
+        locale: String,
+        subtopicID: String?
+    ) async throws -> QuizTheme
     func prepareRandomQuiz(
         selectionMode: CrossThemeQuestionSelectionMode,
         localFallback: QuizTheme,
@@ -96,6 +103,19 @@ protocol ThemeRepository: AnyObject {
 }
 
 extension ThemeRepository {
+    func prepareQuiz(
+        themeID: String,
+        questionCount: Int,
+        difficulty: AIQuizDifficulty,
+        locale: String,
+        subtopicID: String?
+    ) async throws -> QuizTheme {
+        guard subtopicID == nil else { throw QuizPreparationError.unavailable }
+        return try await prepareQuiz(
+            themeID: themeID, questionCount: questionCount, difficulty: difficulty, locale: locale
+        )
+    }
+
     func validateQuestionProgressUser(expectedUserID: String) throws {
         throw QuestionAnswerSyncError.accountChanged
     }

@@ -216,12 +216,8 @@ final class HTTPBackendContentAPI: BackendContentAPI, StatisticsHistoryAPI {
         seed: String
     ) async throws -> BackendQuestionBatchResponse {
         try await fetchQuestionBatch(
-            themeID: themeID,
-            count: count,
-            locale: locale,
-            difficulty: nil,
-            seed: seed,
-            strategy: .showAll
+            themeID: themeID, count: count, locale: locale,
+            difficulty: nil, seed: seed, strategy: .showAll
         )
     }
 
@@ -233,12 +229,8 @@ final class HTTPBackendContentAPI: BackendContentAPI, StatisticsHistoryAPI {
         seed: String
     ) async throws -> BackendQuestionBatchResponse {
         try await fetchQuestionBatch(
-            themeID: themeID,
-            count: count,
-            locale: locale,
-            difficulty: difficulty,
-            seed: seed,
-            strategy: .showAll
+            themeID: themeID, count: count, locale: locale,
+            difficulty: difficulty, seed: seed, strategy: .showAll
         )
     }
 
@@ -251,12 +243,8 @@ final class HTTPBackendContentAPI: BackendContentAPI, StatisticsHistoryAPI {
         strategy: QuestionRepeatStrategy
     ) async throws -> BackendQuestionBatchResponse {
         try await fetchQuestionBatch(
-            themeID: themeID,
-            count: count,
-            locale: locale,
-            difficulty: difficulty,
-            seed: seed,
-            strategy: strategy
+            themeID: themeID, count: count, locale: locale,
+            difficulty: difficulty, seed: seed, strategy: strategy
         )
     }
 
@@ -271,6 +259,17 @@ final class HTTPBackendContentAPI: BackendContentAPI, StatisticsHistoryAPI {
         )
     }
 
+    func fetchQuestions(
+        themeID: String, count: Int, locale: String,
+        difficulty: AIQuizDifficulty, seed: String,
+        strategy: QuestionRepeatStrategy, country: String?, subtopicID: String?
+    ) async throws -> BackendQuestionBatchResponse {
+        try await fetchQuestionBatch(
+            themeID: themeID, count: count, locale: locale, difficulty: difficulty,
+            seed: seed, strategy: strategy, country: country, subtopicID: subtopicID
+        )
+    }
+
     private func fetchQuestionBatch(
         themeID: String,
         count: Int,
@@ -278,7 +277,8 @@ final class HTTPBackendContentAPI: BackendContentAPI, StatisticsHistoryAPI {
         difficulty: AIQuizDifficulty?,
         seed: String,
         strategy: QuestionRepeatStrategy,
-        country: String? = nil
+        country: String? = nil,
+        subtopicID: String? = nil
     ) async throws -> BackendQuestionBatchResponse {
         guard country.map(QuestionCountryStore.supportedCodes.contains) ?? true else {
             throw BackendContentError.invalidRequest
@@ -287,6 +287,7 @@ final class HTTPBackendContentAPI: BackendContentAPI, StatisticsHistoryAPI {
         let normalizedSeed = seed.trimmingCharacters(in: .whitespacesAndNewlines)
         guard
             !normalizedThemeID.isEmpty,
+            subtopicID.map(QuizSubtopic.isValidID) ?? true,
             UUID(uuidString: normalizedSeed)?.uuidString.lowercased() == normalizedSeed,
             QuizQuestionCountPolicy.supportedCounts.contains(count),
             Self.isSupported(locale: locale)
@@ -305,6 +306,9 @@ final class HTTPBackendContentAPI: BackendContentAPI, StatisticsHistoryAPI {
         }
         if let country {
             queryItems.append(URLQueryItem(name: "country", value: country))
+        }
+        if let subtopicID {
+            queryItems.append(URLQueryItem(name: "subtopicId", value: subtopicID))
         }
         queryItems.append(URLQueryItem(name: "seed", value: normalizedSeed))
         if let progressMode = strategy.progressMode {
@@ -328,7 +332,8 @@ final class HTTPBackendContentAPI: BackendContentAPI, StatisticsHistoryAPI {
                     requestedCount: count,
                     requestedLocale: locale,
                     requestedSeed: normalizedSeed,
-                    requestedCountry: country
+                    requestedCountry: country,
+                    requestedSubtopicID: subtopicID
                 ) && (!$0.isExhausted || $0.progressMode == strategy.progressMode)
             }
         )

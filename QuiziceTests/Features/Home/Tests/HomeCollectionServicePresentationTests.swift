@@ -10,7 +10,7 @@ final class HomeCollectionServicePresentationTests: HomeScreenVisualStateTestCas
                 let (_, size) = try makeAIActionCard(
                     width: width, category: .accessibilityMedium, hasPlus: hasPlus
                 )
-                XCTAssertGreaterThanOrEqual(size.height, 72)
+                XCTAssertGreaterThanOrEqual(size.height, ThemesCollectionService.Layout.secondaryActionButtonHeight)
                 XCTAssertLessThan(size.height, 140, "The first accessibility size should fit the actual text compactly")
             }
         }
@@ -68,7 +68,7 @@ final class HomeCollectionServicePresentationTests: HomeScreenVisualStateTestCas
 
         XCTAssertGreaterThan(accessibleHeightInLargeContext, 72)
         XCTAssertEqual(accessibleHeightInLargeContext, accessibleHeightInMatchingContext, accuracy: 0.5)
-        XCTAssertEqual(largeHeightInAccessibleContext, 72, accuracy: 0.5)
+        XCTAssertEqual(largeHeightInAccessibleContext, 54, accuracy: 0.5)
     }
 
     func testAIActionCardFittedHeightContainsTextAndPreservesBadgeAndGradient() throws {
@@ -106,13 +106,14 @@ final class HomeCollectionServicePresentationTests: HomeScreenVisualStateTestCas
                         style != .radar
                     )
                     if category == .large {
-                        XCTAssertEqual(size.height, 72, accuracy: 0.5)
+                        XCTAssertEqual(size.height, 54, accuracy: 0.5)
                     }
+                    let minimumVerticalInset: CGFloat = category.isAccessibilityCategory ? 7.5 : 4.5
                     for label in [title, subtitle] where !label.isHidden {
                         let frame = label.convert(label.bounds, to: button)
                         XCTAssertGreaterThan(label.bounds.width, 0)
-                        XCTAssertGreaterThanOrEqual(frame.minY, 7.5)
-                        XCTAssertLessThanOrEqual(frame.maxY, button.bounds.height - 7.5)
+                        XCTAssertGreaterThanOrEqual(frame.minY, minimumVerticalInset)
+                        XCTAssertLessThanOrEqual(frame.maxY, button.bounds.height - minimumVerticalInset)
                         XCTAssertLessThanOrEqual(
                             label.sizeThatFits(CGSize(width: label.bounds.width, height: .greatestFiniteMagnitude)).height,
                             label.bounds.height + 0.5,

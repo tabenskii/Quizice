@@ -7,12 +7,13 @@ final class OfflineQuestionTests: XCTestCase {
     private var locale: String { AppLocalizationStore.shared.resolvedLanguageCode }
 
     private func pack(userID: String = "A", locale: String? = nil, generation: UUID? = nil,
-                      musicCount: Int = 8) throws -> OfflineQuestionPack {
+                      musicCount: Int = 8, memberships: [Int: [String]] = [:]) throws -> OfflineQuestionPack {
         var questions: [[String: Any]] = []
         for index in 0..<(musicCount + 4) {
             let theme = index < musicCount ? "music" : "space"
             var item: [String: Any] = ["themeId": theme, "difficulty": index == 0 ? "hard" : "medium"]
             item["country"] = index == 1 ? "US" as Any : NSNull()
+            item["subtopicIds"] = memberships[index]
             item["wasAnswered"] = index == 2
             item["wasCorrect"] = index == 2
             item["questionId"] = theme + ":" + String(index)
@@ -27,6 +28,45 @@ final class OfflineQuestionTests: XCTestCase {
         }
         let data = try JSONSerialization.data(withJSONObject: ["locale": locale ?? self.locale, "userId": userID, "questions": questions])
         return try JSONDecoder().decode(OfflineQuestionPack.self, from: data)
+    }
+
+    func testSelectedSubtopicNeverUsesUntaggedOrWrongThemeQuestionsOffline() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let cache = OfflineQuestionCache(directory: directory)
+        let api = RecordingBackendContentAPI(catalogThemes: [BackendThemeDTO(
+            id: "music", name: "Music", description: "Description", sfSymbol: "music.note", emoji: "🎵",
+            colorHex: "#FF8252", isFavorite: false, subtopics: [QuizSubtopic(id: "recording", name: "Recording")]
+        )])
+        let provider = ProgressSessionProvider()
+        let outbox = ProgressOutboxSpy()
+        let repository = ThemeCatalogRepository(
+            backendContentAPI: api, offlineCache: cache, accessTokenProvider: provider, answerOutbox: outbox,
+            repeatStrategyProvider: { .showAll }, countryProvider: { nil }
+        )
+        let refreshed = await repository.refreshBackendCatalog(locale: locale)
+        XCTAssertTrue(refreshed)
+        outbox.isNetworkUnavailable = true
+
+        try await cache.install(pack())
+        let unfiltered = try await repository.prepareQuiz(
+            themeID: "music", questionCount: 5, difficulty: .medium, locale: locale
+        )
+        XCTAssertEqual(unfiltered.questions.count, 5)
+        do {
+            _ = try await repository.prepareQuiz(
+                themeID: "music", questionCount: 5, difficulty: .medium, locale: locale, subtopicID: "recording"
+            )
+            XCTFail("Legacy cached questions must not satisfy a selected subtopic")
+        } catch { XCTAssertEqual(error as? QuizPreparationError, .offlineQuestionsUnavailable) }
+
+        try await cache.install(pack(memberships: [2: ["recording", "performers"], 5: ["recording"], 9: ["recording"]]))
+        let persisted = OfflineQuestionCache(directory: directory)
+        let filtered = try await persisted.questions(
+            locale: locale, userID: "A", themeIDs: ["music"], count: 5,
+            difficulty: .medium, strategy: .showAll, country: nil, subtopicID: "recording"
+        )
+        XCTAssertEqual(Set(filtered.compactMap(\.questionID)), ["music:2", "music:5"])
     }
 
     func testDiskRoundTripIsScopedAndPreservesIdentityAndFilters() async throws {

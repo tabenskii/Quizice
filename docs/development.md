@@ -115,6 +115,23 @@ exercise the production build path without service credentials or network probes
 Validate the configuration gate locally with
 `python3 scripts/tests/test-release-configuration.py`.
 
+### Catalog subtopics
+
+The iOS client supports this additive contract for a future backend rollout.
+
+| Endpoint | Additive fields |
+| --- | --- |
+| `GET /v1/themes?locale=ru` | A theme can include `"subtopics": [{"id": "recording", "name": "Звукозапись"}]`. IDs are stable across locales and unique within the parent theme. Display names are localized by the catalog locale. The array order is the menu order. |
+| `GET /v1/themes/{themeID}/questions` | The client sends `subtopicId=recording` only for an explicit selection. The response echoes the selected ID and applies it together with difficulty, repeat strategy and any supported country filter. Omit the echo or return null for an unfiltered request. |
+| `GET /v1/themes/offline` | A question can include `"subtopicIds": ["recording"]` alongside its existing `themeId`. Omitted or empty membership is usable in unfiltered rounds. A filtered round only uses cached questions with matching membership. |
+
+Publish a theme's subtopic list once its online question endpoint supports that
+filter. Themes with omitted or empty lists keep their existing interface.
+The legacy politics country selector remains independent. Selecting «All
+subtopics» includes unclassified questions, and the random endpoints are
+unaffected. Question progress and progress resets still belong to the parent
+theme.
+
 ## SwiftLint
 
 SwiftLint is integrated as an SPM build-tool plugin for both `Quizice` and

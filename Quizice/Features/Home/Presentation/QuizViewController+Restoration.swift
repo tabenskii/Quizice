@@ -65,8 +65,13 @@ extension QuizViewController {
             appearance: currentAppearance(),
             availableQuestionCounts: homeCardState.availableQuestionCounts,
             selectedQuestionCount: homeCardState.selectedQuestionCount,
-            selectedDifficulty: homeCardState.selectedDifficulty
+            selectedDifficulty: homeCardState.selectedDifficulty,
+            selectedSubtopicID: selectedSubtopicIDs[themeID]
         )
+        selectedSubtopicIDs[themeID] = cardView.selectedSubtopicID
+        if isQuizLaunchPending && !hasQuizLaunchStarted {
+            cardView.setStartLoading(true)
+        }
         cardView.setFace(face, animated: false)
         updateExpandedThemeCardParallaxPhase()
         if expandedCardBlurView == nil {
